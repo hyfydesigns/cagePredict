@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/events?upcoming=true\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://ufc-data.p.rapidapi.com/events\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: ufc-data.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mma-stats.p.rapidapi.com/events\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mma-stats.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/ufc/events\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/fighters\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/event\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/schedule\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 15 \"https://mmaapi.p.rapidapi.com/api/mma/unique-tournament/19906/schedules/15/9/2024\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(python3 -c ':*)",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/unique-tournament/19906/schedules/12/4/2026\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/unique-tournament/19906/schedules/19/4/2026\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/unique-tournament/19906/schedules/18/4/2026\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/team/461431/image\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/team/461431\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")"
+    ]
+  }
+}

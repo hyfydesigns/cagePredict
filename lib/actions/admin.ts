@@ -1,0 +1,343 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { SEED_EVENTS, SEED_FIGHTERS } from '@/seeds/seed-data'
+
+type ActionResult = { error?: string; success?: boolean; message?: string }
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Convert a RapidAPI integer ID to a deterministic UUID */
+function apiIdToUuid(id: number, type: 'fighter' | 'event' | 'fight'): string {
+  const prefix = type === 'fighter' ? '1' : type === 'event' ? '2' : '3'
+  const padded = String(id).padStart(12, '0')
+  return `00000000-0000-000${prefix}-0000-${padded}`
+}
+
+function mapWeightClass(wc: string): string {
+  const map: Record<string, string> = {
+    straw:      'Strawweight',
+    fly:        'Flyweight',
+    bantam:     'Bantamweight',
+    feather:    'Featherweight',
+    light:      'Lightweight',
+    welter:     'Welterweight',
+    middle:     'Middleweight',
+    lightheavy: 'Light Heavyweight',
+    heavy:      'Heavyweight',
+    superheavy: 'Super Heavyweight',
+  }
+  return map[wc] ?? wc
+}
+
+function mapStatus(type: string): string {
+  if (type === 'finished')    return 'completed'
+  if (type === 'inprogress')  return 'live'
+  return 'upcoming'
+}
+
+function mapMethod(winType: string): string {
+  const map: Record<string, string> = {
+    UD:  'Decision (Unanimous)',
+    SD:  'Decision (Split)',
+    MD:  'Decision (Majority)',
+    TKO: 'TKO',
+    KO:  'KO',
+    SUB: 'Submission',
+    DQ:  'Disqualification',
+    NC:  'No Contest',
+    RTD: 'RTD',
+  }
+  return map[winType] ?? winType
+}
+
+function countryToFlag(alpha2: string): string | null {
+  if (!alpha2 || alpha2.length !== 2) return null
+  const pts = [...alpha2.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
+  return String.fromCodePoint(...pts)
+}
+
+// ─── Clear all data ──────────────────────────────────────────────────────────
+
+export async function clearAllData(): Promise<ActionResult> {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const supabase = createServiceClient()
+
+  // Order matters: predictions → fights → events → fighters
+  await supabase.from('predictions').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  await supabase.from('fights').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  await supabase.from('events').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  await supabase.from('fighters').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+  // Reset all user stats
+  await supabase.from('profiles').update({
+    total_points: 0,
+    total_picks: 0,
+    correct_picks: 0,
+    current_streak: 0,
+    longest_streak: 0,
+  }).neq('id', '00000000-0000-0000-0000-000000000000')
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+
+  return { success: true, message: 'All events, fights, fighters, and predictions cleared.' }
+}
+
+// ─── Fetch real event from RapidAPI ─────────────────────────────────────────
+
+/**
+ * Fetch a UFC event for a given date from the RapidAPI MMA API
+ * and upsert fighters, event, and fights into the database.
+ *
+ * URL pattern: /api/mma/unique-tournament/19906/schedules/{day}/{month}/{year}
+ */
+export async function fetchEventByDate(
+  day: number,
+  month: number,
+  year: number,
+): Promise<ActionResult> {
+  // Verify the caller is authenticated
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Use service role to bypass RLS for admin writes
+  const supabase = createServiceClient()
+
+  const key  = process.env.RAPIDAPI_KEY
+  const host = process.env.RAPIDAPI_UFC_HOST ?? 'mmaapi.p.rapidapi.com'
+  if (!key) return { error: 'RAPIDAPI_KEY not configured in environment' }
+
+  const url = `https://${host}/api/mma/unique-tournament/19906/schedules/${day}/${month}/${year}`
+  const res = await fetch(url, {
+    headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': host },
+    cache: 'no-store',
+  })
+
+  const text = await res.text()
+  if (!res.ok) return { error: `API request failed: ${res.status} — ${text.slice(0, 200)}` }
+  if (!text) return { error: 'API returned empty response' }
+
+  let data: any
+  try {
+    data = JSON.parse(text)
+  } catch {
+    return { error: `Invalid JSON from API: ${text.slice(0, 200)}` }
+  }
+
+  const apiFights: any[] = data.events ?? []
+  if (apiFights.length === 0) return { error: 'No fights found for that date' }
+
+  // Group fights by tournament (multiple events on same day is rare but possible)
+  const eventMap = new Map<number, { tournament: any; venue: any; fights: any[] }>()
+  for (const fight of apiFights) {
+    const tId = fight.tournament?.id
+    if (!tId) continue
+    if (!eventMap.has(tId)) {
+      eventMap.set(tId, { tournament: fight.tournament, venue: fight.venue, fights: [] })
+    }
+    eventMap.get(tId)!.fights.push(fight)
+  }
+
+  let insertedFighters = 0
+  let insertedEvents   = 0
+  let insertedFights   = 0
+
+  for (const [, { tournament, venue, fights }] of eventMap) {
+    // 1. Upsert fighters
+    for (const fight of fights) {
+      for (const side of ['homeTeam', 'awayTeam'] as const) {
+        const team = fight[side]
+        if (!team?.id) continue
+
+        const wc = mapWeightClass(fight.weightClass ?? '')
+        const record = `${team.wdlRecord?.wins ?? 0}-${team.wdlRecord?.losses ?? 0}-${team.wdlRecord?.draws ?? 0}`
+        const fighter = {
+          id:                 apiIdToUuid(team.id, 'fighter'),
+          name:               team.name as string,
+          nickname:           null,
+          nationality:        (team.country?.name as string) ?? null,
+          flag_emoji:         countryToFlag(team.country?.alpha2 ?? ''),
+          image_url:          `/api/fighter-image/${team.id}`,
+          record,
+          wins:               (team.wdlRecord?.wins   as number) ?? 0,
+          losses:             (team.wdlRecord?.losses as number) ?? 0,
+          draws:              (team.wdlRecord?.draws  as number) ?? 0,
+          weight_class:       wc,
+          height_cm:          null,
+          reach_cm:           null,
+          age:                null,
+          striking_accuracy:  null,
+          td_avg:             null,
+          sub_avg:            null,
+          sig_str_landed:     null,
+          analysis:           null,
+        }
+
+        const { error } = await supabase
+          .from('fighters')
+          .upsert(fighter as any, { onConflict: 'id', ignoreDuplicates: false })
+        if (!error) insertedFighters++
+      }
+    }
+
+    // 2. Upsert event
+    const allFinished = fights.every((f: any) => f.status?.type === 'finished')
+    const anyLive     = fights.some((f: any)  => f.status?.type === 'inprogress')
+    const eventStatus = allFinished ? 'completed' : anyLive ? 'live' : 'upcoming'
+    const earliestTs  = Math.min(...fights.map((f: any) => (f.startTimestamp as number) ?? Infinity))
+
+    const event = {
+      id:        apiIdToUuid(tournament.id, 'event'),
+      name:      tournament.name as string,
+      date:      new Date(earliestTs * 1000).toISOString(),
+      location:  (venue?.city?.name as string) ?? null,
+      venue:     (tournament.location as string) ?? null,
+      image_url: null,
+      status:    eventStatus,
+    }
+
+    const { error: evErr } = await supabase
+      .from('events')
+      .upsert(event as any, { onConflict: 'id', ignoreDuplicates: false })
+    if (evErr) { continue }
+    insertedEvents++
+
+    // 3. Upsert fights
+    // Main event = highest order fight on the maincard
+    const maincardFights = fights.filter((f: any) => f.fightType === 'maincard')
+    const maxOrder = maincardFights.length > 0
+      ? Math.max(...maincardFights.map((f: any) => (f.order as number) ?? 0))
+      : -1
+
+    for (const fight of fights) {
+      const home = fight.homeTeam
+      const away = fight.awayTeam
+      if (!home?.id || !away?.id) continue
+
+      const isMainEvent = fight.fightType === 'maincard' && fight.order === maxOrder
+      const status      = mapStatus(fight.status?.type ?? '')
+
+      let winnerId: string | null = null
+      if (fight.winnerCode === 1) winnerId = apiIdToUuid(home.id, 'fighter')
+      else if (fight.winnerCode === 2) winnerId = apiIdToUuid(away.id, 'fighter')
+
+      const fightRow = {
+        id:             apiIdToUuid(fight.id, 'fight'),
+        event_id:       apiIdToUuid(tournament.id, 'event'),
+        fighter1_id:    apiIdToUuid(home.id, 'fighter'),
+        fighter2_id:    apiIdToUuid(away.id, 'fighter'),
+        weight_class:   mapWeightClass(fight.weightClass ?? ''),
+        is_main_event:  isMainEvent,
+        is_title_fight: false,
+        fight_time:     new Date((fight.startTimestamp as number) * 1000).toISOString(),
+        status,
+        winner_id:      winnerId,
+        method:         fight.winType ? mapMethod(fight.winType as string) : null,
+        round:          (fight.finalRound as number) ?? null,
+        time_of_finish: null,
+        odds_f1:        0,
+        odds_f2:        0,
+        analysis_f1:    null,
+        analysis_f2:    null,
+        display_order:  (fight.order as number) ?? 0,
+      }
+
+      const { error: fErr } = await supabase
+        .from('fights')
+        .upsert(fightRow as any, { onConflict: 'id', ignoreDuplicates: false })
+      if (!fErr) insertedFights++
+    }
+  }
+
+  revalidatePath('/')
+  revalidatePath('/admin')
+
+  return {
+    success: true,
+    message: `Imported ${insertedFighters} fighters, ${insertedEvents} event(s), ${insertedFights} fights.`,
+  }
+}
+
+// ─── Seed (fake data fallback) ───────────────────────────────────────────────
+
+export async function seedEvents(): Promise<ActionResult> {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const supabase = createServiceClient()
+
+  let insertedFighters = 0
+  let insertedEvents   = 0
+  let insertedFights   = 0
+
+  for (const fighter of SEED_FIGHTERS) {
+    const { error } = await supabase.from('fighters').upsert(fighter, { onConflict: 'id', ignoreDuplicates: true })
+    if (!error) insertedFighters++
+  }
+
+  for (const eventData of SEED_EVENTS) {
+    const { fights: eventFights, ...event } = eventData
+
+    const { data: ev, error: evErr } = await supabase
+      .from('events')
+      .upsert(event, { onConflict: 'id', ignoreDuplicates: true })
+      .select('id')
+      .single()
+
+    if (evErr || !ev) continue
+    insertedEvents++
+
+    for (const fight of eventFights) {
+      const { error: fErr } = await supabase
+        .from('fights')
+        .upsert({ ...fight, event_id: (ev as any).id }, { onConflict: 'id', ignoreDuplicates: true })
+      if (!fErr) insertedFights++
+    }
+  }
+
+  revalidatePath('/')
+  revalidatePath('/admin')
+
+  return {
+    success: true,
+    message: `Seeded ${insertedFighters} fighters, ${insertedEvents} events, ${insertedFights} fights.`,
+  }
+}
+
+// ─── Complete fight ──────────────────────────────────────────────────────────
+
+export async function completeFight(
+  fightId: string,
+  winnerId: string,
+  method?: string,
+  round?: number,
+  timeOfFinish?: string,
+): Promise<ActionResult> {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const supabase = createServiceClient()
+
+  const { error } = await supabase.rpc('complete_fight', {
+    p_fight_id: fightId,
+    p_winner_id: winnerId,
+    p_method: method ?? null,
+    p_round: round ?? null,
+    p_time: timeOfFinish ?? null,
+  } as any)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/')
+  revalidatePath('/leaderboard')
+  revalidatePath('/admin')
+  return { success: true, message: 'Fight completed and scores updated.' }
+}

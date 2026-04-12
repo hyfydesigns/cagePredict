@@ -1,0 +1,118 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { signUpSchema, signInSchema, onboardingSchema, editProfileSchema } from '@/lib/validations'
+import type { SignUpInput, SignInInput, OnboardingInput, EditProfileInput } from '@/lib/validations'
+
+type ActionResult = { error?: string; success?: boolean }
+
+export async function signUp(data: SignUpInput): Promise<ActionResult> {
+  const parsed = signUpSchema.safeParse(data)
+  if (!parsed.success) return { error: parsed.error.errors[0].message }
+
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', parsed.data.username)
+    .single()
+
+  if (existing) return { error: 'Username already taken' }
+
+  const { error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      data: { username: parsed.data.username },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+    },
+  })
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function signIn(data: SignInInput, redirectTo = '/'): Promise<ActionResult> {
+  const parsed = signInSchema.safeParse(data)
+  if (!parsed.success) return { error: parsed.error.errors[0].message }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  })
+
+  if (error) return { error: 'Invalid email or password' }
+
+  revalidatePath('/', 'layout')
+  redirect(redirectTo)
+}
+
+export async function signOut(): Promise<void> {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  revalidatePath('/', 'layout')
+  redirect('/login')
+}
+
+export async function completeOnboarding(data: OnboardingInput): Promise<ActionResult> {
+  const parsed = onboardingSchema.safeParse(data)
+  if (!parsed.success) return { error: parsed.error.errors[0].message }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: current } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', user.id)
+    .single()
+
+  if ((current as any)?.username !== parsed.data.username) {
+    const { data: taken } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', parsed.data.username)
+      .neq('id', user.id)
+      .single()
+    if (taken) return { error: 'Username already taken' }
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      username: parsed.data.username,
+      display_name: parsed.data.display_name ?? parsed.data.username,
+      avatar_emoji: parsed.data.avatar_emoji,
+      onboarding_complete: true,
+    })
+    .eq('id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  redirect('/')
+}
+
+export async function updateProfile(data: EditProfileInput): Promise<ActionResult> {
+  const parsed = editProfileSchema.safeParse(data)
+  if (!parsed.success) return { error: parsed.error.errors[0].message }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(parsed.data)
+    .eq('id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/profile', 'layout')
+  return { success: true }
+}
