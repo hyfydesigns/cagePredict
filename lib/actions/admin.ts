@@ -58,6 +58,62 @@ function countryToFlag(alpha2: string): string | null {
   return String.fromCodePoint(...pts)
 }
 
+// ─── Wikipedia fallback for missing fighter stats ────────────────────────────
+
+async function fetchStatsFromWikipedia(name: string): Promise<{
+  height_cm: number | null
+  reach_cm: number | null
+  age: number | null
+  fighting_style: string | null
+}> {
+  const empty = { height_cm: null, reach_cm: null, age: null, fighting_style: null }
+  try {
+    const slug = name.trim().replace(/\s+/g, '_')
+    const url  = `https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvslots=main&rvprop=content&titles=${encodeURIComponent(slug)}&format=json&redirects=1`
+    const res  = await fetch(url, { next: { revalidate: 86400 } })
+    if (!res.ok) return empty
+    const data  = await res.json()
+    const pages = Object.values((data.query?.pages ?? {}) as Record<string, any>)
+    const text: string = pages[0]?.revisions?.[0]?.slots?.main?.['*'] ?? ''
+    if (!text || text.includes('#REDIRECT')) return empty
+
+    // Height: "5 ft 10 in" or "{{height|ft=5|in=10}}" or "180 cm"
+    let height_cm: number | null = null
+    const htFtIn = text.match(/height\s*[=|]\s*(\d+)\s*ft\s*([\d.]+)\s*in/i)
+    const htCm   = text.match(/height\s*[=|]\s*(\d+)\s*cm/i)
+    const htTpl  = text.match(/height\|ft=(\d+)\|in=([\d.]+)/i)
+    if (htFtIn)  height_cm = Math.round(parseInt(htFtIn[1]) * 30.48 + parseFloat(htFtIn[2]) * 2.54)
+    else if (htTpl) height_cm = Math.round(parseInt(htTpl[1]) * 30.48 + parseFloat(htTpl[2]) * 2.54)
+    else if (htCm)  height_cm = parseInt(htCm[1])
+
+    // Reach: "71.5 in" or "71+1/2 in" or "182 cm"
+    let reach_cm: number | null = null
+    const rcIn  = text.match(/reach\s*[=|][^=\n]*?([\d]+(?:\.[\d]+)?)\s*(?:\+\s*(?:[\d]+\/[\d]+))?\s*in/i)
+    const rcFrac = text.match(/reach\s*[=|][^=\n]*?(\d+)\+(\d+)\/(\d+)\s*in/i)
+    const rcCm  = text.match(/reach\s*[=|]\s*([\d.]+)\s*cm/i)
+    if (rcFrac) reach_cm = Math.round((parseInt(rcFrac[1]) + parseInt(rcFrac[2]) / parseInt(rcFrac[3])) * 2.54)
+    else if (rcIn)  reach_cm = Math.round(parseFloat(rcIn[1]) * 2.54)
+    else if (rcCm)  reach_cm = Math.round(parseFloat(rcCm[1]))
+
+    // Age from birth year
+    let age: number | null = null
+    const born = text.match(/birth_date\s*[=|][^=\n]*?(\d{4})/i)
+    if (born) age = new Date().getFullYear() - parseInt(born[1])
+
+    // Fighting style
+    let fighting_style: string | null = null
+    const style = text.match(/(?:fighting_)?style\s*[=|]\s*([^\n|{}[\]]+)/i)
+    if (style) {
+      const raw = style[1].replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/[{}]/g, '').trim()
+      if (raw && raw.length < 60) fighting_style = raw
+    }
+
+    return { height_cm, reach_cm, age, fighting_style }
+  } catch {
+    return empty
+  }
+}
+
 // ─── Clear all data ──────────────────────────────────────────────────────────
 
 export async function clearAllData(): Promise<ActionResult> {
@@ -196,6 +252,22 @@ export async function fetchEventByDate(
           age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
         }
 
+        // Primary stats from RapidAPI detail
+        let height_cm     = detail?.height ? Math.round(detail.height * 100) : null
+        let reach_cm      = detail?.reach  ? Math.round(detail.reach  * 100) : null
+        let fighting_style = detail?.fightingStyle
+          ? detail.fightingStyle.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+          : null
+
+        // Fallback to Wikipedia for missing stats
+        if (!height_cm || !reach_cm || !fighting_style || !age) {
+          const wiki = await fetchStatsFromWikipedia(team.name as string)
+          if (!height_cm)      height_cm      = wiki.height_cm
+          if (!reach_cm)       reach_cm       = wiki.reach_cm
+          if (!fighting_style) fighting_style = wiki.fighting_style
+          if (!age)            age            = wiki.age
+        }
+
         const fighter = {
           id:             apiIdToUuid(team.id, 'fighter'),
           name:           team.name as string,
@@ -208,12 +280,10 @@ export async function fetchEventByDate(
           losses:         (team.wdlRecord?.losses as number) ?? 0,
           draws:          (team.wdlRecord?.draws  as number) ?? 0,
           weight_class:   wc,
-          height_cm:      detail?.height ? Math.round(detail.height * 100) : null,
-          reach_cm:       detail?.reach  ? Math.round(detail.reach  * 100) : null,
+          height_cm,
+          reach_cm,
           age,
-          fighting_style: detail?.fightingStyle
-            ? detail.fightingStyle.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-            : null,
+          fighting_style,
           striking_accuracy: null,
           td_avg:            null,
           sub_avg:           null,
