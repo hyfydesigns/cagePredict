@@ -76,40 +76,41 @@ async function generateAIAnalysis(
   f1: FighterStats,
   f2: FighterStats,
   weightClass: string,
-): Promise<{ analysis_f1: string; analysis_f2: string }> {
-  const fallback = {
-    analysis_f1: fighterFallbackAnalysis(f1),
-    analysis_f2: fighterFallbackAnalysis(f2),
-  }
-
+): Promise<{ analysis_f1: string | null; analysis_f2: string | null; debugError?: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return fallback
+  if (!apiKey) return { analysis_f1: null, analysis_f2: null, debugError: 'No API key' }
 
   try {
     const client = new Anthropic({ apiKey })
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
+      max_tokens: 500,
       messages: [{
         role: 'user',
-        content: `You are an MMA analyst. Write a short 2-3 sentence pre-fight analysis for each fighter in this ${weightClass} matchup. Focus on their style, key strengths, and what they need to do to win. Be specific and insightful — not generic. Do NOT mention odds or predictions.
+        content: `You are an MMA analyst. Write a 2-3 sentence pre-fight analysis for each fighter in this ${weightClass} matchup. Focus on their fighting style, key strengths, and what they need to do to win. Be specific and insightful. Do NOT mention odds or predictions.
 
 Fighter 1: ${fighterSummary(f1)}
 Fighter 2: ${fighterSummary(f2)}
 
-Respond with exactly this JSON format (no markdown):
-{"f1":"<analysis for ${f1.name}>","f2":"<analysis for ${f2.name}>"}`,
+Reply with ONLY a JSON object, no markdown, no explanation:
+{"f1":"analysis for ${f1.name}","f2":"analysis for ${f2.name}"}`,
       }],
     })
 
     const raw = (msg.content[0] as any).text?.trim() ?? ''
-    const parsed = JSON.parse(raw)
+    // Strip markdown code fences if present
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    // Extract JSON object if there's surrounding text
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return { analysis_f1: null, analysis_f2: null, debugError: `No JSON found in: ${raw.slice(0, 100)}` }
+
+    const parsed = JSON.parse(jsonMatch[0])
     if (parsed.f1 && parsed.f2) {
-      return { analysis_f1: parsed.f1, analysis_f2: parsed.f2 }
+      return { analysis_f1: String(parsed.f1), analysis_f2: String(parsed.f2) }
     }
-    return fallback
-  } catch {
-    return fallback
+    return { analysis_f1: null, analysis_f2: null, debugError: `Missing f1/f2 keys in: ${cleaned.slice(0, 100)}` }
+  } catch (e: any) {
+    return { analysis_f1: null, analysis_f2: null, debugError: String(e?.message ?? e) }
   }
 }
 
@@ -390,6 +391,7 @@ export async function fetchEventByDate(
   let insertedFighters = 0
   let insertedEvents   = 0
   let insertedFights   = 0
+  let firstAiError: string | undefined
 
   // Collect unique fighter API IDs across all events
   const allTeams = new Map<number, any>()
@@ -561,9 +563,11 @@ export async function fetchEventByDate(
       const f1data = resolvedFighters.get(home.id)
       const f2data = resolvedFighters.get(away.id)
 
-      const { analysis_f1, analysis_f2 } = (f1data && f2data)
+      const aiResult = (f1data && f2data)
         ? await generateAIAnalysis(f1data, f2data, wc)
         : { analysis_f1: null, analysis_f2: null }
+      if (aiResult.debugError && !firstAiError) firstAiError = aiResult.debugError
+      const { analysis_f1, analysis_f2 } = aiResult
 
       const fightRow = {
         id:             apiIdToUuid(fight.id, 'fight'),
@@ -597,9 +601,10 @@ export async function fetchEventByDate(
   revalidatePath('/')
   revalidatePath('/admin')
 
+  const aiNote = firstAiError ? ` (AI error: ${firstAiError})` : ' with AI analysis'
   return {
     success: true,
-    message: `Imported ${insertedFighters} fighters, ${insertedEvents} event(s), ${insertedFights} fights.`,
+    message: `Imported ${insertedFighters} fighters, ${insertedEvents} event(s), ${insertedFights} fights${aiNote}.`,
   }
 }
 
