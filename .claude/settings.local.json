@@ -18,7 +18,15 @@
       "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/unique-tournament/19906/schedules/18/4/2026\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
       "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/team/461431/image\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
       "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/team/461431\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
-      "Bash(npm show:*)"
+      "Bash(npm show:*)",
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/team/489720\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"http://www.ufcstats.com/statistics/fighters?query=Vicente+Luque&action=Search\")",
+      "Bash(curl -s --max-time 10 \"http://www.ufcstats.com/fighter-details/b30bc828a2ac5c70\")",
+      "Bash(curl -s --max-time 10 \"http://www.ufcstats.com/statistics/fighters?query=Kelvin+Gastelum&action=Search\")",
+      "Bash(curl -s --max-time 10 \"http://www.ufcstats.com/fighter-details/2f5c6b9c7ee78840\")",
+      "Bash(curl -s --max-time 10 -A \"Mozilla/5.0\" \"http://www.ufcstats.com/statistics/fighters?query=Kelvin+Gastelum&action=Search\")",
+      "Bash(curl -s --max-time 10 -A \"Mozilla/5.0\" \"http://www.ufcstats.com/statistics/fighters?char=g&action=Search\")",
+      "Bash(npx tsc:*)"
     ]
   }
 }

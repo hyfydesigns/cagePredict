@@ -114,6 +114,118 @@ async function fetchStatsFromWikipedia(name: string): Promise<{
   }
 }
 
+// ─── UFCStats fallback for missing fighter stats ─────────────────────────────
+
+function parseHeightCmFromFt(str: string): number | null {
+  const m = str.match(/(\d+)'\s*(\d+)"/)
+  if (m) return Math.round(parseInt(m[1]) * 30.48 + parseInt(m[2]) * 2.54)
+  return null
+}
+
+function parseReachCmFromIn(str: string): number | null {
+  const m = str.match(/([\d.]+)"/)
+  if (m) return Math.round(parseFloat(m[1]) * 2.54)
+  return null
+}
+
+async function fetchStatsFromUFCStats(name: string): Promise<{
+  height_cm: number | null
+  reach_cm: number | null
+  age: number | null
+  fighting_style: string | null
+}> {
+  const empty = { height_cm: null, reach_cm: null, age: null, fighting_style: null }
+  try {
+    const parts = name.trim().split(/\s+/)
+    if (parts.length < 2) return empty
+    const firstName = parts.slice(0, -1).join(' ')
+    const lastName  = parts[parts.length - 1]
+    const letter    = lastName[0].toLowerCase()
+
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+
+    for (let page = 1; page <= 20; page++) {
+      const url = `http://www.ufcstats.com/statistics/fighters?char=${letter}&page=${page}&action=Search`
+      let html: string
+      try {
+        const res = await fetch(url, { headers, next: { revalidate: 86400 } })
+        if (!res.ok) break
+        html = await res.text()
+      } catch { break }
+
+      // Extract data rows (skip header rows which have no links)
+      const rowPattern = /<tr[^>]*class="b-statistics__table-row"[^>]*>([\s\S]*?)<\/tr>/g
+      const rows = [...html.matchAll(rowPattern)]
+      if (rows.length === 0) break
+
+      let hasDataRows = false
+
+      for (const rowMatch of rows) {
+        const row = rowMatch[1]
+
+        // First cell must contain a fighter detail link
+        const linkMatch = row.match(/href="(http:\/\/www\.ufcstats\.com\/fighter-details\/[^"]+)"[^>]*>\s*([^<]+)\s*</)
+        if (!linkMatch) continue
+        hasDataRows = true
+
+        const detailUrl = linkMatch[1].trim()
+        const fFirst    = linkMatch[2].trim()
+
+        // Extract all <td> cell text
+        const cellTexts = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) =>
+          m[1].replace(/<[^>]+>/g, '').trim()
+        )
+        // cellTexts: [0]=first, [1]=last, [2]=nickname, [3]=height, [4]=weight, [5]=reach, [6]=stance
+        if (cellTexts.length < 6) continue
+        const fLast = cellTexts[1]
+
+        if (
+          fFirst.toLowerCase() !== firstName.toLowerCase() ||
+          fLast.toLowerCase()  !== lastName.toLowerCase()
+        ) continue
+
+        // Found the fighter — parse stats from list row
+        const heightStr = cellTexts[3] ?? ''
+        const reachStr  = cellTexts[5] ?? ''
+        const stanceStr = cellTexts[6] ?? ''
+
+        const height_cm      = heightStr && heightStr !== '--' ? parseHeightCmFromFt(heightStr) : null
+        const reach_cm       = reachStr  && reachStr  !== '--' ? parseReachCmFromIn(reachStr)   : null
+        const fighting_style = stanceStr && stanceStr !== '--' ? stanceStr : null
+
+        // Fetch detail page for DOB → age
+        let age: number | null = null
+        try {
+          const dRes = await fetch(detailUrl, { headers, next: { revalidate: 86400 } })
+          if (dRes.ok) {
+            const dHtml  = await dRes.text()
+            // Pattern: DOB:</i>\n    Jan 24, 1985
+            const dobMatch = dHtml.match(/DOB:<\/i>\s*([\w]+ \d+,\s*\d{4})/)
+            if (dobMatch) {
+              const yearMatch = dobMatch[1].match(/(\d{4})$/)
+              if (yearMatch) age = new Date().getFullYear() - parseInt(yearMatch[1])
+            }
+          }
+        } catch { /* skip age */ }
+
+        return { height_cm, reach_cm, age, fighting_style }
+      }
+
+      // If no data rows found this page, we've exhausted the list
+      if (!hasDataRows) break
+
+      // If the page had fewer than 25 rows, we're on the last page
+      if (rows.length < 25) break
+    }
+
+    return empty
+  } catch {
+    return empty
+  }
+}
+
 // ─── Clear all data ──────────────────────────────────────────────────────────
 
 export async function clearAllData(): Promise<ActionResult> {
@@ -259,13 +371,22 @@ export async function fetchEventByDate(
           ? detail.fightingStyle.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
           : null
 
-        // Fallback to Wikipedia for missing stats
+        // Fallback 1: Wikipedia for missing stats
         if (!height_cm || !reach_cm || !fighting_style || !age) {
           const wiki = await fetchStatsFromWikipedia(team.name as string)
           if (!height_cm)      height_cm      = wiki.height_cm
           if (!reach_cm)       reach_cm       = wiki.reach_cm
           if (!fighting_style) fighting_style = wiki.fighting_style
           if (!age)            age            = wiki.age
+        }
+
+        // Fallback 2: UFCStats for anything still missing
+        if (!height_cm || !reach_cm || !fighting_style || !age) {
+          const ufc = await fetchStatsFromUFCStats(team.name as string)
+          if (!height_cm)      height_cm      = ufc.height_cm
+          if (!reach_cm)       reach_cm       = ufc.reach_cm
+          if (!fighting_style) fighting_style = ufc.fighting_style
+          if (!age)            age            = ufc.age
         }
 
         const fighter = {
@@ -325,6 +446,15 @@ export async function fetchEventByDate(
     insertedEvents++
 
     // 3. Upsert fights
+    // Debug: surface raw fight fields in the return message
+    if (fights[0]) {
+      const keys = Object.keys(fights[0]).join(', ')
+      const cardRelated = Object.entries(fights[0])
+        .filter(([k]) => /type|card|segment|card/i.test(k))
+        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+        .join(', ')
+      return { success: true, message: `DEBUG — keys: ${keys} | card fields: ${cardRelated || 'none found'}` }
+    }
     // Main event = highest order fight on the maincard
     const maincardFights = fights.filter((f: any) => f.fightType === 'maincard')
     const maxOrder = maincardFights.length > 0
@@ -362,6 +492,7 @@ export async function fetchEventByDate(
         analysis_f1:    null,
         analysis_f2:    null,
         display_order:  (fight.order as number) ?? 0,
+        fight_type:     (fight.fightType as string) ?? null,
       }
 
       const { error: fErr } = await supabase

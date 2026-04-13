@@ -141,6 +141,7 @@ export interface Database {
           is_title_fight: boolean
           weight_class: string | null
           display_order: number
+          fight_type: string | null
           created_at: string
         }
         Insert: {
@@ -162,6 +163,7 @@ export interface Database {
           is_title_fight?: boolean
           weight_class?: string | null
           display_order?: number
+          fight_type?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['fights']['Insert']>
