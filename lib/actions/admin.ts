@@ -148,6 +148,36 @@ export async function fetchEventByDate(
   let insertedEvents   = 0
   let insertedFights   = 0
 
+  // Collect unique fighter API IDs across all events
+  const allTeams = new Map<number, any>()
+  for (const [, { fights }] of eventMap) {
+    for (const fight of fights) {
+      for (const side of ['homeTeam', 'awayTeam'] as const) {
+        const team = fight[side]
+        if (team?.id) allTeams.set(team.id, { team, weightClass: fight.weightClass })
+      }
+    }
+  }
+
+  // Fetch fighter details in parallel (max 6 at a time to avoid rate limits)
+  const fighterDetails = new Map<number, any>()
+  const teamEntries = [...allTeams.entries()]
+  for (let i = 0; i < teamEntries.length; i += 6) {
+    const batch = teamEntries.slice(i, i + 6)
+    await Promise.all(batch.map(async ([apiId]) => {
+      try {
+        const r = await fetch(`https://${host}/api/mma/team/${apiId}`, {
+          headers: { 'X-RapidAPI-Key': key!, 'X-RapidAPI-Host': host },
+          cache: 'no-store',
+        })
+        if (r.ok) {
+          const d = await r.json()
+          fighterDetails.set(apiId, d.team?.playerTeamInfo ?? null)
+        }
+      } catch { /* skip if detail fetch fails */ }
+    }))
+  }
+
   for (const [, { tournament, venue, fights }] of eventMap) {
     // 1. Upsert fighters
     for (const fight of fights) {
@@ -155,28 +185,40 @@ export async function fetchEventByDate(
         const team = fight[side]
         if (!team?.id) continue
 
-        const wc = mapWeightClass(fight.weightClass ?? '')
+        const wc     = mapWeightClass(fight.weightClass ?? '')
         const record = `${team.wdlRecord?.wins ?? 0}-${team.wdlRecord?.losses ?? 0}-${team.wdlRecord?.draws ?? 0}`
+        const detail = fighterDetails.get(team.id)
+
+        // Calculate age from birthDateTimestamp
+        let age: number | null = null
+        if (detail?.birthDateTimestamp) {
+          const birth = new Date(detail.birthDateTimestamp * 1000)
+          age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+        }
+
         const fighter = {
-          id:                 apiIdToUuid(team.id, 'fighter'),
-          name:               team.name as string,
-          nickname:           null,
-          nationality:        (team.country?.name as string) ?? null,
-          flag_emoji:         countryToFlag(team.country?.alpha2 ?? ''),
-          image_url:          `/api/fighter-image/${team.id}`,
+          id:             apiIdToUuid(team.id, 'fighter'),
+          name:           team.name as string,
+          nickname:       detail?.nickname?.trim() || null,
+          nationality:    (team.country?.name as string) ?? null,
+          flag_emoji:     countryToFlag(team.country?.alpha2 ?? ''),
+          image_url:      `/api/fighter-image/${team.id}`,
           record,
-          wins:               (team.wdlRecord?.wins   as number) ?? 0,
-          losses:             (team.wdlRecord?.losses as number) ?? 0,
-          draws:              (team.wdlRecord?.draws  as number) ?? 0,
-          weight_class:       wc,
-          height_cm:          null,
-          reach_cm:           null,
-          age:                null,
-          striking_accuracy:  null,
-          td_avg:             null,
-          sub_avg:            null,
-          sig_str_landed:     null,
-          analysis:           null,
+          wins:           (team.wdlRecord?.wins   as number) ?? 0,
+          losses:         (team.wdlRecord?.losses as number) ?? 0,
+          draws:          (team.wdlRecord?.draws  as number) ?? 0,
+          weight_class:   wc,
+          height_cm:      detail?.height ? Math.round(detail.height * 100) : null,
+          reach_cm:       detail?.reach  ? Math.round(detail.reach  * 100) : null,
+          age,
+          fighting_style: detail?.fightingStyle
+            ? detail.fightingStyle.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+            : null,
+          striking_accuracy: null,
+          td_avg:            null,
+          sub_avg:           null,
+          sig_str_landed:    null,
+          analysis:          null,
         }
 
         const { error } = await supabase

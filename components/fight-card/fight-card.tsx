@@ -139,11 +139,10 @@ export function FightCard({ fight, userPick, userId, isPending = false, onPredic
                 </h4>
                 <div className="space-y-1.5">
                   {[
-                    { label: 'Height', f1: `${fight.fighter1.height_cm ?? '?'}cm`, f2: `${fight.fighter2.height_cm ?? '?'}cm` },
-                    { label: 'Reach', f1: `${fight.fighter1.reach_cm ?? '?'}cm`, f2: `${fight.fighter2.reach_cm ?? '?'}cm` },
-                    { label: 'Str. Acc', f1: `${fight.fighter1.striking_accuracy ?? '?'}%`, f2: `${fight.fighter2.striking_accuracy ?? '?'}%` },
-                    { label: 'TD Avg', f1: `${fight.fighter1.td_avg ?? '?'}/15m`, f2: `${fight.fighter2.td_avg ?? '?'}/15m` },
-                    { label: 'Age', f1: `${fight.fighter1.age ?? '?'}`, f2: `${fight.fighter2.age ?? '?'}` },
+                    { label: 'Height', f1: fight.fighter1.height_cm ? `${fight.fighter1.height_cm}cm` : '?', f2: fight.fighter2.height_cm ? `${fight.fighter2.height_cm}cm` : '?' },
+                    { label: 'Reach',  f1: fight.fighter1.reach_cm  ? `${fight.fighter1.reach_cm}cm`  : '?', f2: fight.fighter2.reach_cm  ? `${fight.fighter2.reach_cm}cm`  : '?' },
+                    { label: 'Age',    f1: fight.fighter1.age ?? '?', f2: fight.fighter2.age ?? '?' },
+                    { label: 'Style',  f1: fight.fighter1.fighting_style ?? '?', f2: fight.fighter2.fighting_style ?? '?' },
                   ].map((row) => (
                     <div key={row.label} className="grid grid-cols-[1fr,60px,1fr] text-xs items-center">
                       <span className="text-zinc-200 font-semibold">{row.f1}</span>

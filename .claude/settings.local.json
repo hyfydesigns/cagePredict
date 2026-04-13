@@ -17,7 +17,8 @@
       "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/unique-tournament/19906/schedules/19/4/2026\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
       "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/unique-tournament/19906/schedules/18/4/2026\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
       "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/team/461431/image\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
-      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/team/461431\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")"
+      "Bash(curl -s --max-time 10 \"https://mmaapi.p.rapidapi.com/api/mma/team/461431\" -H \"X-RapidAPI-Key: 1b9c869313msh7233b674b9e050cp1e2c5ejsn4e52ac2b45ff\" -H \"X-RapidAPI-Host: mmaapi.p.rapidapi.com\")",
+      "Bash(npm show:*)"
     ]
   }
 }

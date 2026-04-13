@@ -69,6 +69,7 @@ export interface Database {
           td_avg: number | null
           sub_avg: number | null
           sig_str_landed: number | null
+          fighting_style: string | null
           analysis: string | null
           created_at: string
         }
@@ -91,6 +92,7 @@ export interface Database {
           td_avg?: number | null
           sub_avg?: number | null
           sig_str_landed?: number | null
+          fighting_style?: string | null
           analysis?: string | null
           created_at?: string
         }
