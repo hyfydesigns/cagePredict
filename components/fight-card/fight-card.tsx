@@ -12,6 +12,17 @@ import { FightStatusBadge } from './fight-status-badge'
 import { cn } from '@/lib/utils'
 import type { FightWithDetails } from '@/types/database'
 
+function cmToFtIn(cm: number): string {
+  const totalIn = cm / 2.54
+  const ft = Math.floor(totalIn / 12)
+  const inches = Math.round(totalIn % 12)
+  return `${ft}'${inches}"`
+}
+
+function cmToIn(cm: number): string {
+  return `${Math.round(cm / 2.54)}"`
+}
+
 interface FightCardProps {
   fight: FightWithDetails
   userPick?: string | null          // predicted_winner_id
@@ -139,8 +150,8 @@ export function FightCard({ fight, userPick, userId, isPending = false, onPredic
                 </h4>
                 <div className="space-y-1.5">
                   {[
-                    { label: 'Height', f1: fight.fighter1.height_cm ? `${fight.fighter1.height_cm}cm` : null, f2: fight.fighter2.height_cm ? `${fight.fighter2.height_cm}cm` : null },
-                    { label: 'Reach',  f1: fight.fighter1.reach_cm  ? `${fight.fighter1.reach_cm}cm`  : null, f2: fight.fighter2.reach_cm  ? `${fight.fighter2.reach_cm}cm`  : null },
+                    { label: 'Height', f1: fight.fighter1.height_cm ? cmToFtIn(fight.fighter1.height_cm) : null, f2: fight.fighter2.height_cm ? cmToFtIn(fight.fighter2.height_cm) : null },
+                    { label: 'Reach',  f1: fight.fighter1.reach_cm  ? cmToIn(fight.fighter1.reach_cm)   : null, f2: fight.fighter2.reach_cm  ? cmToIn(fight.fighter2.reach_cm)   : null },
                     { label: 'Age',    f1: fight.fighter1.age        ? String(fight.fighter1.age)       : null, f2: fight.fighter2.age        ? String(fight.fighter2.age)       : null },
                     { label: 'Style',  f1: fight.fighter1.fighting_style ?? null, f2: fight.fighter2.fighting_style ?? null },
                   ].filter((row) => row.f1 || row.f2).map((row) => (
