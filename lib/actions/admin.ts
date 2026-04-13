@@ -52,6 +52,32 @@ function mapMethod(winType: string): string {
   return map[winType] ?? winType
 }
 
+function generateAnalysis(f: {
+  name: string; wins: number; losses: number; draws: number;
+  nationality: string | null; height_cm: number | null; reach_cm: number | null;
+  age: number | null; fighting_style: string | null;
+}): string {
+  const parts: string[] = []
+
+  const record = `${f.wins}-${f.losses}${f.draws ? `-${f.draws}` : ''}`
+  parts.push(`${f.name} (${record})`)
+
+  if (f.fighting_style) parts.push(`is a ${f.fighting_style} specialist`)
+  if (f.nationality)    parts.push(`from ${f.nationality}`)
+
+  const physical: string[] = []
+  if (f.height_cm) physical.push(`${f.height_cm}cm tall`)
+  if (f.reach_cm)  physical.push(`${f.reach_cm}cm reach`)
+  if (f.age)       physical.push(`${f.age} years old`)
+  if (physical.length) parts.push(physical.join(', '))
+
+  if (f.wins >= 15)      parts.push(`bringing elite-level experience to the octagon`)
+  else if (f.wins >= 8)  parts.push(`a seasoned veteran in the division`)
+  else                   parts.push(`looking to make a statement at this level`)
+
+  return parts.join(' — ') + '.'
+}
+
 function countryToFlag(alpha2: string): string | null {
   if (!alpha2 || alpha2.length !== 2) return null
   const pts = [...alpha2.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
@@ -346,6 +372,13 @@ export async function fetchEventByDate(
     }))
   }
 
+  // Cache resolved fighter data so fight rows can reference it for analysis
+  const resolvedFighters = new Map<number, {
+    name: string; wins: number; losses: number; draws: number;
+    nationality: string | null; height_cm: number | null; reach_cm: number | null;
+    age: number | null; fighting_style: string | null;
+  }>()
+
   for (const [, { tournament, venue, fights }] of eventMap) {
     // 1. Upsert fighters
     for (const fight of fights) {
@@ -389,17 +422,28 @@ export async function fetchEventByDate(
           if (!age)            age            = ufc.age
         }
 
+        const wins   = (team.wdlRecord?.wins   as number) ?? 0
+        const losses = (team.wdlRecord?.losses as number) ?? 0
+        const draws  = (team.wdlRecord?.draws  as number) ?? 0
+        const nationality = (team.country?.name as string) ?? null
+
+        resolvedFighters.set(team.id, {
+          name: team.name as string,
+          wins, losses, draws, nationality,
+          height_cm, reach_cm, age, fighting_style,
+        })
+
         const fighter = {
           id:             apiIdToUuid(team.id, 'fighter'),
           name:           team.name as string,
           nickname:       detail?.nickname?.trim() || null,
-          nationality:    (team.country?.name as string) ?? null,
+          nationality,
           flag_emoji:     countryToFlag(team.country?.alpha2 ?? ''),
           image_url:      `/api/fighter-image/${team.id}`,
           record,
-          wins:           (team.wdlRecord?.wins   as number) ?? 0,
-          losses:         (team.wdlRecord?.losses as number) ?? 0,
-          draws:          (team.wdlRecord?.draws  as number) ?? 0,
+          wins,
+          losses,
+          draws,
           weight_class:   wc,
           height_cm,
           reach_cm,
@@ -480,8 +524,8 @@ export async function fetchEventByDate(
         time_of_finish: null,
         odds_f1:        0,
         odds_f2:        0,
-        analysis_f1:    null,
-        analysis_f2:    null,
+        analysis_f1:    resolvedFighters.has(home.id) ? generateAnalysis(resolvedFighters.get(home.id)!) : null,
+        analysis_f2:    resolvedFighters.has(away.id) ? generateAnalysis(resolvedFighters.get(away.id)!) : null,
         display_order:  (fight.order as number) ?? 0,
         fight_type:     (fight.fightType as string) ?? null,
       }
