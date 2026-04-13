@@ -62,6 +62,16 @@ export function FighterPortrait({
           'absolute inset-0',
           isLeft ? 'bg-fighter-gradient-right' : 'bg-fighter-gradient-left'
         )} />
+
+        {/* Flag pinned to bottom corner of image */}
+        {fighter.flag_emoji && (
+          <div className={cn(
+            'absolute bottom-1 text-base leading-none',
+            isLeft ? 'left-1' : 'right-1'
+          )}>
+            {fighter.flag_emoji}
+          </div>
+        )}
       </div>
 
       {/* Fighter info */}
@@ -78,9 +88,6 @@ export function FighterPortrait({
           </p>
         )}
         <div className={cn('flex items-center gap-1.5 mt-1', isLeft ? '' : 'justify-end')}>
-          {fighter.flag_emoji && (
-            <span className="text-sm">{fighter.flag_emoji}</span>
-          )}
           <span className="text-zinc-500 text-[11px] font-medium">{fighter.record}</span>
         </div>
 
