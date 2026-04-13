@@ -224,7 +224,11 @@ export async function fetchEventByDate(
         const { error } = await supabase
           .from('fighters')
           .upsert(fighter as any, { onConflict: 'id', ignoreDuplicates: false })
-        if (!error) insertedFighters++
+        if (error) {
+          console.error(`Fighter upsert failed (${team.name}):`, error.message)
+        } else {
+          insertedFighters++
+        }
       }
     }
 
