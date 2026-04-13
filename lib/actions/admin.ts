@@ -1,5 +1,6 @@
 'use server'
 
+import Anthropic from '@anthropic-ai/sdk'
 import { revalidatePath } from 'next/cache'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { SEED_EVENTS, SEED_FIGHTERS } from '@/seeds/seed-data'
@@ -52,29 +53,77 @@ function mapMethod(winType: string): string {
   return map[winType] ?? winType
 }
 
-function generateAnalysis(f: {
+type FighterStats = {
   name: string; wins: number; losses: number; draws: number;
   nationality: string | null; height_cm: number | null; reach_cm: number | null;
   age: number | null; fighting_style: string | null;
-}): string {
-  const parts: string[] = []
+}
 
+function fighterSummary(f: FighterStats): string {
+  const parts = [
+    `Name: ${f.name}`,
+    `Record: ${f.wins}-${f.losses}-${f.draws}`,
+    f.fighting_style ? `Style: ${f.fighting_style}` : null,
+    f.nationality    ? `Nationality: ${f.nationality}` : null,
+    f.height_cm      ? `Height: ${f.height_cm}cm` : null,
+    f.reach_cm       ? `Reach: ${f.reach_cm}cm` : null,
+    f.age            ? `Age: ${f.age}` : null,
+  ].filter(Boolean)
+  return parts.join(', ')
+}
+
+async function generateAIAnalysis(
+  f1: FighterStats,
+  f2: FighterStats,
+  weightClass: string,
+): Promise<{ analysis_f1: string; analysis_f2: string }> {
+  const fallback = {
+    analysis_f1: fighterFallbackAnalysis(f1),
+    analysis_f2: fighterFallbackAnalysis(f2),
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return fallback
+
+  try {
+    const client = new Anthropic({ apiKey })
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: `You are an MMA analyst. Write a short 2-3 sentence pre-fight analysis for each fighter in this ${weightClass} matchup. Focus on their style, key strengths, and what they need to do to win. Be specific and insightful — not generic. Do NOT mention odds or predictions.
+
+Fighter 1: ${fighterSummary(f1)}
+Fighter 2: ${fighterSummary(f2)}
+
+Respond with exactly this JSON format (no markdown):
+{"f1":"<analysis for ${f1.name}>","f2":"<analysis for ${f2.name}>"}`,
+      }],
+    })
+
+    const raw = (msg.content[0] as any).text?.trim() ?? ''
+    const parsed = JSON.parse(raw)
+    if (parsed.f1 && parsed.f2) {
+      return { analysis_f1: parsed.f1, analysis_f2: parsed.f2 }
+    }
+    return fallback
+  } catch {
+    return fallback
+  }
+}
+
+function fighterFallbackAnalysis(f: FighterStats): string {
   const record = `${f.wins}-${f.losses}${f.draws ? `-${f.draws}` : ''}`
-  parts.push(`${f.name} (${record})`)
-
-  if (f.fighting_style) parts.push(`is a ${f.fighting_style} specialist`)
+  const parts: string[] = [`${f.name} (${record})`]
+  if (f.fighting_style) parts.push(`a ${f.fighting_style} specialist`)
   if (f.nationality)    parts.push(`from ${f.nationality}`)
-
-  const physical: string[] = []
-  if (f.height_cm) physical.push(`${f.height_cm}cm tall`)
-  if (f.reach_cm)  physical.push(`${f.reach_cm}cm reach`)
-  if (f.age)       physical.push(`${f.age} years old`)
+  const physical = [
+    f.height_cm ? `${f.height_cm}cm` : null,
+    f.reach_cm  ? `${f.reach_cm}cm reach` : null,
+    f.age       ? `age ${f.age}` : null,
+  ].filter(Boolean)
   if (physical.length) parts.push(physical.join(', '))
-
-  if (f.wins >= 15)      parts.push(`bringing elite-level experience to the octagon`)
-  else if (f.wins >= 8)  parts.push(`a seasoned veteran in the division`)
-  else                   parts.push(`looking to make a statement at this level`)
-
   return parts.join(' — ') + '.'
 }
 
@@ -508,12 +557,20 @@ export async function fetchEventByDate(
       if (fight.winnerCode === 1) winnerId = apiIdToUuid(home.id, 'fighter')
       else if (fight.winnerCode === 2) winnerId = apiIdToUuid(away.id, 'fighter')
 
+      const wc = mapWeightClass(fight.weightClass ?? '')
+      const f1data = resolvedFighters.get(home.id)
+      const f2data = resolvedFighters.get(away.id)
+
+      const { analysis_f1, analysis_f2 } = (f1data && f2data)
+        ? await generateAIAnalysis(f1data, f2data, wc)
+        : { analysis_f1: null, analysis_f2: null }
+
       const fightRow = {
         id:             apiIdToUuid(fight.id, 'fight'),
         event_id:       apiIdToUuid(tournament.id, 'event'),
         fighter1_id:    apiIdToUuid(home.id, 'fighter'),
         fighter2_id:    apiIdToUuid(away.id, 'fighter'),
-        weight_class:   mapWeightClass(fight.weightClass ?? ''),
+        weight_class:   wc,
         is_main_event:  isMainEvent,
         is_title_fight: false,
         fight_time:     new Date((fight.startTimestamp as number) * 1000).toISOString(),
@@ -524,8 +581,8 @@ export async function fetchEventByDate(
         time_of_finish: null,
         odds_f1:        0,
         odds_f2:        0,
-        analysis_f1:    resolvedFighters.has(home.id) ? generateAnalysis(resolvedFighters.get(home.id)!) : null,
-        analysis_f2:    resolvedFighters.has(away.id) ? generateAnalysis(resolvedFighters.get(away.id)!) : null,
+        analysis_f1,
+        analysis_f2,
         display_order:  (fight.order as number) ?? 0,
         fight_type:     (fight.fightType as string) ?? null,
       }
