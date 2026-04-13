@@ -446,15 +446,6 @@ export async function fetchEventByDate(
     insertedEvents++
 
     // 3. Upsert fights
-    // Debug: surface raw fight fields in the return message
-    if (fights[0]) {
-      const keys = Object.keys(fights[0]).join(', ')
-      const cardRelated = Object.entries(fights[0])
-        .filter(([k]) => /type|card|segment|card/i.test(k))
-        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-        .join(', ')
-      return { success: true, message: `DEBUG — keys: ${keys} | card fields: ${cardRelated || 'none found'}` }
-    }
     // Main event = highest order fight on the maincard
     const maincardFights = fights.filter((f: any) => f.fightType === 'maincard')
     const maxOrder = maincardFights.length > 0
