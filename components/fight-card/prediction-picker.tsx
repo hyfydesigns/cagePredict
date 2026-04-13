@@ -1,10 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Lock, CheckCircle, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
+import { Lock, CheckCircle, Loader2, LockOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FighterRow } from '@/types/database'
 
@@ -12,18 +9,19 @@ interface PredictionPickerProps {
   fighter1: FighterRow
   fighter2: FighterRow
   currentPick: string | null
-  isLocked: boolean
+  isConfidence: boolean
+  lockTaken: boolean        // another fight in this event already has the lock
+  isLocked: boolean         // picks closed (fight starting soon)
   isPending: boolean
   userId?: string
   onPick: (winnerId: string) => Promise<void>
+  onToggleLock: (isConfidence: boolean) => Promise<void>
 }
 
 export function PredictionPicker({
-  fighter1, fighter2, currentPick, isLocked, isPending, userId, onPick
+  fighter1, fighter2, currentPick, isConfidence, lockTaken,
+  isLocked, isPending, userId, onPick, onToggleLock,
 }: PredictionPickerProps) {
-  const [showConfidence, setShowConfidence] = useState(false)
-  const [confidence, setConfidence] = useState(50)
-
   if (!userId) {
     return (
       <div className="px-4 py-3 border-t border-zinc-800/50 flex items-center justify-center">
@@ -51,7 +49,11 @@ export function PredictionPicker({
         <span className="text-sm text-zinc-300">
           Locked in: <span className="text-white font-semibold">{pickedFighter.name}</span>
         </span>
-        <Lock className="h-3.5 w-3.5 text-zinc-600" />
+        {isConfidence && (
+          <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5">
+            🔒 2× pts
+          </span>
+        )}
       </div>
     )
   }
@@ -62,53 +64,61 @@ export function PredictionPicker({
         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider text-center">
           Who wins?
         </p>
+
+        {/* Pick buttons */}
         <div className="grid grid-cols-2 gap-3">
           <PickButton
             fighter={fighter1}
             isSelected={currentPick === fighter1.id}
             isPending={isPending}
-            onClick={async () => {
-              await onPick(fighter1.id)
-              setShowConfidence(true)
-            }}
+            onClick={() => onPick(fighter1.id)}
           />
           <PickButton
             fighter={fighter2}
             isSelected={currentPick === fighter2.id}
             isPending={isPending}
-            onClick={async () => {
-              await onPick(fighter2.id)
-              setShowConfidence(true)
-            }}
+            onClick={() => onPick(fighter2.id)}
           />
         </div>
 
-        {/* Confidence slider — shows after a pick */}
+        {/* Lock button — appears after a pick */}
         <AnimatePresence>
-          {showConfidence && currentPick && (
+          {currentPick && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="space-y-2 overflow-hidden"
+              className="overflow-hidden"
             >
-              <div className="flex items-center justify-between text-xs text-zinc-500">
-                <span>Confidence</span>
-                <span className="text-primary font-bold">{confidence}%</span>
-              </div>
-              <Slider
-                min={10}
-                max={100}
-                step={5}
-                value={[confidence]}
-                onValueChange={([v]) => setConfidence(v)}
-                className="w-full"
-              />
-              <p className="text-[10px] text-zinc-600 text-center">
-                {confidence < 40 ? 'Not sure — could go either way' :
-                 confidence < 70 ? 'Fairly confident' :
-                 confidence < 90 ? 'Very confident' : 'Lock it in! 🔥'}
-              </p>
+              {isConfidence ? (
+                // Currently locked — show remove option
+                <button
+                  onClick={() => onToggleLock(false)}
+                  disabled={isPending}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-amber-500/60 bg-amber-500/10 py-2 text-sm font-bold text-amber-400 hover:bg-amber-500/20 transition-all"
+                >
+                  <Lock className="h-4 w-4" />
+                  Your Lock — 2× points
+                  <span className="text-[10px] font-normal text-amber-500/70 ml-1">(tap to remove)</span>
+                </button>
+              ) : lockTaken ? (
+                // Lock is used on another fight
+                <div className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-800 py-2 text-xs text-zinc-600 cursor-not-allowed">
+                  <Lock className="h-3.5 w-3.5" />
+                  Lock used on another fight
+                </div>
+              ) : (
+                // Available to lock
+                <button
+                  onClick={() => onToggleLock(true)}
+                  disabled={isPending}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 py-2 text-sm font-semibold text-zinc-400 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400 transition-all group"
+                >
+                  <LockOpen className="h-4 w-4 group-hover:hidden" />
+                  <Lock className="h-4 w-4 hidden group-hover:block" />
+                  Lock it — 2× points
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

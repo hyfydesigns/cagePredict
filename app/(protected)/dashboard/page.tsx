@@ -3,11 +3,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ProfileHeader } from '@/components/profile/profile-header'
+import { BadgeShelf } from '@/components/profile/badge-shelf'
 import { PredictionHistory } from '@/components/profile/prediction-history'
 import { Button } from '@/components/ui/button'
 import { acceptFriendRequest } from '@/lib/actions/crews'
 import { Swords, Trophy, Users, ChevronRight, Bell } from 'lucide-react'
-import type { ProfileRow, PredictionWithFight } from '@/types/database'
+import type { ProfileRow, PredictionWithFight, UserBadgeWithDefinition } from '@/types/database'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -50,6 +51,13 @@ export default async function DashboardPage() {
 
   const predictions = (predsRaw ?? []) as unknown as PredictionWithFight[]
 
+  // Badges
+  const { data: badgesRaw } = await supabase
+    .from('user_badges')
+    .select('*, definition:badge_definitions(*)')
+    .eq('user_id', user.id)
+  const badges = (badgesRaw ?? []) as unknown as UserBadgeWithDefinition[]
+
   // Upcoming events
   const { data: upcomingRaw } = await supabase
     .from('events')
@@ -73,6 +81,7 @@ export default async function DashboardPage() {
   return (
     <div className="container mx-auto py-8 max-w-2xl space-y-6">
       <ProfileHeader profile={profile} rank={rank} isOwn />
+      <BadgeShelf earned={badges} />
 
       {/* Quick actions */}
       <div className="grid grid-cols-3 gap-3">

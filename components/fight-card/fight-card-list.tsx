@@ -1,30 +1,36 @@
 'use client'
 
 import { FightCard } from './fight-card'
-import { usePredictions } from '@/hooks/use-predictions'
+import { usePredictions, type PredictionMap } from '@/hooks/use-predictions'
 import type { FightWithDetails } from '@/types/database'
 
 interface FightCardListProps {
   fights: FightWithDetails[]
-  userPicks: Record<string, string>
+  userPicks: PredictionMap
   userId?: string
 }
 
 export function FightCardList({ fights, userPicks, userId }: FightCardListProps) {
-  const { picks, predict, isPending } = usePredictions(userPicks)
+  const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
 
   return (
     <div className="space-y-4">
-      {fights.map((fight) => (
-        <FightCard
-          key={fight.id}
-          fight={fight}
-          userPick={picks[fight.id] ?? null}
-          userId={userId}
-          isPending={isPending}
-          onPredict={predict}
-        />
-      ))}
+      {fights.map((fight) => {
+        const pick = picks[fight.id]
+        return (
+          <FightCard
+            key={fight.id}
+            fight={fight}
+            userPick={pick?.winnerId ?? null}
+            isConfidence={pick?.isConfidence ?? false}
+            lockTaken={lockedFightId !== null && lockedFightId !== fight.id}
+            userId={userId}
+            isPending={isPending}
+            onPredict={predict}
+            onToggleLock={toggleLock}
+          />
+        )
+      })}
     </div>
   )
 }

@@ -25,13 +25,19 @@ function cmToIn(cm: number): string {
 
 interface FightCardProps {
   fight: FightWithDetails
-  userPick?: string | null          // predicted_winner_id
+  userPick?: string | null
+  isConfidence?: boolean
+  lockTaken?: boolean
   userId?: string
   isPending?: boolean
   onPredict: (fightId: string, winnerId: string) => Promise<void>
+  onToggleLock: (fightId: string, isConfidence: boolean) => Promise<void>
 }
 
-export function FightCard({ fight, userPick, userId, isPending = false, onPredict }: FightCardProps) {
+export function FightCard({
+  fight, userPick, isConfidence = false, lockTaken = false,
+  userId, isPending = false, onPredict, onToggleLock,
+}: FightCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [localPick, setLocalPick] = useState<string | null>(userPick ?? null)
 
@@ -41,6 +47,7 @@ export function FightCard({ fight, userPick, userId, isPending = false, onPredic
 
   const pickCorrect   = isCompleted && localPick !== null && localPick === fight.winner_id
   const pickIncorrect = isCompleted && localPick !== null && localPick !== fight.winner_id
+  const pointsEarned  = pickCorrect ? (isConfidence ? 20 : 10) : 0
 
   async function handlePredict(winnerId: string) {
     setLocalPick(winnerId)
@@ -78,9 +85,14 @@ export function FightCard({ fight, userPick, userId, isPending = false, onPredic
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {isConfidence && !isCompleted && (
+            <Badge className="gap-1 text-[11px] bg-amber-500/20 text-amber-400 border-amber-500/40">
+              🔒 2× pts
+            </Badge>
+          )}
           {pickCorrect && (
             <Badge variant="success" className="gap-1 text-[11px]">
-              <CheckCircle className="h-3 w-3" /> +10 pts
+              <CheckCircle className="h-3 w-3" /> +{pointsEarned} pts
             </Badge>
           )}
           {pickIncorrect && (
@@ -215,10 +227,13 @@ export function FightCard({ fight, userPick, userId, isPending = false, onPredic
           fighter1={fight.fighter1}
           fighter2={fight.fighter2}
           currentPick={localPick}
+          isConfidence={isConfidence}
+          lockTaken={lockTaken}
           isLocked={isLocked}
           isPending={isPending}
           userId={userId}
           onPick={handlePredict}
+          onToggleLock={(conf) => onToggleLock(fight.id, conf)}
         />
       )}
     </motion.div>

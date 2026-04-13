@@ -177,6 +177,7 @@ export interface Database {
           is_correct: boolean | null
           points_earned: number
           confidence: number
+          is_confidence: boolean
           created_at: string
           updated_at: string
         }
@@ -188,10 +189,27 @@ export interface Database {
           is_correct?: boolean | null
           points_earned?: number
           confidence?: number
+          is_confidence?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['predictions']['Insert']>
+      }
+      badge_definitions: {
+        Row: { id: string; name: string; description: string; icon: string; created_at: string }
+        Insert: { id: string; name: string; description: string; icon: string; created_at?: string }
+        Update: Partial<Database['public']['Tables']['badge_definitions']['Insert']>
+      }
+      user_badges: {
+        Row: {
+          id: string; user_id: string; badge_id: string; awarded_at: string
+          context_fight_id: string | null; context_event_id: string | null
+        }
+        Insert: {
+          id?: string; user_id: string; badge_id: string; awarded_at?: string
+          context_fight_id?: string | null; context_event_id?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['user_badges']['Insert']>
       }
       friends: {
         Row: {
@@ -271,14 +289,18 @@ export interface Database {
 // ============================================================
 // Convenience row types
 // ============================================================
-export type ProfileRow     = Database['public']['Tables']['profiles']['Row']
-export type FighterRow     = Database['public']['Tables']['fighters']['Row']
-export type EventRow       = Database['public']['Tables']['events']['Row']
-export type FightRow       = Database['public']['Tables']['fights']['Row']
-export type PredictionRow  = Database['public']['Tables']['predictions']['Row']
-export type FriendRow      = Database['public']['Tables']['friends']['Row']
-export type CrewRow        = Database['public']['Tables']['crews']['Row']
-export type CrewMemberRow  = Database['public']['Tables']['crew_members']['Row']
+export type ProfileRow          = Database['public']['Tables']['profiles']['Row']
+export type FighterRow          = Database['public']['Tables']['fighters']['Row']
+export type EventRow            = Database['public']['Tables']['events']['Row']
+export type FightRow            = Database['public']['Tables']['fights']['Row']
+export type PredictionRow       = Database['public']['Tables']['predictions']['Row']
+export type FriendRow           = Database['public']['Tables']['friends']['Row']
+export type CrewRow             = Database['public']['Tables']['crews']['Row']
+export type CrewMemberRow       = Database['public']['Tables']['crew_members']['Row']
+export type BadgeDefinitionRow  = Database['public']['Tables']['badge_definitions']['Row']
+export type UserBadgeRow        = Database['public']['Tables']['user_badges']['Row']
+
+export type UserBadgeWithDefinition = UserBadgeRow & { definition: BadgeDefinitionRow }
 
 // ============================================================
 // Extended / joined types used in the UI

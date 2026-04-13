@@ -2,12 +2,13 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { ProfileHeader } from '@/components/profile/profile-header'
+import { BadgeShelf } from '@/components/profile/badge-shelf'
 import { PredictionHistory } from '@/components/profile/prediction-history'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { sendFriendRequest } from '@/lib/actions/crews'
 import { UserPlus, History, BarChart3 } from 'lucide-react'
-import type { ProfileRow, PredictionWithFight } from '@/types/database'
+import type { ProfileRow, PredictionWithFight, UserBadgeWithDefinition } from '@/types/database'
 
 interface Props { params: Promise<{ username: string }> }
 
@@ -57,6 +58,13 @@ export default async function ProfilePage({ params }: Props) {
 
   const predictions = (predsRaw ?? []) as unknown as PredictionWithFight[]
 
+  // Badges
+  const { data: badgesRaw } = await supabase
+    .from('user_badges')
+    .select('*, definition:badge_definitions(*)')
+    .eq('user_id', profile.id)
+  const badges = (badgesRaw ?? []) as unknown as UserBadgeWithDefinition[]
+
   // Friend status
   let isFriend = false
   let hasPendingRequest = false
@@ -78,6 +86,7 @@ export default async function ProfilePage({ params }: Props) {
   return (
     <div className="container mx-auto py-8 max-w-2xl space-y-6">
       <ProfileHeader profile={profile} rank={rank} isOwn={isOwn} />
+      <BadgeShelf earned={badges} />
 
       {/* Add friend button */}
       {user && !isOwn && !isFriend && (

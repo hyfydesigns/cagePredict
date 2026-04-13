@@ -9,7 +9,6 @@ type ActionResult = { error?: string; success?: boolean }
 export async function upsertPrediction(
   fightId: string,
   predictedWinnerId: string,
-  confidence = 50
 ): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -17,7 +16,7 @@ export async function upsertPrediction(
 
   const { data: fight } = await supabase
     .from('fights')
-    .select('id, fight_time, status, fighter1_id, fighter2_id')
+    .select('id, fight_time, status, fighter1_id, fighter2_id, event_id')
     .eq('id', fightId)
     .single()
 
@@ -32,7 +31,7 @@ export async function upsertPrediction(
   const { error } = await supabase
     .from('predictions')
     .upsert(
-      { user_id: user.id, fight_id: fightId, predicted_winner_id: predictedWinnerId, confidence },
+      { user_id: user.id, fight_id: fightId, predicted_winner_id: predictedWinnerId },
       { onConflict: 'user_id,fight_id' }
     )
 
@@ -43,22 +42,73 @@ export async function upsertPrediction(
   return { success: true }
 }
 
+export async function toggleConfidencePick(
+  fightId: string,
+  isConfidence: boolean,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Check the fight exists and isn't locked
+  const { data: fight } = await supabase
+    .from('fights')
+    .select('id, fight_time, status, event_id')
+    .eq('id', fightId)
+    .single()
+
+  const f = fight as any
+  if (!f) return { error: 'Fight not found' }
+  if (f.status === 'completed') return { error: 'Fight already completed' }
+  if (isFightLocked(f.fight_time)) return { error: 'Picks are locked for this fight' }
+
+  // Enforce one confidence pick per event
+  if (isConfidence) {
+    const { data: existing } = await supabase
+      .from('predictions')
+      .select('fight_id, fights!inner(event_id)')
+      .eq('user_id', user.id)
+      .eq('is_confidence', true)
+      .eq('fights.event_id', f.event_id)
+      .neq('fight_id', fightId)
+      .limit(1)
+
+    if (existing && existing.length > 0) {
+      return { error: 'You already have a Lock pick for this event. Remove it first.' }
+    }
+  }
+
+  const { error } = await supabase
+    .from('predictions')
+    .update({ is_confidence: isConfidence })
+    .eq('user_id', user.id)
+    .eq('fight_id', fightId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/')
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
 export async function getUserPredictionsForEvent(
   eventId: string
-): Promise<{ data: Record<string, string> | null; error?: string }> {
+): Promise<{ data: Record<string, { winnerId: string; isConfidence: boolean }> | null; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null }
 
   const { data, error } = await supabase
     .from('predictions')
-    .select('fight_id, predicted_winner_id, fights!inner(event_id)')
+    .select('fight_id, predicted_winner_id, is_confidence, fights!inner(event_id)')
     .eq('user_id', user.id)
     .eq('fights.event_id', eventId)
 
   if (error) return { data: null, error: error.message }
 
-  const map: Record<string, string> = {}
-  ;(data ?? []).forEach((p: any) => { map[p.fight_id] = p.predicted_winner_id })
+  const map: Record<string, { winnerId: string; isConfidence: boolean }> = {}
+  ;(data ?? []).forEach((p: any) => {
+    map[p.fight_id] = { winnerId: p.predicted_winner_id, isConfidence: p.is_confidence ?? false }
+  })
   return { data: map }
 }

@@ -1,12 +1,9 @@
-import React from 'react'
-import { format } from 'date-fns'
-import { MapPin, Calendar, ChevronRight, Swords, Star, Tv } from 'lucide-react'
+import { ChevronRight, Swords } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
-import { FightCardList } from '@/components/fight-card/fight-card-list'
+import { LiveWrapper } from '@/components/fight-card/live-wrapper'
 import { Badge } from '@/components/ui/badge'
-import type { EventWithFights, FightWithDetails } from '@/types/database'
+import type { EventWithFights } from '@/types/database'
 
 export const revalidate = 60
 
@@ -14,7 +11,7 @@ export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Fetch upcoming events with fights + fighters
+  // Fetch upcoming/live events with fights + fighters
   const { data: eventsRaw } = await supabase
     .from('events')
     .select(`
@@ -29,8 +26,8 @@ export default async function HomePage() {
     .order('date', { ascending: true })
     .limit(4)
 
-  // Fetch user picks for all displayed fights
-  let userPicks: Record<string, string> = {}
+  // Fetch user picks including is_confidence
+  let userPicks: Record<string, { winnerId: string; isConfidence: boolean }> = {}
   const events = (eventsRaw ?? []) as any[]
 
   if (user && events.length > 0) {
@@ -38,16 +35,17 @@ export default async function HomePage() {
     if (fightIds.length > 0) {
       const { data: preds } = await supabase
         .from('predictions')
-        .select('fight_id, predicted_winner_id')
+        .select('fight_id, predicted_winner_id, is_confidence')
         .eq('user_id', user.id)
         .in('fight_id', fightIds)
-      ;(preds ?? []).forEach((p: any) => { userPicks[p.fight_id] = p.predicted_winner_id })
+      ;(preds ?? []).forEach((p: any) => {
+        userPicks[p.fight_id] = { winnerId: p.predicted_winner_id, isConfidence: p.is_confidence ?? false }
+      })
     }
   }
 
   const typedEvents = events.map((e: any) => ({
     ...e,
-    // Sort descending so main event is first
     fights: ((e.fights ?? []) as any[]).sort((a: any, b: any) => b.display_order - a.display_order),
   })) as EventWithFights[]
 
@@ -88,119 +86,9 @@ export default async function HomePage() {
           <p className="text-sm mt-1">Check back soon or visit the admin panel to seed events.</p>
         </div>
       ) : (
-        typedEvents.map((event) => (
-          <EventSection key={event.id} event={event} userPicks={userPicks} userId={user?.id} />
-        ))
-      )}
-    </div>
-  )
-}
-
-function EventSection({
-  event, userPicks, userId,
-}: {
-  event: EventWithFights
-  userPicks: Record<string, string>
-  userId?: string
-}) {
-  return (
-    <section>
-      <div className="rounded-2xl overflow-hidden border border-zinc-800/60 mb-4">
-        <div className="relative h-32 sm:h-40 bg-zinc-900">
-          {event.image_url && (
-            <Image
-              src={event.image_url}
-              alt={event.name}
-              fill
-              className="object-cover opacity-40"
-              sizes="(max-width: 768px) 100vw, 760px"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <Badge
-                  variant={event.status === 'live' ? 'live' : 'outline'}
-                  className="mb-2 text-[11px]"
-                >
-                  {event.status === 'live' ? '🔴 LIVE NOW' : 'Upcoming'}
-                </Badge>
-                <h2 className="text-xl sm:text-2xl font-black text-white">{event.name}</h2>
-                <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {format(new Date(event.date), 'EEEE, MMMM d, yyyy')}
-                  </span>
-                  {event.venue && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {event.venue}, {event.location}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="space-y-12">
+          <LiveWrapper initialEvents={typedEvents} userPicks={userPicks} userId={user?.id} />
         </div>
-      </div>
-
-      <FightCardSections fights={event.fights} userPicks={userPicks} userId={userId} />
-    </section>
-  )
-}
-
-function SectionDivider({ label, icon }: { label: string; icon: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 py-1">
-      <div className="flex items-center gap-2 shrink-0">
-        {icon}
-        <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">{label}</span>
-      </div>
-      <div className="flex-1 h-px bg-zinc-800" />
-    </div>
-  )
-}
-
-function FightCardSections({
-  fights, userPicks, userId,
-}: {
-  fights: FightWithDetails[]
-  userPicks: Record<string, string>
-  userId?: string
-}) {
-  // Group by fight_type — descending order already applied upstream
-  const maincard     = fights.filter((f) => (f as any).fight_type === 'maincard')
-  const prelims      = fights.filter((f) => (f as any).fight_type === 'prelims')
-  const earlyPrelims = fights.filter((f) => (f as any).fight_type === 'earlyprelims' || (f as any).fight_type === 'early_prelims')
-  // Fallback: if fight_type not stored, show all without section labels
-  const ungrouped    = fights.filter((f) => !(f as any).fight_type)
-
-  if (ungrouped.length > 0) {
-    return (
-      <FightCardList fights={ungrouped} userPicks={userPicks} userId={userId} />
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      {maincard.length > 0 && (
-        <>
-          <SectionDivider label="Main Card" icon={<Star className="h-3.5 w-3.5 text-primary fill-primary" />} />
-          <FightCardList fights={maincard} userPicks={userPicks} userId={userId} />
-        </>
-      )}
-      {prelims.length > 0 && (
-        <>
-          <SectionDivider label="Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-500" />} />
-          <FightCardList fights={prelims} userPicks={userPicks} userId={userId} />
-        </>
-      )}
-      {earlyPrelims.length > 0 && (
-        <>
-          <SectionDivider label="Early Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-600" />} />
-          <FightCardList fights={earlyPrelims} userPicks={userPicks} userId={userId} />
-        </>
       )}
     </div>
   )
