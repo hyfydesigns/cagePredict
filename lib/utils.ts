@@ -76,3 +76,11 @@ export function shortNum(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
   return `${n}`
 }
+
+/** Convert an event name to a URL slug: "UFC 315: Pereira vs Jones" → "ufc-315-pereira-vs-jones" */
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}

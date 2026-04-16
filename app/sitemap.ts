@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { slugify } from '@/lib/actions/emails'
+import { slugify } from '@/lib/utils'
 
 const BASE_URL = 'https://cagepredict.com'
 

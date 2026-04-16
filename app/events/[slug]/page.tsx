@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { MapPin, Calendar, ChevronRight, Trophy, Swords } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
-import { slugify } from '@/lib/actions/emails'
+import { slugify } from '@/lib/utils'
 import type { EventWithFights } from '@/types/database'
 
 export const revalidate = 3600 // Re-generate every hour

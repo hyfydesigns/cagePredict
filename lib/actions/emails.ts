@@ -2,6 +2,7 @@
 
 import type { User } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/server'
+import { slugify } from '@/lib/utils'
 import { resend, FROM_ADDRESS } from '@/lib/email/resend'
 import { cardLiveTemplate, weeklyRecapTemplate } from '@/lib/email/templates'
 import type { CardLiveData, WeeklyRecapData } from '@/lib/email/templates'
@@ -10,13 +11,6 @@ type AuthUser  = Pick<User, 'id' | 'email'>
 type ProfileId = { id: string }
 type PickRow   = { user_id: string; is_correct: boolean | null }
 type RankRow   = { id: string; total_points: number }
-
-export function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-}
 
 // ─── Card Live Notification ───────────────────────────────────────────────────
 
