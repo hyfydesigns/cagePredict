@@ -52,7 +52,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
                 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 pathname === href
                   ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
               )}
             >
               <Icon className="h-4 w-4" />
@@ -89,7 +89,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
 
               <form action={signOut}>
                 <Button variant="ghost" size="icon" type="submit" title="Sign out">
-                  <LogOut className="h-4 w-4 text-zinc-500" />
+                  <LogOut className="h-4 w-4 text-zinc-300" />
                 </Button>
               </form>
             </>
@@ -106,7 +106,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
 
           {/* Mobile menu toggle */}
           <button
-            className="md:hidden text-zinc-400 hover:text-white"
+            className="md:hidden text-zinc-300 hover:text-white"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -126,7 +126,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 pathname === href
                   ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
               )}
             >
               <Icon className="h-4 w-4" />
@@ -135,7 +135,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
           ))}
           {isAuthenticated && (
             <form action={signOut} className="pt-2 border-t border-zinc-800">
-              <button className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-400 hover:text-white w-full">
+              <button className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-300 hover:text-white w-full">
                 <LogOut className="h-4 w-4" />
                 Sign Out
               </button>

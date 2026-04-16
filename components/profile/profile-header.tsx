@@ -45,7 +45,7 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
                 <h1 className="text-2xl font-black text-white">
                   {profile.display_name ?? profile.username}
                 </h1>
-                <p className="text-zinc-500 text-sm">@{profile.username}</p>
+                <p className="text-zinc-300 text-sm">@{profile.username}</p>
                 {profile.bio && (
                   <p className="text-zinc-400 text-sm mt-1 max-w-md">{profile.bio}</p>
                 )}
@@ -83,22 +83,22 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
           <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
             <Trophy className="h-4 w-4 mx-auto mb-1 text-amber-400" />
             <p className="text-white font-black text-lg leading-none">{profile.total_points}</p>
-            <p className="text-zinc-500 text-[11px] mt-1">Points</p>
+            <p className="text-zinc-300 text-[11px] mt-1">Points</p>
           </div>
           <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
             <Target className="h-4 w-4 mx-auto mb-1 text-emerald-400" />
             <p className="text-white font-black text-lg leading-none">{wr}</p>
-            <p className="text-zinc-500 text-[11px] mt-1">Win Rate</p>
+            <p className="text-zinc-300 text-[11px] mt-1">Win Rate</p>
           </div>
           <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
             <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary" />
             <p className="text-white font-black text-lg leading-none">{profile.total_picks}</p>
-            <p className="text-zinc-500 text-[11px] mt-1">Picks</p>
+            <p className="text-zinc-300 text-[11px] mt-1">Picks</p>
           </div>
           <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
             <Flame className="h-4 w-4 mx-auto mb-1 text-orange-400" />
             <p className="text-white font-black text-lg leading-none">{profile.longest_streak}</p>
-            <p className="text-zinc-500 text-[11px] mt-1">Best Streak</p>
+            <p className="text-zinc-300 text-[11px] mt-1">Best Streak</p>
           </div>
         </div>
       </div>

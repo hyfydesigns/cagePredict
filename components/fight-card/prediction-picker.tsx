@@ -25,7 +25,7 @@ export function PredictionPicker({
   if (!userId) {
     return (
       <div className="px-4 py-3 border-t border-zinc-800/50 flex items-center justify-center">
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-zinc-300">
           <a href="/login" className="text-primary hover:underline">Sign in</a> to make predictions
         </p>
       </div>
@@ -35,8 +35,8 @@ export function PredictionPicker({
   if (isLocked && !currentPick) {
     return (
       <div className="px-4 py-3 border-t border-zinc-800/50 flex items-center justify-center gap-2">
-        <Lock className="h-4 w-4 text-zinc-600" />
-        <span className="text-sm text-zinc-600">Picks are locked</span>
+        <Lock className="h-4 w-4 text-zinc-400" />
+        <span className="text-sm text-zinc-400">Picks are locked</span>
       </div>
     )
   }
@@ -61,7 +61,7 @@ export function PredictionPicker({
   return (
     <div className="border-t border-zinc-800/50">
       <div className="px-4 py-3 space-y-3">
-        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider text-center">
+        <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider text-center">
           Who wins?
         </p>
 
@@ -103,7 +103,7 @@ export function PredictionPicker({
                 </button>
               ) : lockTaken ? (
                 // Lock is used on another fight
-                <div className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-800 py-2 text-xs text-zinc-600 cursor-not-allowed">
+                <div className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-800 py-2 text-xs text-zinc-400 cursor-not-allowed">
                   <Lock className="h-3.5 w-3.5" />
                   Lock used on another fight
                 </div>
@@ -112,7 +112,7 @@ export function PredictionPicker({
                 <button
                   onClick={() => onToggleLock(true)}
                   disabled={isPending}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 py-2 text-sm font-semibold text-zinc-400 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400 transition-all group"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 py-2 text-sm font-semibold text-zinc-300 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400 transition-all group"
                 >
                   <LockOpen className="h-4 w-4 group-hover:hidden" />
                   <Lock className="h-4 w-4 hidden group-hover:block" />

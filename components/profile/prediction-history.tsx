@@ -11,7 +11,7 @@ interface PredictionHistoryProps {
 export function PredictionHistory({ predictions }: PredictionHistoryProps) {
   if (predictions.length === 0) {
     return (
-      <div className="text-center py-12 text-zinc-600">
+      <div className="text-center py-12 text-zinc-400">
         <p className="text-sm">No predictions yet — make your first picks!</p>
       </div>
     )
@@ -44,7 +44,7 @@ export function PredictionHistory({ predictions }: PredictionHistoryProps) {
             <div className="shrink-0">
               {pred.is_correct === true && <CheckCircle className="h-5 w-5 text-green-400" />}
               {pred.is_correct === false && <XCircle className="h-5 w-5 text-red-400" />}
-              {pred.is_correct === null && <Clock className="h-5 w-5 text-zinc-600" />}
+              {pred.is_correct === null && <Clock className="h-5 w-5 text-zinc-400" />}
             </div>
 
             {/* Fight info */}
@@ -52,16 +52,16 @@ export function PredictionHistory({ predictions }: PredictionHistoryProps) {
               <p className="text-sm text-white font-semibold line-clamp-1">
                 {pred.fight.event.name}
               </p>
-              <p className="text-xs text-zinc-500 mt-0.5">
+              <p className="text-xs text-zinc-300 mt-0.5">
                 <span className="text-zinc-300">{pickedFighter.name}</span>
-                <span className="text-zinc-600 mx-1.5">vs</span>
+                <span className="text-zinc-400 mx-1.5">vs</span>
                 {opponent.name}
               </p>
             </div>
 
             {/* Date + result */}
             <div className="text-right shrink-0">
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-zinc-300">
                 {format(new Date(pred.fight.fight_time), 'MMM d')}
               </p>
               {isCompleted ? (

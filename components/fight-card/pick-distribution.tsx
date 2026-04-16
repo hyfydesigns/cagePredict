@@ -23,7 +23,7 @@ export function PickDistribution({ f1Name, f2Name, f1Id, f2Id, pickCounts }: Pic
 
   return (
     <div className="space-y-1">
-      <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+      <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
         Community Picks · {total} vote{total !== 1 ? 's' : ''}
       </h4>
       <div className="flex items-center gap-2 text-xs">
@@ -36,7 +36,7 @@ export function PickDistribution({ f1Name, f2Name, f1Id, f2Id, pickCounts }: Pic
         </div>
         <span className="w-12 font-bold text-zinc-200">{f2Pct}%</span>
       </div>
-      <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+      <div className="flex items-center gap-2 text-[10px] text-zinc-400">
         <span className="w-12 text-right">{f1Last}</span>
         <div className="flex-1" />
         <span className="w-12">{f2Last}</span>

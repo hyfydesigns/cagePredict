@@ -80,10 +80,10 @@ export function FighterComparisonSlider({ fighter1, fighter2 }: FighterCompariso
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+        <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
           Fighter Comparison
         </h4>
-        <span className="text-[10px] text-zinc-700">drag to spotlight</span>
+        <span className="text-[10px] text-zinc-300">drag to spotlight</span>
       </div>
 
       {/* Slider */}
@@ -131,7 +131,7 @@ export function FighterComparisonSlider({ fighter1, fighter2 }: FighterCompariso
 
           return (
             <div key={stat.label}>
-              <div className="flex items-center justify-between text-[10px] text-zinc-600 mb-0.5">
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-0.5">
                 <span
                   style={{ opacity: sliderVal < 50 ? 1 : 0.45 }}
                   className={cn('font-bold transition-opacity duration-150', f1Wins && 'text-zinc-300')}

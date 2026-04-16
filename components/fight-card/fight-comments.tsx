@@ -86,7 +86,7 @@ export function FightComments({ fightId, initialComments, currentUserId }: Fight
     <div className="space-y-3">
       {/* Comment list */}
       {comments.length === 0 ? (
-        <p className="text-center text-xs text-zinc-600 py-4">
+        <p className="text-center text-xs text-zinc-400 py-4">
           No trash talk yet — be the first 🗣️
         </p>
       ) : (
@@ -111,20 +111,20 @@ export function FightComments({ fightId, initialComments, currentUserId }: Fight
                       : 'bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-tl-sm'
                   )}>
                     {!isOwn && (
-                      <p className="text-[10px] font-bold text-zinc-500 mb-0.5">
+                      <p className="text-[10px] font-bold text-zinc-300 mb-0.5">
                         {comment.profile?.display_name ?? comment.profile?.username}
                       </p>
                     )}
                     {comment.content}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 px-1">
-                    <span className="text-[10px] text-zinc-600">
+                    <span className="text-[10px] text-zinc-400">
                       {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                     </span>
                     {isOwn && (
                       <button
                         onClick={() => handleDelete(comment.id)}
-                        className="text-[10px] text-zinc-700 hover:text-red-400 transition-colors"
+                        className="text-[10px] text-zinc-300 hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -146,7 +146,7 @@ export function FightComments({ fightId, initialComments, currentUserId }: Fight
             onChange={(e) => setText(e.target.value)}
             maxLength={280}
             placeholder="Talk your trash… 🥊"
-            className="flex-1 min-w-0 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary transition-colors"
+            className="flex-1 min-w-0 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-400 focus:outline-none focus:border-primary transition-colors"
           />
           <button
             type="submit"
@@ -157,7 +157,7 @@ export function FightComments({ fightId, initialComments, currentUserId }: Fight
           </button>
         </form>
       ) : (
-        <p className="text-center text-xs text-zinc-600">
+        <p className="text-center text-xs text-zinc-400">
           <a href="/login" className="text-primary hover:underline">Sign in</a> to join the trash talk
         </p>
       )}

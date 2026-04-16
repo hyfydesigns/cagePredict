@@ -50,7 +50,7 @@ function formPillClass(letter: 'W' | 'L' | 'D'): string {
 function rankBadgeClass(rank: number): string {
   if (rank === 1)  return 'bg-amber-500/15 text-amber-400 border-amber-500/30'
   if (rank <= 3)   return 'bg-zinc-700/60 text-zinc-200 border-zinc-600/40'
-  return 'bg-transparent text-zinc-500 border-zinc-700/50'
+  return 'bg-transparent text-zinc-300 border-zinc-700/50'
 }
 
 type WeightClassGroup = {
@@ -107,7 +107,7 @@ export default async function StandingsPage() {
   if (error) {
     return (
       <div className="container mx-auto py-16 text-center">
-        <p className="text-zinc-500">Failed to load standings. Please try again later.</p>
+        <p className="text-zinc-300">Failed to load standings. Please try again later.</p>
       </div>
     )
   }
@@ -126,15 +126,15 @@ export default async function StandingsPage() {
           <BarChart2 className="h-6 w-6 text-primary" />
           <h1 className="text-3xl font-black text-white">Standings</h1>
         </div>
-        <p className="text-zinc-500 text-sm pl-9">
+        <p className="text-zinc-300 text-sm pl-9">
           Fighter rankings by weight class — sorted by wins
         </p>
       </div>
 
       {groups.length === 0 && (
-        <div className="text-center py-16 text-zinc-600">
+        <div className="text-center py-16 text-zinc-400">
           <BarChart2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="font-semibold text-zinc-500">No fighter data available yet</p>
+          <p className="font-semibold text-zinc-300">No fighter data available yet</p>
         </div>
       )}
 
@@ -148,12 +148,12 @@ export default async function StandingsPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-bold text-white">{weightClass}</h2>
-                <Badge variant="outline" className="text-xs font-medium text-zinc-500">
+                <Badge variant="outline" className="text-xs font-medium text-zinc-300">
                   {groupFighters.length} fighter{groupFighters.length !== 1 ? 's' : ''}
                 </Badge>
               </div>
               {groupFighters.length > TOP_N && (
-                <span className="text-xs text-zinc-600">
+                <span className="text-xs text-zinc-400">
                   Showing top {TOP_N} of {groupFighters.length}
                 </span>
               )}
@@ -163,11 +163,11 @@ export default async function StandingsPage() {
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
               {/* Table header */}
               <div className="grid grid-cols-[2.5rem_1fr_auto_auto] md:grid-cols-[2.5rem_1fr_auto_auto_auto] items-center gap-x-3 px-4 py-2.5 border-b border-zinc-800 bg-zinc-900">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">#</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Fighter</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 text-right">Record</span>
-                <span className="hidden md:block text-[10px] font-semibold uppercase tracking-wider text-zinc-600 text-right">Form</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 text-right">W</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">#</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Fighter</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 text-right">Record</span>
+                <span className="hidden md:block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 text-right">Form</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 text-right">W</span>
               </div>
 
               {/* Rows */}
@@ -199,7 +199,7 @@ export default async function StandingsPage() {
                         {fighter.name}
                       </p>
                       {fighter.nickname && (
-                        <p className="text-[11px] text-zinc-500 truncate leading-tight mt-0.5">
+                        <p className="text-[11px] text-zinc-300 truncate leading-tight mt-0.5">
                           &quot;{fighter.nickname}&quot;
                         </p>
                       )}
@@ -211,7 +211,7 @@ export default async function StandingsPage() {
                         {record}
                       </span>
                       <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                        <span className="text-[10px] text-zinc-600">W-L{fighter.draws > 0 ? '-D' : ''}</span>
+                        <span className="text-[10px] text-zinc-400">W-L{fighter.draws > 0 ? '-D' : ''}</span>
                       </div>
                     </div>
 
@@ -230,7 +230,7 @@ export default async function StandingsPage() {
                           </span>
                         ))
                       ) : (
-                        <span className="text-[11px] text-zinc-700">—</span>
+                        <span className="text-[11px] text-zinc-300">—</span>
                       )}
                     </div>
 

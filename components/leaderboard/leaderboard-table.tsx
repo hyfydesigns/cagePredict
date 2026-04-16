@@ -56,7 +56,7 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`font-bold text-sm truncate ${isMe ? 'text-primary' : 'text-white'}`}>
                     {entry.display_name ?? entry.username}
-                    {isMe && <span className="text-zinc-500 font-normal ml-1">(you)</span>}
+                    {isMe && <span className="text-zinc-300 font-normal ml-1">(you)</span>}
                   </span>
                   {entry.rank <= 3 && (
                     <Badge variant="warning" className="text-[10px] px-1.5">
@@ -70,7 +70,7 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-[11px] text-zinc-500">
+                  <span className="text-[11px] text-zinc-300">
                     <Target className="h-3 w-3 inline mr-0.5" />
                     {entry.win_rate}% accuracy
                   </span>
@@ -86,7 +86,7 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
               {/* Points */}
               <div className="text-right shrink-0">
                 <p className="text-white font-black text-base">{entry.total_points}</p>
-                <p className="text-zinc-600 text-[11px]">pts</p>
+                <p className="text-zinc-400 text-[11px]">pts</p>
               </div>
             </Link>
           </motion.div>
@@ -94,7 +94,7 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
       })}
 
       {live.length === 0 && (
-        <div className="text-center py-12 text-zinc-600">
+        <div className="text-center py-12 text-zinc-400">
           <p className="text-sm">No rankings yet — be the first!</p>
         </div>
       )}

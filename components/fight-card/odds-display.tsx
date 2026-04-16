@@ -15,7 +15,7 @@ export function OddsDisplay({ odds1, odds2, layout = 'vertical' }: OddsDisplayPr
     return (
       <div className="flex items-center gap-3">
         <OddsChip odds={odds1} implied={implied1} />
-        <span className="text-zinc-600 text-xs">vs</span>
+        <span className="text-zinc-400 text-xs">vs</span>
         <OddsChip odds={odds2} implied={implied2} />
       </div>
     )
@@ -39,7 +39,7 @@ function OddsChip({ odds, implied, label }: { odds: number; implied: number; lab
       )}>
         {formatOdds(odds)}
       </span>
-      <span className="text-[10px] text-zinc-600 leading-none mt-0.5">
+      <span className="text-[10px] text-zinc-400 leading-none mt-0.5">
         {implied}%
       </span>
     </div>

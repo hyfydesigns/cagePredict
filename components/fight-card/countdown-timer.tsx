@@ -18,7 +18,7 @@ export function CountdownTimer({ fightTime, compact = false }: CountdownTimerPro
     return (
       <span className={cn(
         'flex items-center gap-1 text-xs',
-        isLocked ? 'text-red-400' : 'text-zinc-500'
+        isLocked ? 'text-red-400' : 'text-zinc-300'
       )}>
         {isLocked ? <Lock className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
         {isLocked ? 'Locks soon' : formatted}
@@ -29,7 +29,7 @@ export function CountdownTimer({ fightTime, compact = false }: CountdownTimerPro
   return (
     <div className={cn(
       'flex flex-col items-center gap-0.5 mt-1',
-      isLocked ? 'text-red-400' : 'text-zinc-500'
+      isLocked ? 'text-red-400' : 'text-zinc-300'
     )}>
       {isLocked ? (
         <>

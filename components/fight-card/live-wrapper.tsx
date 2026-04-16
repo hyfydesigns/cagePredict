@@ -67,7 +67,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         <div className="flex items-center justify-center gap-2 text-xs text-primary font-semibold">
           <Radio className="h-3.5 w-3.5 animate-pulse-red" />
           Live — updating every 30s
-          <span className="text-zinc-600 font-normal">
+          <span className="text-zinc-400 font-normal">
             {refreshError
               ? '· refresh error'
               : lastRefresh
@@ -92,7 +92,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
                   border transition-all whitespace-nowrap
                   ${active
                     ? 'bg-zinc-800 border-zinc-600 text-white shadow-sm'
-                    : 'bg-transparent border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'}
+                    : 'bg-transparent border-zinc-800 text-zinc-300 hover:text-zinc-200 hover:border-zinc-700'}
                 `}
               >
                 {live && (
@@ -107,7 +107,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
                     ? 'bg-primary/20 text-primary'
                     : active
                     ? 'bg-zinc-700 text-zinc-300'
-                    : 'bg-zinc-800/80 text-zinc-600'}
+                    : 'bg-zinc-800/80 text-zinc-400'}
                 `}>
                   {live ? 'LIVE' : format(new Date(event.date), 'MMM d')}
                 </span>
@@ -154,7 +154,7 @@ function EventSectionClient({
                   {event.name}
                   <Link
                     href={`/events/${event.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
-                    className="text-zinc-600 hover:text-zinc-400 transition-colors"
+                    className="text-zinc-400 hover:text-zinc-300 transition-colors"
                     title="Event page"
                   >
                     <ExternalLink className="h-4 w-4" />

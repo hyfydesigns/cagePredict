@@ -83,12 +83,12 @@ export function FighterPortrait({
           {fighter.name.split(' ').slice(0, -1).join(' ')}
         </p>
         {fighter.nickname && (
-          <p className="text-zinc-400 text-[10px] italic mt-0.5 line-clamp-1">
+          <p className="text-zinc-300 text-[10px] italic mt-0.5 line-clamp-1">
             "{fighter.nickname}"
           </p>
         )}
         <div className={cn('flex items-center gap-1.5 mt-1', isLeft ? '' : 'justify-end')}>
-          <span className="text-zinc-500 text-[11px] font-medium">{fighter.record}</span>
+          <span className="text-zinc-300 text-[11px] font-medium">{fighter.record}</span>
         </div>
 
         {/* Picked indicator */}

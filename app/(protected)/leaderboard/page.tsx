@@ -79,12 +79,12 @@ export default async function LeaderboardPage() {
           <Trophy className="h-6 w-6 text-amber-400" />
           <h1 className="text-3xl font-black text-white">Leaderboard</h1>
         </div>
-        <p className="text-zinc-500 text-sm pl-9">
+        <p className="text-zinc-300 text-sm pl-9">
           {myRank
             ? <>Your rank: <span className="text-white font-bold">#{myRank}</span></>
             : user
-            ? <span className="text-zinc-600">Make picks to earn your rank</span>
-            : <span className="text-zinc-600">Top 100 predictors worldwide</span>
+            ? <span className="text-zinc-400">Make picks to earn your rank</span>
+            : <span className="text-zinc-400">Top 100 predictors worldwide</span>
           }
         </p>
       </div>
@@ -105,15 +105,15 @@ export default async function LeaderboardPage() {
 
         <TabsContent value="friends">
           {!user ? (
-            <div className="text-center py-12 text-zinc-600">
+            <div className="text-center py-12 text-zinc-400">
               <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="font-semibold text-zinc-500">Sign in to see friends</p>
+              <p className="font-semibold text-zinc-300">Sign in to see friends</p>
               <p className="text-sm mt-1">Create an account and add friends to compare your ranks.</p>
             </div>
           ) : friendEntries.length === 0 ? (
-            <div className="text-center py-12 text-zinc-600">
+            <div className="text-center py-12 text-zinc-400">
               <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="font-semibold text-zinc-500">No friends added yet</p>
+              <p className="font-semibold text-zinc-300">No friends added yet</p>
               <p className="text-sm mt-1">
                 Visit someone&apos;s profile to send a friend request.
               </p>
