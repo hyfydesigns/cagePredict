@@ -1,16 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Save } from 'lucide-react'
+import { Loader2, Save, Bell, BellOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AvatarPicker } from '@/components/auth/avatar-picker'
-import { updateProfile } from '@/lib/actions/auth'
+import { updateProfile, updateEmailNotifications } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
 import { useSupabase } from '@/components/providers/supabase-provider'
-import { useEffect } from 'react'
 import type { ProfileRow } from '@/types/database'
 
 export default function EditProfilePage() {
@@ -20,7 +19,9 @@ export default function EditProfilePage() {
   const [bio, setBio] = useState('')
   const [avatarEmoji, setAvatarEmoji] = useState('🥊')
   const [favFighter, setFavFighter] = useState('')
+  const [emailNotifications, setEmailNotifications] = useState(true)
   const [isPending, startTransition] = useTransition()
+  const [isTogglingEmail, startEmailTransition] = useTransition()
   const { toast } = useToast()
   const router = useRouter()
 
@@ -34,6 +35,7 @@ export default function EditProfilePage() {
         setBio(data.bio ?? '')
         setAvatarEmoji(data.avatar_emoji)
         setFavFighter(data.favorite_fighter ?? '')
+        setEmailNotifications(data.email_notifications ?? true)
       }
     })
   }, [user, supabase])
@@ -52,6 +54,25 @@ export default function EditProfilePage() {
       } else {
         toast({ title: 'Profile updated!' })
         if (profile) router.push(`/profile/${profile.username}`)
+      }
+    })
+  }
+
+  function handleEmailToggle() {
+    const next = !emailNotifications
+    setEmailNotifications(next)
+    startEmailTransition(async () => {
+      const result = await updateEmailNotifications(next)
+      if (result?.error) {
+        setEmailNotifications(!next) // revert on error
+        toast({ title: 'Error', description: result.error, variant: 'destructive' })
+      } else {
+        toast({
+          title: next ? 'Email notifications on' : 'Email notifications off',
+          description: next
+            ? "You'll get card-live alerts and weekly recaps."
+            : "You won't receive any emails from CagePredict.",
+        })
       }
     })
   }
@@ -96,6 +117,50 @@ export default function EditProfilePage() {
           </Button>
         </div>
       </form>
+
+      {/* Notifications section — separate from the main form */}
+      <div className="mt-8 pt-8 border-t border-zinc-800">
+        <h2 className="text-lg font-bold text-white mb-1">Notifications</h2>
+        <p className="text-sm text-zinc-500 mb-4">
+          Control what emails CagePredict sends you.
+        </p>
+
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 flex items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 rounded-lg p-1.5 ${emailNotifications ? 'bg-primary/10 text-primary' : 'bg-zinc-800 text-zinc-500'}`}>
+              {emailNotifications ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Email notifications</p>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Card-live alerts &amp; weekly pick recaps
+              </p>
+            </div>
+          </div>
+
+          {/* Toggle switch */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={emailNotifications}
+            onClick={handleEmailToggle}
+            disabled={isTogglingEmail}
+            className={`
+              relative inline-flex h-6 w-11 shrink-0 items-center rounded-full
+              transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
+              disabled:opacity-50
+              ${emailNotifications ? 'bg-primary' : 'bg-zinc-700'}
+            `}
+          >
+            <span
+              className={`
+                inline-block h-4 w-4 rounded-full bg-white shadow transition-transform
+                ${emailNotifications ? 'translate-x-6' : 'translate-x-1'}
+              `}
+            />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,7 +1,9 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 export async function createClient() {
+  // Lazy import so this module is safe to import from generateStaticParams
+  // (cookies() must not be called at module-evaluation time during builds)
+  const { cookies } = await import('next/headers')
   const cookieStore = await cookies()
 
   return createServerClient(
@@ -23,6 +25,20 @@ export async function createClient() {
         },
       },
     }
+  )
+}
+
+/**
+ * Cookie-free anon client — safe for generateStaticParams / build-time contexts
+ * where cookies() is unavailable.
+ */
+export function createBuildClient() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createClient: sb } = require('@supabase/supabase-js')
+  return sb(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } }
   )
 }
 

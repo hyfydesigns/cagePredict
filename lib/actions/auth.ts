@@ -116,3 +116,19 @@ export async function updateProfile(data: EditProfileInput): Promise<ActionResul
   revalidatePath('/profile', 'layout')
   return { success: true }
 }
+
+export async function updateEmailNotifications(enabled: boolean): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ email_notifications: enabled })
+    .eq('id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/profile/edit')
+  return { success: true }
+}

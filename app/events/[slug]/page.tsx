@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { format } from 'date-fns'
 import { MapPin, Calendar, ChevronRight, Trophy, Swords } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createBuildClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import { slugify } from '@/lib/utils'
 import type { EventWithFights } from '@/types/database'
@@ -13,14 +13,16 @@ export const revalidate = 3600 // Re-generate every hour
 
 // ─── Static params for ISR ────────────────────────────────────────────────────
 export async function generateStaticParams() {
-  const supabase = await createClient()
+  // Must use a cookie-free client — generateStaticParams runs at build time
+  // without an HTTP request, so cookies() is unavailable.
+  const supabase = createBuildClient()
   const { data: events } = await supabase
     .from('events')
     .select('name')
     .order('date', { ascending: false })
     .limit(20)
 
-  return (events ?? []).map((e) => ({ slug: slugify(e.name) }))
+  return (events ?? []).map((e: { name: string }) => ({ slug: slugify(e.name) }))
 }
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
