@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { Radio } from 'lucide-react'
+import { format } from 'date-fns'
+import { MapPin, Calendar } from 'lucide-react'
+import Image from 'next/image'
 import { getActiveEvents } from '@/lib/actions/events'
+import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
 import type { PredictionMap } from '@/hooks/use-predictions'
 import { FightCardSections } from './fight-card-sections'
@@ -17,6 +21,7 @@ interface LiveWrapperProps {
 export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight = {} }: LiveWrapperProps) {
   const [events, setEvents] = useState(initialEvents)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [refreshError, setRefreshError] = useState(false)
   const [, startTransition] = useTransition()
 
   const isLive = events.some((e) => e.status === 'live')
@@ -25,9 +30,14 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     if (!isLive) return
     const interval = setInterval(() => {
       startTransition(async () => {
-        const fresh = await getActiveEvents()
-        setEvents(fresh)
-        setLastRefresh(new Date())
+        try {
+          const fresh = await getActiveEvents()
+          setEvents(fresh)
+          setLastRefresh(new Date())
+          setRefreshError(false)
+        } catch {
+          setRefreshError(true)
+        }
       })
     }, 30_000)
     return () => clearInterval(interval)
@@ -36,14 +46,16 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   return (
     <>
       {isLive && (
-        <div className="flex items-center justify-center gap-2 text-xs text-red-400 font-semibold -mt-6 mb-2">
-          <Radio className="h-3.5 w-3.5 animate-pulse" />
+        <div className="flex items-center justify-center gap-2 text-xs text-primary font-semibold -mt-6 mb-2">
+          <Radio className="h-3.5 w-3.5 animate-pulse-red" />
           Live — updating every 30s
-          {lastRefresh && (
-            <span className="text-zinc-600 font-normal">
-              · {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-          )}
+          <span className="text-zinc-600 font-normal">
+            {refreshError
+              ? '· refresh error'
+              : lastRefresh
+              ? `· ${lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+              : ''}
+          </span>
         </div>
       )}
       {events.map((event) => (
@@ -52,13 +64,6 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     </>
   )
 }
-
-// Inline client-side EventSection (mirrors the server one in page.tsx)
-import React from 'react'
-import { format } from 'date-fns'
-import { MapPin, Calendar } from 'lucide-react'
-import Image from 'next/image'
-import { Badge } from '@/components/ui/badge'
 
 function EventSectionClient({
   event, userPicks, userId, commentsByFight = {},

@@ -1,6 +1,6 @@
 'use client'
 
-import { Star, Tv } from 'lucide-react'
+import { Star, Tv, Radio } from 'lucide-react'
 import { FightCardList } from './fight-card-list'
 import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 import type { PredictionMap } from '@/hooks/use-predictions'
@@ -32,7 +32,9 @@ export function FightCardSections({ fights, userPicks, userId, commentsByFight =
   )
   const ungrouped = fights.filter((f) => !(f as any).fight_type)
 
-  if (ungrouped.length > 0) {
+  // If nothing is categorised at all, render flat (no dividers)
+  const hasSections = maincard.length > 0 || prelims.length > 0 || earlyPrelims.length > 0
+  if (!hasSections) {
     return <FightCardList fights={ungrouped} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
   }
 
@@ -46,15 +48,18 @@ export function FightCardSections({ fights, userPicks, userId, commentsByFight =
       )}
       {prelims.length > 0 && (
         <>
-          <SectionDivider label="Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-500" />} />
+          <SectionDivider label="Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-400" />} />
           <FightCardList fights={prelims} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
         </>
       )}
       {earlyPrelims.length > 0 && (
         <>
-          <SectionDivider label="Early Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-600" />} />
+          <SectionDivider label="Early Prelims" icon={<Radio className="h-3.5 w-3.5 text-zinc-500" />} />
           <FightCardList fights={earlyPrelims} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
         </>
+      )}
+      {ungrouped.length > 0 && (
+        <FightCardList fights={ungrouped} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
       )}
     </div>
   )

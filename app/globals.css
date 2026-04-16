@@ -20,7 +20,7 @@
   }
 
   body {
-    @apply bg-[#080808] text-zinc-100 antialiased;
+    @apply bg-background text-zinc-100 antialiased;
     font-family: var(--font-geist-sans);
   }
 

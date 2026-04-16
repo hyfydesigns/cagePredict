@@ -63,7 +63,7 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
             {/* Badges row */}
             <div className="flex items-center flex-wrap gap-2 mt-3">
               {rank && <RankBadge rank={rank} showLabel />}
-              {profile.current_streak > 2 && (
+              {profile.current_streak >= 2 && (
                 <Badge variant="warning" className="gap-1">
                   <Flame className="h-3 w-3" />
                   {profile.current_streak} streak
@@ -79,19 +79,27 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-4 gap-3 mt-6">
-          {[
-            { label: 'Points', value: profile.total_points, icon: Trophy, color: 'text-amber-400' },
-            { label: 'Win Rate', value: wr, icon: Target, color: 'text-green-400' },
-            { label: 'Picks', value: profile.total_picks, icon: TrendingUp, color: 'text-blue-400' },
-            { label: 'Best Streak', value: profile.longest_streak, icon: Flame, color: 'text-orange-400' },
-          ].map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
-              <Icon className={`h-4 w-4 mx-auto mb-1 ${color}`} />
-              <p className="text-white font-black text-lg leading-none">{value}</p>
-              <p className="text-zinc-500 text-[11px] mt-1">{label}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
+            <Trophy className="h-4 w-4 mx-auto mb-1 text-amber-400" />
+            <p className="text-white font-black text-lg leading-none">{profile.total_points}</p>
+            <p className="text-zinc-500 text-[11px] mt-1">Points</p>
+          </div>
+          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
+            <Target className="h-4 w-4 mx-auto mb-1 text-emerald-400" />
+            <p className="text-white font-black text-lg leading-none">{wr}</p>
+            <p className="text-zinc-500 text-[11px] mt-1">Win Rate</p>
+          </div>
+          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
+            <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary" />
+            <p className="text-white font-black text-lg leading-none">{profile.total_picks}</p>
+            <p className="text-zinc-500 text-[11px] mt-1">Picks</p>
+          </div>
+          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
+            <Flame className="h-4 w-4 mx-auto mb-1 text-orange-400" />
+            <p className="text-white font-black text-lg leading-none">{profile.longest_streak}</p>
+            <p className="text-zinc-500 text-[11px] mt-1">Best Streak</p>
+          </div>
         </div>
       </div>
     </div>
