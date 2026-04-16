@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     {
       cookies: {
         getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) { pendingCookies.push(...cookiesToSet) },
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) { pendingCookies.push(...cookiesToSet) },
       },
     }
   )
