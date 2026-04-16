@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Loader2, Swords, Trophy, Flame, Lock, Users, BarChart2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { AvatarPicker } from '@/components/auth/avatar-picker'
 import { completeOnboarding } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
+import { useSupabase } from '@/components/providers/supabase-provider'
 
 const FEATURES = [
   { icon: Swords,   text: 'Pick the winner of every UFC fight' },
@@ -22,12 +23,20 @@ const FEATURES = [
 export default function OnboardingPage() {
   const searchParams = useSearchParams()
   const isWelcome = searchParams.get('welcome') === '1'
+  const { user } = useSupabase()
 
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [avatarEmoji, setAvatarEmoji] = useState('🥊')
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
+
+  // Pre-fill username from the value entered during sign-up (stored in user_metadata)
+  useEffect(() => {
+    if (user?.user_metadata?.username && !username) {
+      setUsername(user.user_metadata.username)
+    }
+  }, [user])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -82,20 +91,31 @@ export default function OnboardingPage() {
             <AvatarPicker selected={avatarEmoji} onSelect={setAvatarEmoji} />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="username">Username *</Label>
-            <Input
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="octagonking"
-              required
-              minLength={3}
-              maxLength={20}
-              pattern="[a-zA-Z0-9_]+"
-            />
-            <p className="text-xs text-zinc-600">Letters, numbers and underscores only</p>
-          </div>
+          {/* Username — hidden if already provided during sign-up */}
+          {user?.user_metadata?.username ? (
+            <div className="flex items-center gap-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50 px-4 py-3">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+              <div>
+                <p className="text-xs text-zinc-500">Username</p>
+                <p className="text-sm font-semibold text-white">@{username}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="username">Username *</Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="octagonking"
+                required
+                minLength={3}
+                maxLength={20}
+                pattern="[a-zA-Z0-9_]+"
+              />
+              <p className="text-xs text-zinc-600">Letters, numbers and underscores only</p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="display-name">Display Name</Label>
