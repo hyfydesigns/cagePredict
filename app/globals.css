@@ -10,8 +10,13 @@
     --font-geist-mono: 'JetBrains Mono', 'Fira Code', monospace;
   }
 
+  /* ── Light mode overrides ─────────────────────────────── */
+  html.light {
+    --background: 0 0% 97%;
+    --foreground: 0 0% 5%;
+  }
+
   * {
-    @apply border-zinc-800;
     box-sizing: border-box;
   }
 
@@ -20,9 +25,31 @@
   }
 
   body {
-    @apply bg-background text-zinc-100 antialiased;
+    @apply antialiased;
     font-family: var(--font-geist-sans);
+    background-color: #080808;
+    color: #f4f4f5;
   }
+
+  html.light body {
+    background-color: #f5f5f5;
+    color: #111111;
+  }
+
+  /* Light mode surface overrides */
+  html.light .bg-zinc-900 { background-color: #ffffff !important; }
+  html.light .bg-zinc-800 { background-color: #e4e4e7 !important; }
+  html.light .bg-\[#080808\] { background-color: #f5f5f5 !important; }
+  html.light .bg-\[#0d0d0d\] { background-color: #fafafa !important; }
+  html.light .border-zinc-800 { border-color: #d4d4d8 !important; }
+  html.light .border-zinc-700 { border-color: #a1a1aa !important; }
+  html.light .text-zinc-100 { color: #111111 !important; }
+  html.light .text-zinc-200 { color: #27272a !important; }
+  html.light .text-zinc-300 { color: #3f3f46 !important; }
+  html.light .text-zinc-400 { color: #52525b !important; }
+  html.light .text-zinc-500 { color: #71717a !important; }
+  html.light .text-zinc-600 { color: #a1a1aa !important; }
+  html.light .text-white { color: #111111 !important; }
 
   /* Custom scrollbar */
   ::-webkit-scrollbar {

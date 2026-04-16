@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence, useAnimate } from 'framer-motion'
 import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { FighterPortrait } from './fighter-portrait'
@@ -11,6 +11,7 @@ import { CountdownTimer } from './countdown-timer'
 import { FightStatusBadge } from './fight-status-badge'
 import { FightComments } from './fight-comments'
 import { PickDistribution } from './pick-distribution'
+import { FighterComparisonSlider } from './fighter-comparison-slider'
 import { cn } from '@/lib/utils'
 import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 
@@ -94,6 +95,8 @@ export function FightCard({
   const [expanded, setExpanded] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [localPick, setLocalPick] = useState<string | null>(userPick ?? null)
+  const [scope, animate] = useAnimate()
+  const flashedRef = useRef(false)
 
   const isCompleted = fight.status === 'completed'
   const isLive      = fight.status === 'live'
@@ -103,6 +106,20 @@ export function FightCard({
   const pickIncorrect = isCompleted && localPick !== null && localPick !== fight.winner_id
   const pointsEarned  = pickCorrect ? (isConfidence ? 20 : 10) : 0
 
+  // Post-fight result flash animation — fires once when result becomes known
+  useEffect(() => {
+    if (!isCompleted || !localPick || flashedRef.current) return
+    flashedRef.current = true
+
+    const color = pickCorrect
+      ? ['rgba(34,197,94,0)', 'rgba(34,197,94,0.25)', 'rgba(34,197,94,0)']
+      : ['rgba(239,68,68,0)',  'rgba(239,68,68,0.20)',  'rgba(239,68,68,0)']
+
+    animate(scope.current, {
+      backgroundColor: color,
+    }, { duration: 1.2, times: [0, 0.4, 1], ease: 'easeOut' })
+  }, [isCompleted, localPick, pickCorrect, animate, scope])
+
   async function handlePredict(winnerId: string) {
     setLocalPick(winnerId)
     await onPredict(fight.id, winnerId)
@@ -110,6 +127,7 @@ export function FightCard({
 
   return (
     <motion.div
+      ref={scope}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -119,7 +137,9 @@ export function FightCard({
           ? 'border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.08)]'
           : 'border-zinc-800/60',
         isLive && 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.18)] animate-pulse-red',
-        isCompleted && 'border-zinc-800/30 opacity-90',
+        isCompleted && pickCorrect  && 'border-emerald-500/40',
+        isCompleted && pickIncorrect && 'border-red-500/20',
+        !pickCorrect && !pickIncorrect && isCompleted && 'border-zinc-800/30 opacity-90',
         'bg-gradient-to-b from-zinc-900 to-[#0d0d0d]'
       )}
     >
@@ -267,26 +287,20 @@ export function FightCard({
                 h2h={(fight as any)._h2h ?? null}
               />
 
-              {/* Stats comparison */}
-              <div>
-                <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">
-                  Stats Comparison
-                </h4>
-                <div className="space-y-1.5">
-                  {[
-                    { label: 'Height', f1: fight.fighter1.height_cm ? cmToFtIn(fight.fighter1.height_cm) : null, f2: fight.fighter2.height_cm ? cmToFtIn(fight.fighter2.height_cm) : null },
-                    { label: 'Reach',  f1: fight.fighter1.reach_cm  ? cmToIn(fight.fighter1.reach_cm)   : null, f2: fight.fighter2.reach_cm  ? cmToIn(fight.fighter2.reach_cm)   : null },
-                    { label: 'Age',    f1: fight.fighter1.age        ? String(fight.fighter1.age)       : null, f2: fight.fighter2.age        ? String(fight.fighter2.age)       : null },
-                    { label: 'Style',  f1: fight.fighter1.fighting_style ?? null, f2: fight.fighter2.fighting_style ?? null },
-                  ].filter((row) => row.f1 || row.f2).map((row) => (
-                    <div key={row.label} className="grid grid-cols-[1fr,60px,1fr] text-xs items-center">
-                      <span className="text-zinc-200 font-semibold">{row.f1 ?? '?'}</span>
-                      <span className="text-zinc-600 text-center text-[10px] uppercase tracking-wider">{row.label}</span>
-                      <span className="text-zinc-200 font-semibold text-right">{row.f2 ?? '?'}</span>
-                    </div>
-                  ))}
+              {/* Fighter comparison slider */}
+              <FighterComparisonSlider
+                fighter1={fight.fighter1}
+                fighter2={fight.fighter2}
+              />
+
+              {/* Fighting style row (text-only stat, not in slider) */}
+              {(fight.fighter1.fighting_style || fight.fighter2.fighting_style) && (
+                <div className="grid grid-cols-[1fr,60px,1fr] text-xs items-center">
+                  <span className="text-zinc-200 font-semibold">{fight.fighter1.fighting_style ?? '?'}</span>
+                  <span className="text-zinc-600 text-center text-[10px] uppercase tracking-wider">Style</span>
+                  <span className="text-zinc-200 font-semibold text-right">{fight.fighter2.fighting_style ?? '?'}</span>
                 </div>
-              </div>
+              )}
 
               {/* Analysis */}
               {(fight.analysis_f1 || fight.analysis_f2) && (

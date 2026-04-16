@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { SupabaseProvider } from '@/components/providers/supabase-provider'
+import { ThemeProvider } from '@/components/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { Navbar } from '@/components/layout/navbar'
 import { createClient } from '@/lib/supabase/server'
@@ -38,15 +39,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} font-sans min-h-screen bg-[#080808]`}>
-        <SupabaseProvider>
-          <Navbar profile={profile} isAuthenticated={!!user} />
-          <main className="min-h-[calc(100vh-4rem)]">
-            {children}
-          </main>
-          <Toaster />
-        </SupabaseProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} font-sans min-h-screen`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <SupabaseProvider>
+            <Navbar profile={profile} isAuthenticated={!!user} />
+            <main className="min-h-[calc(100vh-4rem)]">
+              {children}
+            </main>
+            <Toaster />
+          </SupabaseProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
