@@ -134,7 +134,7 @@ export default function OnboardingPage() {
             ) : (
               <>
                 <Swords className="h-4 w-4 mr-2" />
-                {isWelcome ? 'Enter the Octagon →' : 'Start Predicting'}
+                {isWelcome ? 'Enter the Cage →' : 'Start Predicting'}
               </>
             )}
           </Button>
