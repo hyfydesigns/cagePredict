@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
   Home, Trophy, Users, User, LogOut, Menu, X,
-  Swords, Shield, Bell
+  Swords, Shield, Bell, BarChart2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -16,6 +16,7 @@ import type { ProfileRow } from '@/types/database'
 const NAV_LINKS = [
   { href: '/',            label: 'Fight Card',   icon: Swords },
   { href: '/leaderboard', label: 'Leaderboard',  icon: Trophy },
+  { href: '/standings',   label: 'Standings',    icon: BarChart2 },
   { href: '/crews',       label: 'Crews',        icon: Users },
 ]
 

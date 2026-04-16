@@ -2,7 +2,6 @@ import { ChevronRight, Swords } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { LiveWrapper } from '@/components/fight-card/live-wrapper'
-import { EventCountdownBanner } from '@/components/layout/event-countdown-banner'
 import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
 
@@ -173,23 +172,6 @@ export default async function HomePage() {
           </div>
         )}
       </div>
-
-      {/* Countdown banner — earliest upcoming fight across all events */}
-      {(() => {
-        const allFights = typedEvents.flatMap((e) => e.fights)
-        const nextFight = allFights
-          .filter((f) => f.status !== 'completed' && f.fight_time)
-          .sort((a, b) => new Date(a.fight_time).getTime() - new Date(b.fight_time).getTime())[0]
-        const nextEvent = nextFight
-          ? typedEvents.find((e) => e.fights.some((f) => f.id === nextFight.id))
-          : null
-        return nextFight && nextEvent ? (
-          <EventCountdownBanner
-            eventName={nextEvent.name}
-            fightTime={nextFight.fight_time}
-          />
-        ) : null
-      })()}
 
       {/* Events */}
       {typedEvents.length === 0 ? (

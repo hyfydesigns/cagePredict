@@ -197,6 +197,13 @@ create trigger update_predictions_updated_at
   for each row execute procedure public.update_updated_at_column();
 
 -- Mark fight completed and score all predictions
+-- Points:
+--   Base correct pick  = 10 pts
+--   Confidence (lock)  = 20 pts  (double base)
+--   Streak bonus (added on top of base/confidence):
+--     3–4 streak  →  +5 pts
+--     5–9 streak  → +10 pts
+--     10+ streak  → +20 pts
 create or replace function public.complete_fight(
   p_fight_id   uuid,
   p_winner_id  uuid,
@@ -206,7 +213,12 @@ create or replace function public.complete_fight(
 )
 returns void as $$
 declare
-  v_pred record;
+  v_pred         record;
+  v_user_streak  integer;
+  v_new_streak   integer;
+  v_base_pts     integer;
+  v_streak_bonus integer;
+  v_total_pts    integer;
 begin
   -- Update fight record
   update public.fights
@@ -220,24 +232,43 @@ begin
 
   -- Score each prediction
   for v_pred in
-    select * from public.predictions where fight_id = p_fight_id
+    select p.*, pr.current_streak as user_streak
+    from   public.predictions p
+    join   public.profiles    pr on pr.id = p.user_id
+    where  p.fight_id = p_fight_id
   loop
     if v_pred.predicted_winner_id = p_winner_id then
+      -- Base: 10 pts; double for confidence/lock picks
+      v_base_pts    := case when v_pred.is_confidence then 20 else 10 end;
+      v_new_streak  := v_pred.user_streak + 1;
+
+      -- Streak bonus tier
+      v_streak_bonus := case
+        when v_new_streak >= 10 then 20
+        when v_new_streak >=  5 then 10
+        when v_new_streak >=  3 then  5
+        else 0
+      end;
+
+      v_total_pts := v_base_pts + v_streak_bonus;
+
       update public.predictions
-        set is_correct = true, points_earned = 10
+        set is_correct    = true,
+            points_earned = v_total_pts
         where id = v_pred.id;
 
       update public.profiles
         set
-          total_points   = total_points + 10,
-          correct_picks  = correct_picks + 1,
-          total_picks    = total_picks + 1,
-          current_streak = current_streak + 1,
-          longest_streak = greatest(longest_streak, current_streak + 1)
+          total_points   = total_points   + v_total_pts,
+          correct_picks  = correct_picks  + 1,
+          total_picks    = total_picks    + 1,
+          current_streak = v_new_streak,
+          longest_streak = greatest(longest_streak, v_new_streak)
         where id = v_pred.user_id;
     else
       update public.predictions
-        set is_correct = false, points_earned = 0
+        set is_correct    = false,
+            points_earned = 0
         where id = v_pred.id;
 
       update public.profiles

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 
 interface EventCountdownBannerProps {
   eventName: string
-  /** ISO timestamp of the first main card fight */
+  /** ISO timestamp of the first upcoming fight */
   fightTime: string
 }
 
@@ -21,22 +21,41 @@ function getTimeLeft(target: Date) {
   return { days, hours, mins, secs, totalSecs }
 }
 
+// Scoped to event name so a new event automatically resets the dismissed state
+function storageKey(name: string) {
+  return `cagepredict:banner-dismissed:${name}`
+}
+
 export function EventCountdownBanner({ eventName, fightTime }: EventCountdownBannerProps) {
   const target = new Date(fightTime)
   const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(target))
   const [dismissed, setDismissed] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Read sessionStorage only on the client to avoid SSR/hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+    if (sessionStorage.getItem(storageKey(eventName)) === '1') {
+      setDismissed(true)
+    }
+  }, [eventName])
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setTimeLeft(getTimeLeft(target))
-    }, 1000)
+    const id = setInterval(() => setTimeLeft(getTimeLeft(target)), 1000)
     return () => clearInterval(id)
   }, [fightTime])
 
-  // Don't show if dismissed, expired, or event is more than 7 days away
+  function dismiss() {
+    setDismissed(true)
+    sessionStorage.setItem(storageKey(eventName), '1')
+  }
+
+  // Wait for client mount so dismissed state is accurate before first paint
+  if (!mounted) return null
+  // Hide if dismissed, expired, or more than 7 days away
   if (dismissed || !timeLeft || timeLeft.totalSecs > 7 * 24 * 3600) return null
 
-  const isImminent = timeLeft.totalSecs < 3600  // < 1 hour
+  const isImminent = timeLeft.totalSecs < 3600 // < 1 hour
 
   const parts: string[] = []
   if (timeLeft.days > 0) parts.push(`${timeLeft.days}d`)
@@ -51,23 +70,26 @@ export function EventCountdownBanner({ eventName, fightTime }: EventCountdownBan
         'relative z-30 w-full border-b px-4 py-2 text-center text-xs font-semibold transition-colors',
         isImminent
           ? 'bg-primary/10 border-primary/30 text-primary'
-          : 'bg-zinc-900 border-zinc-800 text-zinc-300 dark:bg-zinc-900 dark:border-zinc-800'
+          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
       )}
     >
       <div className="flex items-center justify-center gap-2">
         <Clock className={cn('h-3.5 w-3.5 shrink-0', isImminent && 'animate-pulse')} />
         <span>
-          <span className="text-zinc-500 dark:text-zinc-500 font-normal">
+          <span className="text-zinc-500 font-normal">
             {isImminent ? '🥊 Starting soon — ' : `${eventName} · `}
           </span>
           <span className={cn('tabular-nums', isImminent ? 'text-primary font-black' : 'text-white font-bold')}>
             {countdownStr}
           </span>
-          {!isImminent && <span className="text-zinc-500 dark:text-zinc-500 font-normal"> until main card</span>}
+          {!isImminent && (
+            <span className="text-zinc-500 font-normal"> until main card</span>
+          )}
         </span>
       </div>
       <button
-        onClick={() => setDismissed(true)}
+        onClick={dismiss}
+        aria-label="Dismiss banner"
         className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
       >
         <X className="h-3.5 w-3.5" />
