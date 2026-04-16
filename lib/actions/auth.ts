@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { signUpSchema, signInSchema, onboardingSchema, editProfileSchema } from '@/lib/validations'
 import type { SignUpInput, SignInInput, OnboardingInput, EditProfileInput } from '@/lib/validations'
 
@@ -131,4 +131,22 @@ export async function updateEmailNotifications(enabled: boolean): Promise<Action
 
   revalidatePath('/profile/edit')
   return { success: true }
+}
+
+export async function deleteAccount(): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Sign the user out first so their session is cleared
+  await supabase.auth.signOut()
+
+  // Use service role to hard-delete the auth user.
+  // All related rows (profiles, predictions, friends, crew_members)
+  // cascade-delete automatically via ON DELETE CASCADE.
+  const service = createServiceClient()
+  const { error } = await service.auth.admin.deleteUser(user.id)
+  if (error) return { error: error.message }
+
+  redirect('/?deleted=1')
 }

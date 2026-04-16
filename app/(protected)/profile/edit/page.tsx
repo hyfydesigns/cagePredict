@@ -2,12 +2,12 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Save, Bell, BellOff } from 'lucide-react'
+import { Loader2, Save, Bell, BellOff, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AvatarPicker } from '@/components/auth/avatar-picker'
-import { updateProfile, updateEmailNotifications } from '@/lib/actions/auth'
+import { updateProfile, updateEmailNotifications, deleteAccount } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
 import { useSupabase } from '@/components/providers/supabase-provider'
 import type { ProfileRow } from '@/types/database'
@@ -20,8 +20,11 @@ export default function EditProfilePage() {
   const [avatarEmoji, setAvatarEmoji] = useState('🥊')
   const [favFighter, setFavFighter] = useState('')
   const [emailNotifications, setEmailNotifications] = useState(true)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [isPending, startTransition] = useTransition()
   const [isTogglingEmail, startEmailTransition] = useTransition()
+  const [isDeleting, startDeleteTransition] = useTransition()
   const { toast } = useToast()
   const router = useRouter()
 
@@ -54,6 +57,15 @@ export default function EditProfilePage() {
       } else {
         toast({ title: 'Profile updated!' })
         if (profile) router.push(`/profile/${profile.username}`)
+      }
+    })
+  }
+
+  function handleDelete() {
+    startDeleteTransition(async () => {
+      const result = await deleteAccount()
+      if (result?.error) {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' })
       }
     })
   }
@@ -160,6 +172,69 @@ export default function EditProfilePage() {
             />
           </button>
         </div>
+      </div>
+
+      {/* Danger zone */}
+      <div className="mt-8 pt-8 border-t border-zinc-800">
+        <h2 className="text-lg font-bold text-white mb-1">Danger Zone</h2>
+        <p className="text-sm text-zinc-500 mb-4">
+          Permanently delete your account and all data. This cannot be undone.
+        </p>
+
+        {!showDeleteConfirm ? (
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm font-semibold text-red-400 hover:bg-red-500/10 hover:border-red-500/50 transition-colors w-full"
+          >
+            <Trash2 className="h-4 w-4 shrink-0" />
+            Delete my account
+          </button>
+        ) : (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/5 p-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-white">Are you absolutely sure?</p>
+                <p className="text-xs text-zinc-400 mt-1">
+                  This will permanently delete your account, picks, points, and crew memberships.
+                  Type your username <span className="font-bold text-white">@{profile?.username}</span> to confirm.
+                </p>
+              </div>
+            </div>
+
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={profile?.username ?? 'your username'}
+              className="border-red-500/30 focus:border-red-500/60 bg-zinc-900"
+              autoComplete="off"
+            />
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText('') }}
+                className="flex-1"
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleteConfirmText !== profile?.username || isDeleting}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold px-4 py-2 transition-colors"
+              >
+                {isDeleting
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</>
+                  : <><Trash2 className="h-4 w-4" /> Delete forever</>
+                }
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
