@@ -5,7 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { slugify } from '@/lib/utils'
 import { resend } from '@/lib/email/resend'
 
-const FROM_ADDRESS = 'CagePredict <picks@cagepredict.com>'
+const FROM_ADDRESS = 'CagePredict <noreply@cagepredict.com>'
 import { cardLiveTemplate, weeklyRecapTemplate, lastChanceTemplate } from '@/lib/email/templates'
 import type { CardLiveData, WeeklyRecapData, LastChanceData } from '@/lib/email/templates'
 

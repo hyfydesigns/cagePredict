@@ -6,4 +6,4 @@ if (!process.env.RESEND_API_KEY) {
 
 export const resend = new Resend(process.env.RESEND_API_KEY ?? 'placeholder')
 
-export const FROM_ADDRESS = 'CagePredict <picks@cagepredict.com>'
+export const FROM_ADDRESS = 'CagePredict <noreply@cagepredict.com>'
