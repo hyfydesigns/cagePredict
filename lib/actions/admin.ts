@@ -484,6 +484,29 @@ export async function fetchEventByDate(
           height_cm, reach_cm, age, fighting_style,
         })
 
+        // Fetch last 5 fights form from RapidAPI
+        let last_5_form: string | null = null
+        try {
+          const formRes = await fetch(`https://${host}/api/mma/team/${team.id}/events/last/0`, {
+            headers: { 'X-RapidAPI-Key': key!, 'X-RapidAPI-Host': host },
+            cache: 'no-store',
+          })
+          if (formRes.ok) {
+            const formData = await formRes.json()
+            const recentFights: any[] = formData.events ?? []
+            const formStr = recentFights
+              .slice(0, 5)
+              .map((e: any) => {
+                if (e.winnerCode === 1 && e.homeTeam?.id === team.id) return 'W'
+                if (e.winnerCode === 2 && e.awayTeam?.id === team.id)  return 'W'
+                if (e.winnerCode && e.winnerCode !== 0)                 return 'L'
+                return 'D'
+              })
+              .join('')
+            if (formStr.length > 0) last_5_form = formStr
+          }
+        } catch { /* skip form if unavailable */ }
+
         const fighter = {
           id:             apiIdToUuid(team.id, 'fighter'),
           name:           team.name as string,
@@ -500,6 +523,7 @@ export async function fetchEventByDate(
           reach_cm,
           age,
           fighting_style,
+          last_5_form,
           striking_accuracy: null,
           td_avg:            null,
           sub_avg:           null,

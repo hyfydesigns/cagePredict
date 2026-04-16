@@ -70,6 +70,7 @@ export interface Database {
           sub_avg: number | null
           sig_str_landed: number | null
           fighting_style: string | null
+          last_5_form: string | null
           analysis: string | null
           created_at: string
         }
@@ -93,6 +94,7 @@ export interface Database {
           sub_avg?: number | null
           sig_str_landed?: number | null
           fighting_style?: string | null
+          last_5_form?: string | null
           analysis?: string | null
           created_at?: string
         }

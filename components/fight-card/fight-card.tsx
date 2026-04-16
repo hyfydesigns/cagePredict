@@ -10,6 +10,7 @@ import { PredictionPicker } from './prediction-picker'
 import { CountdownTimer } from './countdown-timer'
 import { FightStatusBadge } from './fight-status-badge'
 import { FightComments } from './fight-comments'
+import { PickDistribution } from './pick-distribution'
 import { cn } from '@/lib/utils'
 import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 
@@ -22,6 +23,56 @@ function cmToFtIn(cm: number): string {
 
 function cmToIn(cm: number): string {
   return `${Math.round(cm / 2.54)}"`
+}
+
+// ── Form pills ────────────────────────────────────────────────
+function FormPills({ form }: { form: string | null | undefined }) {
+  if (!form) return <span className="text-[10px] text-zinc-700">—</span>
+  // e.g. "WLWWW" or "W,L,W,W,W"
+  const results = form.replace(/[^WLDwld]/g, '').toUpperCase().split('').slice(-5)
+  if (!results.length) return <span className="text-[10px] text-zinc-700">—</span>
+  return (
+    <div className="flex gap-0.5">
+      {results.map((r, i) => (
+        <span
+          key={i}
+          className={cn(
+            'inline-flex items-center justify-center rounded text-[9px] font-black w-4 h-4',
+            r === 'W' && 'bg-emerald-500/20 text-emerald-400',
+            r === 'L' && 'bg-red-500/20 text-red-400',
+            r === 'D' && 'bg-zinc-600/40 text-zinc-400',
+          )}
+        >
+          {r}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ── H2H display ───────────────────────────────────────────────
+function H2HDisplay({
+  f1Name, f2Name, h2h,
+}: { f1Name: string; f2Name: string; h2h: { f1Wins: number; f2Wins: number } | null }) {
+  const f1Last = f1Name.split(' ').pop() ?? f1Name
+  const f2Last = f2Name.split(' ').pop() ?? f2Name
+  const hasH2H = h2h && (h2h.f1Wins + h2h.f2Wins > 0)
+  return (
+    <div>
+      <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">
+        Head to Head
+      </h4>
+      {hasH2H ? (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-bold text-zinc-200">{f1Last}</span>
+          <span className="text-zinc-500">{h2h!.f1Wins}–{h2h!.f2Wins}</span>
+          <span className="font-bold text-zinc-200">{f2Last}</span>
+        </div>
+      ) : (
+        <p className="text-[11px] text-zinc-600">First meeting</p>
+      )}
+    </div>
+  )
 }
 
 interface FightCardProps {
@@ -167,6 +218,55 @@ export function FightCard({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 space-y-4 border-t border-zinc-800/40 pt-4">
+              {/* Pick distribution — show after voting or when fight is completed */}
+              {(localPick || isCompleted) && (
+                <PickDistribution
+                  f1Name={fight.fighter1.name}
+                  f2Name={fight.fighter2.name}
+                  f1Id={fight.fighter1_id}
+                  f2Id={fight.fighter2_id}
+                  pickCounts={(fight as any)._pickCounts ?? {}}
+                />
+              )}
+
+              {/* Fighter form + division rank */}
+              <div>
+                <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">
+                  Recent Form
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Fighter 1 */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-zinc-500 font-semibold">
+                      {fight.fighter1.name.split(' ').pop()}
+                      {(fight as any)._f1Rank && (
+                        <span className="ml-1.5 text-amber-400">#{(fight as any)._f1Rank}</span>
+                      )}
+                    </p>
+                    <FormPills form={fight.fighter1.last_5_form} />
+                  </div>
+                  {/* Fighter 2 */}
+                  <div className="space-y-1 text-right">
+                    <p className="text-[10px] text-zinc-500 font-semibold">
+                      {(fight as any)._f2Rank && (
+                        <span className="mr-1.5 text-amber-400">#{(fight as any)._f2Rank}</span>
+                      )}
+                      {fight.fighter2.name.split(' ').pop()}
+                    </p>
+                    <div className="flex justify-end">
+                      <FormPills form={fight.fighter2.last_5_form} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* H2H record */}
+              <H2HDisplay
+                f1Name={fight.fighter1.name}
+                f2Name={fight.fighter2.name}
+                h2h={(fight as any)._h2h ?? null}
+              />
+
               {/* Stats comparison */}
               <div>
                 <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">
