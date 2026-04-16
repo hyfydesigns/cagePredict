@@ -1,5 +1,6 @@
 import { ChevronRight, Swords } from 'lucide-react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { LiveWrapper } from '@/components/fight-card/live-wrapper'
 import { Badge } from '@/components/ui/badge'
@@ -7,7 +8,20 @@ import type { EventWithFights, CommentWithProfile } from '@/types/database'
 
 export const revalidate = 60
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string; next?: string }>
+}) {
+  const params = await searchParams
+
+  // Supabase sometimes lands the auth callback code on the homepage instead of
+  // /api/auth/callback (happens when the Redirect URL in the dashboard is set to
+  // the site root). Intercept it here and forward to the real callback handler.
+  if (params.code) {
+    const dest = `/api/auth/callback?code=${params.code}&next=/onboarding`
+    redirect(dest)
+  }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
