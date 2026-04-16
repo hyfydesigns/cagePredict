@@ -27,7 +27,7 @@ export async function signUp(data: SignUpInput): Promise<ActionResult> {
     password: parsed.data.password,
     options: {
       data: { username: parsed.data.username },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=/onboarding`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://cagepredict.com'}/api/auth/callback?next=/onboarding`,
     },
   })
 
