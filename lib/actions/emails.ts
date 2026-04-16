@@ -110,10 +110,11 @@ export async function sendLastChanceEmails(): Promise<{ sent: number; skipped: n
   const supabase = createServiceClient()
   const now      = Date.now()
 
-  // Find upcoming events where the earliest fight_time is 3–5 hours away
-  // (cron runs every hour, so this window ensures we catch exactly one run)
+  // Find upcoming events where the earliest fight_time is 3–10 hours away.
+  // Cron runs once daily at 14:00 UTC — this window catches UFC events
+  // starting in the evening (17:00–00:00 UTC / ~1pm–8pm EST).
   const windowStart = new Date(now + 3 * 60 * 60 * 1000).toISOString()
-  const windowEnd   = new Date(now + 5 * 60 * 60 * 1000).toISOString()
+  const windowEnd   = new Date(now + 10 * 60 * 60 * 1000).toISOString()
 
   const { data: fights } = await supabase
     .from('fights')
