@@ -42,6 +42,14 @@
 }
 
 @layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   .text-gradient-red {
     @apply bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent;
   }
