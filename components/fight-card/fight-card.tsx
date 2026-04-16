@@ -12,7 +12,7 @@ import { FightStatusBadge } from './fight-status-badge'
 import { FightComments } from './fight-comments'
 import { PickDistribution } from './pick-distribution'
 import { FighterComparisonSlider } from './fighter-comparison-slider'
-import { cn } from '@/lib/utils'
+import { cn, isFightLocked } from '@/lib/utils'
 import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 
 function cmToFtIn(cm: number): string {
@@ -78,6 +78,7 @@ function H2HDisplay({
 
 interface FightCardProps {
   fight: FightWithDetails
+  eventDate?: string | null
   userPick?: string | null
   isConfidence?: boolean
   lockTaken?: boolean
@@ -89,7 +90,7 @@ interface FightCardProps {
 }
 
 export function FightCard({
-  fight, userPick, isConfidence = false, lockTaken = false,
+  fight, eventDate, userPick, isConfidence = false, lockTaken = false,
   userId, isPending = false, initialComments = [], onPredict, onToggleLock,
 }: FightCardProps) {
   const [expanded, setExpanded] = useState(false)
@@ -100,7 +101,7 @@ export function FightCard({
 
   const isCompleted = fight.status === 'completed'
   const isLive      = fight.status === 'live'
-  const isLocked    = new Date(fight.fight_time).getTime() - Date.now() <= 5 * 60 * 1000
+  const isLocked    = isFightLocked(fight.fight_time, eventDate)
 
   const pickCorrect   = isCompleted && localPick !== null && localPick === fight.winner_id
   const pickIncorrect = isCompleted && localPick !== null && localPick !== fight.winner_id

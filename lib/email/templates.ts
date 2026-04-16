@@ -179,6 +179,88 @@ export function welcomeTemplate(data: WelcomeData): { subject: string; html: str
   return { subject, html }
 }
 
+// ─── Last Chance Email ───────────────────────────────────────────────────────
+
+export interface LastChanceData {
+  eventName: string
+  eventDate: string          // e.g. "Saturday, May 3"
+  fightCount: number
+  picksMade: number
+  mainEventFighter1: string
+  mainEventFighter2: string
+  hoursUntilLock: number
+  slug: string
+}
+
+export function lastChanceTemplate(data: LastChanceData): { subject: string; html: string } {
+  const remaining = data.fightCount - data.picksMade
+  const subject = `⏰ ${data.hoursUntilLock}hrs left to lock your ${data.eventName} picks`
+
+  const html = layout(`
+    <!-- Badge -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="display:inline-block;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:999px;padding:4px 14px;font-size:12px;font-weight:700;color:#f59e0b;letter-spacing:0.5px;">
+        ⏰ PICKS LOCK IN ${data.hoursUntilLock} HOURS
+      </span>
+    </div>
+
+    <!-- Headline -->
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:900;color:#ffffff;text-align:center;line-height:1.25;">
+      Last chance to pick ${data.eventName}
+    </h1>
+    <p style="margin:0 0 24px;text-align:center;color:#71717a;font-size:14px;">
+      ${data.eventDate} · Picks lock 2 hours before fight time
+    </p>
+
+    <!-- Main event -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      <tr>
+        <td style="background:#1a1a1a;border:1px solid #262626;border-radius:12px;padding:20px;text-align:center;">
+          <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.8px;">Main Event</p>
+          <p style="margin:0;font-size:20px;font-weight:900;color:#ffffff;">
+            ${data.mainEventFighter1}
+            <span style="color:#ef4444;font-size:14px;font-weight:400;margin:0 8px;">vs</span>
+            ${data.mainEventFighter2}
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Pick status -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="background:${remaining > 0 ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.06)'};border:1px solid ${remaining > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.25)'};border-radius:12px;padding:18px;text-align:center;">
+          ${remaining > 0 ? `
+          <p style="margin:0 0 4px;font-size:28px;font-weight:900;color:#ef4444;">${remaining}</p>
+          <p style="margin:0;font-size:14px;color:#a1a1aa;">
+            fight${remaining !== 1 ? 's' : ''} still unpicked
+            <span style="color:#52525b;"> · ${data.picksMade} of ${data.fightCount} done</span>
+          </p>
+          ` : `
+          <p style="margin:0 0 4px;font-size:28px;">✅</p>
+          <p style="margin:0;font-size:14px;color:#22c55e;font-weight:700;">All ${data.fightCount} picks locked in!</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#52525b;">You're good to go — good luck!</p>
+          `}
+        </td>
+      </tr>
+    </table>
+
+    ${remaining > 0 ? `
+    <p style="margin:0 0 4px;text-align:center;color:#a1a1aa;font-size:14px;">
+      Don't miss out on points — finalize your picks now.
+    </p>
+    <p style="margin:0 0 4px;text-align:center;font-size:13px;color:#71717a;">
+      Correct picks earn <strong style="color:#f59e0b;">10 pts</strong> · Confidence lock earns <strong style="color:#f59e0b;">20 pts</strong>
+    </p>
+    ${primaryButton('Finalize My Picks →', `${BASE_URL}/events/${data.slug}`)}
+    ` : `
+    ${primaryButton('View Fight Card →', `${BASE_URL}/events/${data.slug}`)}
+    `}
+  `)
+
+  return { subject, html }
+}
+
 // ─── Card Live Email ──────────────────────────────────────────────────────────
 
 export interface CardLiveData {

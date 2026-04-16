@@ -59,9 +59,15 @@ export function timeUntil(dateStr: string): string {
   return `${mins}m`
 }
 
-/** Is a fight locked (< 5 min to start or already past) */
-export function isFightLocked(fightTime: string): boolean {
-  return new Date(fightTime).getTime() - Date.now() <= 5 * 60 * 1000
+/** Is a fight locked (< 2 hours to start, or already past).
+ *  Falls back to eventDate if fightTime is missing. */
+export function isFightLocked(fightTime: string | null, eventDate?: string | null): boolean {
+  const ms = fightTime
+    ? new Date(fightTime).getTime()
+    : eventDate
+    ? new Date(eventDate).getTime()
+    : Infinity
+  return ms - Date.now() <= 2 * 60 * 60 * 1000
 }
 
 /** Generate a share URL for a crew invite */

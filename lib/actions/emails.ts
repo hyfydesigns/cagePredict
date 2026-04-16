@@ -4,8 +4,8 @@ import type { User } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/server'
 import { slugify } from '@/lib/utils'
 import { resend, FROM_ADDRESS } from '@/lib/email/resend'
-import { cardLiveTemplate, weeklyRecapTemplate } from '@/lib/email/templates'
-import type { CardLiveData, WeeklyRecapData } from '@/lib/email/templates'
+import { cardLiveTemplate, weeklyRecapTemplate, lastChanceTemplate } from '@/lib/email/templates'
+import type { CardLiveData, WeeklyRecapData, LastChanceData } from '@/lib/email/templates'
 
 type AuthUser  = Pick<User, 'id' | 'email'>
 type ProfileId = { id: string }
@@ -98,6 +98,100 @@ export async function sendCardLiveEmails(
   }
 
   return { sent }
+}
+
+// ─── Last Chance Reminder ─────────────────────────────────────────────────────
+
+export async function sendLastChanceEmails(): Promise<{ sent: number; skipped: number }> {
+  if (!process.env.RESEND_API_KEY) return { sent: 0, skipped: 0 }
+
+  const supabase = createServiceClient()
+  const now      = Date.now()
+
+  // Find upcoming events where the earliest fight_time is 3–5 hours away
+  // (cron runs every hour, so this window ensures we catch exactly one run)
+  const windowStart = new Date(now + 3 * 60 * 60 * 1000).toISOString()
+  const windowEnd   = new Date(now + 5 * 60 * 60 * 1000).toISOString()
+
+  const { data: fights } = await supabase
+    .from('fights')
+    .select('event_id, fight_time, events!inner(id, name, date, status)')
+    .eq('events.status', 'upcoming')
+    .gte('fight_time', windowStart)
+    .lte('fight_time', windowEnd)
+    .order('fight_time', { ascending: true })
+
+  if (!fights?.length) return { sent: 0, skipped: 0 }
+
+  // Deduplicate to unique events
+  const seen    = new Set<string>()
+  const events  = (fights as any[]).filter((f) => {
+    if (seen.has(f.event_id)) return false
+    seen.add(f.event_id)
+    return true
+  }).map((f) => ({ ...f.events, firstFightTime: f.fight_time }))
+
+  const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+  const emailMap = new Map<string, string>(
+    (users as AuthUser[])
+      .filter((u): u is AuthUser & { email: string } => typeof u.email === 'string')
+      .map((u) => [u.id, u.email])
+  )
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, username')
+    .eq('email_notifications', true)
+
+  if (!profiles?.length) return { sent: 0, skipped: 0 }
+
+  let sent = 0
+  let skipped = 0
+
+  for (const event of events) {
+    // Get all fight ids for this event
+    const { data: allFights } = await supabase
+      .from('fights')
+      .select('id, is_main_event, fighter1:fighters!fights_fighter1_id_fkey(name), fighter2:fighters!fights_fighter2_id_fkey(name)')
+      .eq('event_id', event.id)
+      .neq('status', 'completed')
+
+    const fightCount  = (allFights ?? []).length
+    const mainFight   = (allFights ?? []).find((f: any) => f.is_main_event) ?? (allFights ?? [])[0]
+    const hoursUntilLock = Math.round((new Date(event.firstFightTime).getTime() - now - 2 * 60 * 60 * 1000) / (60 * 60 * 1000))
+    const fightIds    = (allFights ?? []).map((f: any) => f.id)
+    const slug        = slugify(event.name)
+
+    for (const profile of profiles as ProfileId[]) {
+      const email = emailMap.get(profile.id)
+      if (!email) { skipped++; continue }
+
+      // Count how many picks this user has made for this event
+      const { count: picksMade } = await supabase
+        .from('predictions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', profile.id)
+        .in('fight_id', fightIds)
+
+      const data: LastChanceData = {
+        eventName:         event.name,
+        eventDate:         new Date(event.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+        fightCount,
+        picksMade:         picksMade ?? 0,
+        mainEventFighter1: (mainFight as any)?.fighter1?.name ?? 'TBA',
+        mainEventFighter2: (mainFight as any)?.fighter2?.name ?? 'TBA',
+        hoursUntilLock:    Math.max(1, hoursUntilLock),
+        slug,
+      }
+
+      const { subject, html } = lastChanceTemplate(data)
+      const { error } = await resend.emails.send({ from: FROM_ADDRESS, to: [email], subject, html })
+      if (error) skipped++
+      else sent++
+    }
+  }
+
+  return { sent, skipped }
 }
 
 // ─── Weekly Recap ─────────────────────────────────────────────────────────────
