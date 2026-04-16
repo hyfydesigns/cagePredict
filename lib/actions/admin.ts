@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { revalidatePath } from 'next/cache'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { SEED_EVENTS, SEED_FIGHTERS } from '@/seeds/seed-data'
+import { sendCardLiveEmails } from '@/lib/actions/emails'
 
 type ActionResult = { error?: string; success?: boolean; message?: string }
 
@@ -392,6 +393,7 @@ export async function fetchEventByDate(
   let insertedEvents   = 0
   let insertedFights   = 0
   let firstAiError: string | undefined
+  const newEventIds: string[] = []
 
   // Collect unique fighter API IDs across all events
   const allTeams = new Map<number, any>()
@@ -563,6 +565,7 @@ export async function fetchEventByDate(
       .upsert(event as any, { onConflict: 'id', ignoreDuplicates: false })
     if (evErr) { continue }
     insertedEvents++
+    newEventIds.push(event.id)
 
     // 3. Upsert fights
     // Main event = highest order fight on the maincard
@@ -624,6 +627,13 @@ export async function fetchEventByDate(
 
   revalidatePath('/')
   revalidatePath('/admin')
+
+  // Fire card-live notification emails for each newly imported event (non-blocking)
+  for (const eventId of newEventIds) {
+    sendCardLiveEmails(eventId).catch((err) =>
+      console.error('[admin] card-live email error:', err)
+    )
+  }
 
   const aiNote = firstAiError ? ` (AI error: ${firstAiError})` : ' with AI analysis'
   return {

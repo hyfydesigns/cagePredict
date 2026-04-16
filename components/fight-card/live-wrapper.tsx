@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { Radio } from 'lucide-react'
+import Link from 'next/link'
 import { format } from 'date-fns'
-import { MapPin, Calendar } from 'lucide-react'
+import { MapPin, Calendar, ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import { getActiveEvents } from '@/lib/actions/events'
 import { Badge } from '@/components/ui/badge'
@@ -87,7 +88,16 @@ function EventSectionClient({
                 <Badge variant={event.status === 'live' ? 'live' : 'outline'} className="mb-2 text-[11px]">
                   {event.status === 'live' ? '🔴 LIVE NOW' : 'Upcoming'}
                 </Badge>
-                <h2 className="text-xl sm:text-2xl font-black text-white">{event.name}</h2>
+                <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                  {event.name}
+                  <Link
+                    href={`/events/${event.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
+                    className="text-zinc-600 hover:text-zinc-400 transition-colors"
+                    title="Event page"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Link>
+                </h2>
                 <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />

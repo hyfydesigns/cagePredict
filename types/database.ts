@@ -27,6 +27,7 @@ export interface Database {
           longest_streak: number
           favorite_fighter: string | null
           onboarding_complete: boolean
+          email_notifications: boolean
           created_at: string
           updated_at: string
         }
@@ -44,6 +45,7 @@ export interface Database {
           longest_streak?: number
           favorite_fighter?: string | null
           onboarding_complete?: boolean
+          email_notifications?: boolean
           created_at?: string
           updated_at?: string
         }
