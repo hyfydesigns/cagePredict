@@ -32,40 +32,41 @@ export function FighterComparisonSlider({ fighter1, fighter2 }: FighterCompariso
   // Slider 0–100: 50 = centre, <50 = favour F1, >50 = favour F2
   const [sliderVal, setSliderVal] = useState(50)
 
-  const stats: StatRow[] = [
+  const allStats: StatRow[] = [
     {
       label: 'Height',
       f1: fighter1.height_cm,
       f2: fighter2.height_cm,
-      format: (v) => cmToFtIn(v),
+      format: (v: number) => cmToFtIn(v),
     },
     {
       label: 'Reach',
       f1: fighter1.reach_cm,
       f2: fighter2.reach_cm,
-      format: (v) => `${cmToInches(v)}"`,
+      format: (v: number) => `${cmToInches(v)}"`,
     },
     {
       label: 'Age',
       f1: fighter1.age,
       f2: fighter2.age,
       lowerBetter: true,
-      format: (v) => String(v),
+      format: (v: number) => String(v),
     },
     {
       label: 'Wins',
       f1: fighter1.wins,
       f2: fighter2.wins,
-      format: (v) => String(v),
+      format: (v: number) => String(v),
     },
     {
       label: 'Losses',
       f1: fighter1.losses,
       f2: fighter2.losses,
       lowerBetter: true,
-      format: (v) => String(v),
+      format: (v: number) => String(v),
     },
-  ].filter((s) => s.f1 !== null && s.f2 !== null) as (StatRow & { f1: number; f2: number })[]
+  ]
+  const stats = allStats.filter((s) => s.f1 !== null && s.f2 !== null) as (StatRow & { f1: number; f2: number })[]
 
   if (stats.length < 2) return null
 
