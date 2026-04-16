@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { LiveWrapper } from '@/components/fight-card/live-wrapper'
 import { Badge } from '@/components/ui/badge'
-import type { EventWithFights } from '@/types/database'
+import type { EventWithFights, CommentWithProfile } from '@/types/database'
 
 export const revalidate = 60
 
@@ -49,6 +49,23 @@ export default async function HomePage() {
     fights: ((e.fights ?? []) as any[]).sort((a: any, b: any) => b.display_order - a.display_order),
   })) as EventWithFights[]
 
+  // Fetch comments for all fights
+  let commentsByFight: Record<string, CommentWithProfile[]> = {}
+  if (typedEvents.length > 0) {
+    const allFightIds = typedEvents.flatMap((e) => e.fights.map((f) => f.id))
+    if (allFightIds.length > 0) {
+      const { data: commentsRaw } = await supabase
+        .from('comments')
+        .select('*, profile:profiles!comments_user_id_fkey(*)')
+        .in('fight_id', allFightIds)
+        .order('created_at', { ascending: true })
+      ;(commentsRaw ?? []).forEach((c: any) => {
+        if (!commentsByFight[c.fight_id]) commentsByFight[c.fight_id] = []
+        commentsByFight[c.fight_id].push(c as CommentWithProfile)
+      })
+    }
+  }
+
   return (
     <div className="container mx-auto py-8 space-y-12 max-w-3xl">
       {/* Hero */}
@@ -87,7 +104,7 @@ export default async function HomePage() {
         </div>
       ) : (
         <div className="space-y-12">
-          <LiveWrapper initialEvents={typedEvents} userPicks={userPicks} userId={user?.id} />
+          <LiveWrapper initialEvents={typedEvents} userPicks={userPicks} userId={user?.id} commentsByFight={commentsByFight} />
         </div>
       )}
     </div>

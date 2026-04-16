@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ProfileHeader } from '@/components/profile/profile-header'
 import { BadgeShelf } from '@/components/profile/badge-shelf'
+import { ActivityFeed } from '@/components/social/activity-feed'
 import { PredictionHistory } from '@/components/profile/prediction-history'
 import { Button } from '@/components/ui/button'
 import { acceptFriendRequest } from '@/lib/actions/crews'
@@ -78,6 +79,56 @@ export default async function DashboardPage() {
 
   const pendingRequests = (pendingRaw ?? []) as any[]
 
+  // Friend activity feed — picks from accepted friends in last 7 days
+  const { data: friendLinks } = await supabase
+    .from('friends')
+    .select('user_id, friend_id')
+    .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+    .eq('status', 'accepted')
+
+  const friendIds = (friendLinks ?? []).map((f: any) =>
+    f.user_id === user.id ? f.friend_id : f.user_id
+  )
+
+  const feedItems: any[] = []
+  if (friendIds.length > 0) {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: feedRaw } = await supabase
+      .from('predictions')
+      .select(`
+        id, is_confidence, is_correct, created_at, predicted_winner_id,
+        profile:profiles!predictions_user_id_fkey(id, username, display_name, avatar_emoji),
+        fight:fights(
+          id, fighter1_id, fighter2_id,
+          event:events(name),
+          fighter1:fighters!fights_fighter1_id_fkey(id, name),
+          fighter2:fighters!fights_fighter2_id_fkey(id, name)
+        )
+      `)
+      .in('user_id', friendIds)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(25)
+
+    ;(feedRaw ?? []).forEach((p: any) => {
+      const picked = p.predicted_winner_id === p.fight?.fighter1_id ? p.fight?.fighter1 : p.fight?.fighter2
+      const opponent = p.predicted_winner_id === p.fight?.fighter1_id ? p.fight?.fighter2 : p.fight?.fighter1
+      feedItems.push({
+        id:               p.id,
+        userId:           p.profile?.id,
+        username:         p.profile?.username,
+        displayName:      p.profile?.display_name,
+        avatarEmoji:      p.profile?.avatar_emoji,
+        pickedFighterName: picked?.name ?? '?',
+        opponentName:     opponent?.name ?? '?',
+        eventName:        p.fight?.event?.name ?? '',
+        isConfidence:     p.is_confidence,
+        isCorrect:        p.is_correct,
+        createdAt:        p.created_at,
+      })
+    })
+  }
+
   return (
     <div className="container mx-auto py-8 max-w-2xl space-y-6">
       <ProfileHeader profile={profile} rank={rank} isOwn />
@@ -145,6 +196,18 @@ export default async function DashboardPage() {
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Friends activity */}
+      {friendIds.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-white flex items-center gap-2">
+              <Users className="h-4 w-4 text-blue-400" /> Friends&apos; Picks
+            </h2>
+          </div>
+          <ActivityFeed items={feedItems} />
         </div>
       )}
 

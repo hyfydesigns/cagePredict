@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { Radio } from 'lucide-react'
 import { getActiveEvents } from '@/lib/actions/events'
-import type { EventWithFights } from '@/types/database'
+import type { EventWithFights, CommentWithProfile } from '@/types/database'
 import type { PredictionMap } from '@/hooks/use-predictions'
 import { FightCardSections } from './fight-card-sections'
 
@@ -11,9 +11,10 @@ interface LiveWrapperProps {
   initialEvents: EventWithFights[]
   userPicks: PredictionMap
   userId?: string
+  commentsByFight?: Record<string, CommentWithProfile[]>
 }
 
-export function LiveWrapper({ initialEvents, userPicks, userId }: LiveWrapperProps) {
+export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight = {} }: LiveWrapperProps) {
   const [events, setEvents] = useState(initialEvents)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [, startTransition] = useTransition()
@@ -46,7 +47,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId }: LiveWrapperPro
         </div>
       )}
       {events.map((event) => (
-        <EventSectionClient key={event.id} event={event} userPicks={userPicks} userId={userId} />
+        <EventSectionClient key={event.id} event={event} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
       ))}
     </>
   )
@@ -60,11 +61,12 @@ import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
 
 function EventSectionClient({
-  event, userPicks, userId,
+  event, userPicks, userId, commentsByFight = {},
 }: {
   event: EventWithFights
   userPicks: PredictionMap
   userId?: string
+  commentsByFight?: Record<string, CommentWithProfile[]>
 }) {
   return (
     <section>
@@ -98,7 +100,7 @@ function EventSectionClient({
           </div>
         </div>
       </div>
-      <FightCardSections fights={event.fights} userPicks={userPicks} userId={userId} />
+      <FightCardSections fights={event.fights} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
     </section>
   )
 }

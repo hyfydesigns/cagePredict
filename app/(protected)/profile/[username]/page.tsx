@@ -7,6 +7,7 @@ import { PredictionHistory } from '@/components/profile/prediction-history'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { sendFriendRequest } from '@/lib/actions/crews'
+import { ShareProfileButton } from '@/components/profile/share-profile-button'
 import { UserPlus, History, BarChart3 } from 'lucide-react'
 import type { ProfileRow, PredictionWithFight, UserBadgeWithDefinition } from '@/types/database'
 
@@ -88,15 +89,18 @@ export default async function ProfilePage({ params }: Props) {
       <ProfileHeader profile={profile} rank={rank} isOwn={isOwn} />
       <BadgeShelf earned={badges} />
 
-      {/* Add friend button */}
-      {user && !isOwn && !isFriend && (
-        <form action={async () => { 'use server'; await sendFriendRequest(profile.id) }}>
-          <Button type="submit" variant="outline" disabled={hasPendingRequest} className="w-full">
-            <UserPlus className="h-4 w-4 mr-2" />
-            {hasPendingRequest ? 'Request Sent' : 'Add Friend'}
-          </Button>
-        </form>
-      )}
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        {user && !isOwn && !isFriend && (
+          <form action={async () => { 'use server'; await sendFriendRequest(profile.id) }} className="flex-1">
+            <Button type="submit" variant="outline" disabled={hasPendingRequest} className="w-full">
+              <UserPlus className="h-4 w-4 mr-2" />
+              {hasPendingRequest ? 'Request Sent' : 'Add Friend'}
+            </Button>
+          </form>
+        )}
+        <ShareProfileButton username={profile.username} />
+      </div>
 
       <Tabs defaultValue="history">
         <TabsList>

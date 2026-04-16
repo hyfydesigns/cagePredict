@@ -2,7 +2,7 @@
 
 import { Star, Tv } from 'lucide-react'
 import { FightCardList } from './fight-card-list'
-import type { FightWithDetails } from '@/types/database'
+import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 import type { PredictionMap } from '@/hooks/use-predictions'
 
 function SectionDivider({ label, icon }: { label: string; icon: React.ReactNode }) {
@@ -21,9 +21,10 @@ interface FightCardSectionsProps {
   fights: FightWithDetails[]
   userPicks: PredictionMap
   userId?: string
+  commentsByFight?: Record<string, CommentWithProfile[]>
 }
 
-export function FightCardSections({ fights, userPicks, userId }: FightCardSectionsProps) {
+export function FightCardSections({ fights, userPicks, userId, commentsByFight = {} }: FightCardSectionsProps) {
   const maincard     = fights.filter((f) => (f as any).fight_type === 'maincard')
   const prelims      = fights.filter((f) => (f as any).fight_type === 'prelims')
   const earlyPrelims = fights.filter((f) =>
@@ -32,7 +33,7 @@ export function FightCardSections({ fights, userPicks, userId }: FightCardSectio
   const ungrouped = fights.filter((f) => !(f as any).fight_type)
 
   if (ungrouped.length > 0) {
-    return <FightCardList fights={ungrouped} userPicks={userPicks} userId={userId} />
+    return <FightCardList fights={ungrouped} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
   }
 
   return (
@@ -40,19 +41,19 @@ export function FightCardSections({ fights, userPicks, userId }: FightCardSectio
       {maincard.length > 0 && (
         <>
           <SectionDivider label="Main Card" icon={<Star className="h-3.5 w-3.5 text-primary fill-primary" />} />
-          <FightCardList fights={maincard} userPicks={userPicks} userId={userId} />
+          <FightCardList fights={maincard} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
         </>
       )}
       {prelims.length > 0 && (
         <>
           <SectionDivider label="Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-500" />} />
-          <FightCardList fights={prelims} userPicks={userPicks} userId={userId} />
+          <FightCardList fights={prelims} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
         </>
       )}
       {earlyPrelims.length > 0 && (
         <>
           <SectionDivider label="Early Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-600" />} />
-          <FightCardList fights={earlyPrelims} userPicks={userPicks} userId={userId} />
+          <FightCardList fights={earlyPrelims} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
         </>
       )}
     </div>

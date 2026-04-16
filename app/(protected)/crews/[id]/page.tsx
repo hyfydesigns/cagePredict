@@ -2,12 +2,14 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { LeaderboardTable } from '@/components/leaderboard/leaderboard-table'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { leaveCrew } from '@/lib/actions/crews'
 import { crewInviteUrl } from '@/lib/utils'
 import { Users, Crown, LogOut } from 'lucide-react'
 import { InviteCopy } from '@/components/crews/invite-copy'
+import { CrewEventScores } from '@/components/crews/crew-event-scores'
 import type { LeaderboardEntry, ProfileRow } from '@/types/database'
 
 interface Props { params: Promise<{ id: string }> }
@@ -64,6 +66,55 @@ export default async function CrewDetailPage({ params }: Props) {
   const inviteUrl = crewInviteUrl(crew.invite_code)
   const memberCount = memberships.length
 
+  // Latest active event for "This Event" tab
+  const { data: latestEventRaw } = await supabase
+    .from('events')
+    .select('id, name')
+    .in('status', ['upcoming', 'live', 'completed'])
+    .order('date', { ascending: false })
+    .limit(1)
+    .single()
+
+  const latestEvent = latestEventRaw as { id: string; name: string } | null
+
+  // For each member, compute event-specific scores
+  const memberEventScores: any[] = []
+  if (latestEvent) {
+    const { data: eventPreds } = await supabase
+      .from('predictions')
+      .select('user_id, is_correct, points_earned, is_confidence, fights!inner(event_id)')
+      .in('user_id', memberUserIds)
+      .eq('fights.event_id', latestEvent.id)
+
+    const scoreMap = new Map<string, { correct: number; incorrect: number; pending: number; eventPoints: number; lockCorrect: number }>()
+    memberUserIds.forEach((id) => scoreMap.set(id, { correct: 0, incorrect: 0, pending: 0, eventPoints: 0, lockCorrect: 0 }))
+
+    ;(eventPreds ?? []).forEach((p: any) => {
+      const s = scoreMap.get(p.user_id)
+      if (!s) return
+      if (p.is_correct === true) {
+        s.correct++
+        s.eventPoints += p.points_earned ?? 10
+        if (p.is_confidence) s.lockCorrect++
+      } else if (p.is_correct === false) {
+        s.incorrect++
+      } else {
+        s.pending++
+      }
+    })
+
+    memberProfiles.forEach((profile) => {
+      const s = scoreMap.get(profile.id) ?? { correct: 0, incorrect: 0, pending: 0, eventPoints: 0, lockCorrect: 0 }
+      memberEventScores.push({
+        userId:      profile.id,
+        username:    profile.username,
+        displayName: profile.display_name,
+        avatarEmoji: profile.avatar_emoji,
+        ...s,
+      })
+    })
+  }
+
   return (
     <div className="container mx-auto py-8 max-w-2xl space-y-6">
       {/* Header */}
@@ -104,10 +155,28 @@ export default async function CrewDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Leaderboard */}
+      {/* Standings tabs */}
       <div>
-        <h2 className="text-lg font-bold text-white mb-3">Crew Standings</h2>
-        <LeaderboardTable entries={leaderboard} currentUserId={user?.id} />
+        <Tabs defaultValue="alltime">
+          <TabsList className="mb-4">
+            <TabsTrigger value="alltime">All Time</TabsTrigger>
+            <TabsTrigger value="event">This Event</TabsTrigger>
+          </TabsList>
+          <TabsContent value="alltime">
+            <LeaderboardTable entries={leaderboard} currentUserId={user?.id} />
+          </TabsContent>
+          <TabsContent value="event">
+            {latestEvent ? (
+              <CrewEventScores
+                members={memberEventScores}
+                eventName={latestEvent.name}
+                currentUserId={user?.id}
+              />
+            ) : (
+              <p className="text-center text-sm text-zinc-600 py-8">No events found.</p>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

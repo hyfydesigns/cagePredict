@@ -2,15 +2,16 @@
 
 import { FightCard } from './fight-card'
 import { usePredictions, type PredictionMap } from '@/hooks/use-predictions'
-import type { FightWithDetails } from '@/types/database'
+import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 
 interface FightCardListProps {
   fights: FightWithDetails[]
   userPicks: PredictionMap
   userId?: string
+  commentsByFight?: Record<string, CommentWithProfile[]>
 }
 
-export function FightCardList({ fights, userPicks, userId }: FightCardListProps) {
+export function FightCardList({ fights, userPicks, userId, commentsByFight = {} }: FightCardListProps) {
   const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
 
   return (
@@ -26,6 +27,7 @@ export function FightCardList({ fights, userPicks, userId }: FightCardListProps)
             lockTaken={lockedFightId !== null && lockedFightId !== fight.id}
             userId={userId}
             isPending={isPending}
+            initialComments={commentsByFight[fight.id] ?? []}
             onPredict={predict}
             onToggleLock={toggleLock}
           />

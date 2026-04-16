@@ -211,6 +211,17 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['user_badges']['Insert']>
       }
+      comments: {
+        Row: {
+          id: string; fight_id: string; user_id: string
+          content: string; created_at: string
+        }
+        Insert: {
+          id?: string; fight_id: string; user_id: string
+          content: string; created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['comments']['Insert']>
+      }
       friends: {
         Row: {
           id: string
@@ -301,6 +312,8 @@ export type BadgeDefinitionRow  = Database['public']['Tables']['badge_definition
 export type UserBadgeRow        = Database['public']['Tables']['user_badges']['Row']
 
 export type UserBadgeWithDefinition = UserBadgeRow & { definition: BadgeDefinitionRow }
+export type CommentRow = Database['public']['Tables']['comments']['Row']
+export type CommentWithProfile = CommentRow & { profile: ProfileRow }
 
 // ============================================================
 // Extended / joined types used in the UI

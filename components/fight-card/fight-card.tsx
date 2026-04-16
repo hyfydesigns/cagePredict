@@ -2,15 +2,16 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { FighterPortrait } from './fighter-portrait'
 import { OddsDisplay } from './odds-display'
 import { PredictionPicker } from './prediction-picker'
 import { CountdownTimer } from './countdown-timer'
 import { FightStatusBadge } from './fight-status-badge'
+import { FightComments } from './fight-comments'
 import { cn } from '@/lib/utils'
-import type { FightWithDetails } from '@/types/database'
+import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 
 function cmToFtIn(cm: number): string {
   const totalIn = cm / 2.54
@@ -30,15 +31,17 @@ interface FightCardProps {
   lockTaken?: boolean
   userId?: string
   isPending?: boolean
+  initialComments?: CommentWithProfile[]
   onPredict: (fightId: string, winnerId: string) => Promise<void>
   onToggleLock: (fightId: string, isConfidence: boolean) => Promise<void>
 }
 
 export function FightCard({
   fight, userPick, isConfidence = false, lockTaken = false,
-  userId, isPending = false, onPredict, onToggleLock,
+  userId, isPending = false, initialComments = [], onPredict, onToggleLock,
 }: FightCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [showComments, setShowComments] = useState(false)
   const [localPick, setLocalPick] = useState<string | null>(userPick ?? null)
 
   const isCompleted = fight.status === 'completed'
@@ -134,14 +137,23 @@ export function FightCard({
         />
       </div>
 
-      {/* Expand toggle */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors border-t border-zinc-800/40"
-      >
-        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-        {expanded ? 'Hide' : 'Stats & Analysis'}
-      </button>
+      {/* Expand toggles */}
+      <div className="grid grid-cols-2 border-t border-zinc-800/40">
+        <button
+          onClick={() => { setExpanded(!expanded); setShowComments(false) }}
+          className="flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors border-r border-zinc-800/40"
+        >
+          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          Stats & Analysis
+        </button>
+        <button
+          onClick={() => { setShowComments(!showComments); setExpanded(false) }}
+          className="flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          {showComments ? 'Hide' : `Chat${initialComments.length > 0 ? ` (${initialComments.length})` : ''}`}
+        </button>
+      </div>
 
       {/* Expandable stats + analysis */}
       <AnimatePresence initial={false}>
@@ -197,6 +209,28 @@ export function FightCard({
                   )}
                 </div>
               )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Comments section */}
+      <AnimatePresence initial={false}>
+        {showComments && (
+          <motion.div
+            key="comments"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 py-4 border-t border-zinc-800/40">
+              <FightComments
+                fightId={fight.id}
+                initialComments={initialComments}
+                currentUserId={userId}
+              />
             </div>
           </motion.div>
         )}
