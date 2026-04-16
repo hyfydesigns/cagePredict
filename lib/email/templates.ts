@@ -77,6 +77,108 @@ function statBox(label: string, value: string): string {
   </td>`
 }
 
+// ─── Welcome Email ───────────────────────────────────────────────────────────
+
+export interface WelcomeData {
+  displayName: string | null
+  username: string
+}
+
+export function welcomeTemplate(data: WelcomeData): { subject: string; html: string } {
+  const name = data.displayName ?? data.username
+
+  const subject = `🥊 Welcome to CagePredict, ${name}!`
+
+  const featureRow = (emoji: string, title: string, desc: string) => `
+    <tr>
+      <td style="padding:10px 0;border-bottom:1px solid #1f1f1f;">
+        <table cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="width:36px;vertical-align:top;padding-top:2px;">
+              <span style="font-size:18px;">${emoji}</span>
+            </td>
+            <td>
+              <p style="margin:0;font-size:14px;font-weight:700;color:#ffffff;">${title}</p>
+              <p style="margin:2px 0 0;font-size:13px;color:#71717a;">${desc}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`
+
+  const html = layout(`
+    <!-- Hero -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:40px;margin-bottom:12px;">🛡️</div>
+      <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;color:#ffffff;line-height:1.2;">
+        Welcome to CagePredict!
+      </h1>
+      <p style="margin:0;font-size:15px;color:#a1a1aa;">
+        Hey ${name} — your account is verified and ready to go.
+      </p>
+    </div>
+
+    <!-- Intro -->
+    <p style="margin:0 0 20px;font-size:14px;color:#a1a1aa;line-height:1.6;">
+      CagePredict is the free UFC prediction game where you pick the winner of every fight,
+      earn points for correct picks, and climb the global leaderboard. Here's everything
+      you can do:
+    </p>
+
+    <!-- Feature list -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      ${featureRow('🎯', 'Pick every fight', 'Predict the winner before the event starts. Picks lock when the first bell rings.')}
+      ${featureRow('🔒', 'Confidence lock', 'Mark one fight per card as your Lock for double points (20 pts instead of 10).')}
+      ${featureRow('🔥', 'Streak bonuses', 'Build a win streak and earn bonus points — up to +20 pts per correct pick at 10 in a row.')}
+      ${featureRow('🏆', 'Global leaderboard', 'Compete against every CagePredict user. Rank up from Amateur to UFC Champion.')}
+      ${featureRow('👥', 'Crews', 'Create or join a crew and track who\'s winning each event within your group.')}
+      ${featureRow('📊', 'Standings & stats', 'Browse fighter standings by weight class, head-to-head records, and community pick splits.')}
+      ${featureRow('🏅', 'Badges', 'Unlock achievements like Perfect Card, Giant Killer, and On Fire as you play.')}
+    </table>
+
+    <!-- Points explainer -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="background:#1a1a1a;border:1px solid #262626;border-radius:12px;padding:16px;">
+          <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.8px;">
+            How points work
+          </p>
+          <table width="100%" cellpadding="4" cellspacing="0">
+            <tr>
+              <td style="font-size:13px;color:#a1a1aa;">✅ Correct pick</td>
+              <td style="font-size:13px;font-weight:700;color:#f59e0b;text-align:right;">+10 pts</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#a1a1aa;">🔒 Confidence lock (correct)</td>
+              <td style="font-size:13px;font-weight:700;color:#f59e0b;text-align:right;">+20 pts</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#a1a1aa;">🔥 3-fight streak bonus</td>
+              <td style="font-size:13px;font-weight:700;color:#f59e0b;text-align:right;">+5 pts</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#a1a1aa;">🔥🔥 5-fight streak bonus</td>
+              <td style="font-size:13px;font-weight:700;color:#f59e0b;text-align:right;">+10 pts</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#a1a1aa;">🔥🔥🔥 10-fight streak bonus</td>
+              <td style="font-size:13px;font-weight:700;color:#f59e0b;text-align:right;">+20 pts</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 4px;text-align:center;font-size:14px;color:#a1a1aa;">
+      The next fight card is waiting for your picks.
+    </p>
+
+    ${primaryButton('Make My First Picks →', BASE_URL)}
+  `)
+
+  return { subject, html }
+}
+
 // ─── Card Live Email ──────────────────────────────────────────────────────────
 
 export interface CardLiveData {
