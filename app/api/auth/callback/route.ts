@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { resend, FROM_ADDRESS } from '@/lib/email/resend'
+import { resend } from '@/lib/email/resend'
 import { welcomeTemplate } from '@/lib/email/templates'
 
 export async function GET(request: NextRequest) {
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const { subject, html } = welcomeTemplate({ username, displayName })
 
     resend.emails
-      .send({ from: FROM_ADDRESS, to: [user.email], subject, html })
+      .send({ from: 'CagePredict <picks@cagepredict.com>', to: [user.email], subject, html })
       .catch((err) => console.error('[welcome-email]', err))
   }
 
