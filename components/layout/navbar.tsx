@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ThemeToggle } from './theme-toggle'
 import { signOut } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils'
 import type { ProfileRow } from '@/types/database'
@@ -103,8 +102,6 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
               </Link>
             </div>
           )}
-
-          <ThemeToggle />
 
           {/* Mobile menu toggle */}
           <button

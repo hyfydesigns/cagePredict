@@ -10,12 +10,6 @@
     --font-geist-mono: 'JetBrains Mono', 'Fira Code', monospace;
   }
 
-  /* ── Light mode overrides ─────────────────────────────── */
-  html.light {
-    --background: 0 0% 97%;
-    --foreground: 0 0% 5%;
-  }
-
   * {
     box-sizing: border-box;
   }
@@ -25,15 +19,8 @@
   }
 
   body {
-    @apply antialiased;
+    @apply bg-background text-zinc-100 antialiased;
     font-family: var(--font-geist-sans);
-    background-color: #080808;
-    color: #f4f4f5;
-  }
-
-  html.light body {
-    background-color: #f5f5f5;
-    color: #111111;
   }
 
 
@@ -72,33 +59,3 @@
   }
 }
 
-/* ── Light mode surface overrides (outside @layer to maximise specificity) ── */
-html.light body {
-  background-color: #f5f5f5;
-  color: #111111;
-}
-
-html.light .bg-zinc-950,
-html.light .bg-zinc-900 {
-  background-color: #ffffff;
-}
-
-html.light .bg-zinc-800 {
-  background-color: #e4e4e7;
-}
-
-html.light .border-zinc-800 {
-  border-color: #d4d4d8;
-}
-
-html.light .border-zinc-700 {
-  border-color: #a1a1aa;
-}
-
-html.light .text-white { color: #111111; }
-html.light .text-zinc-100 { color: #18181b; }
-html.light .text-zinc-200 { color: #27272a; }
-html.light .text-zinc-300 { color: #3f3f46; }
-html.light .text-zinc-400 { color: #52525b; }
-html.light .text-zinc-500 { color: #71717a; }
-html.light .text-zinc-600 { color: #a1a1aa; }
