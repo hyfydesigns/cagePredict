@@ -8,6 +8,103 @@ import type { FighterRow, EventRow } from '@/types/database'
 
 export const revalidate = 3600
 
+// ---------------------------------------------------------------------------
+// RapidAPI fight history
+// ---------------------------------------------------------------------------
+
+interface ExternalFight {
+  date: string          // ISO string
+  eventName: string
+  opponent: string
+  opponentId: number | null
+  result: 'W' | 'L' | 'D' | 'NC'
+  method: string | null
+  round: number | null
+  time: string | null
+}
+
+/** Decode the deterministic UUID back to the original RapidAPI integer ID */
+function uuidToApiId(uuid: string): number | null {
+  // Format created by apiIdToUuid: 00000000-0000-0001-0000-XXXXXXXXXXXX
+  const parts = uuid.split('-')
+  if (parts.length !== 5) return null
+  const n = parseInt(parts[4], 10)
+  return isNaN(n) || n === 0 ? null : n
+}
+
+function mapWinType(winType: string): string {
+  const map: Record<string, string> = {
+    UD:  'Decision (Unanimous)',
+    SD:  'Decision (Split)',
+    MD:  'Decision (Majority)',
+    TKO: 'TKO',
+    KO:  'KO',
+    SUB: 'Submission',
+    DQ:  'Disqualification',
+    NC:  'No Contest',
+    RTD: 'RTD',
+  }
+  return map[winType] ?? winType
+}
+
+async function fetchExternalFightHistory(fighterId: string): Promise<ExternalFight[]> {
+  const apiId = uuidToApiId(fighterId)
+  if (!apiId) return []
+
+  const key  = process.env.RAPIDAPI_KEY
+  const host = process.env.RAPIDAPI_UFC_HOST ?? 'mmaapi.p.rapidapi.com'
+  if (!key) return []
+
+  try {
+    // Fetch pages 0, 1, 2 (up to ~30 fights) in parallel
+    const pages = await Promise.all(
+      [0, 1, 2].map((page) =>
+        fetch(`https://${host}/api/mma/team/${apiId}/events/last/${page}`, {
+          headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': host },
+          next: { revalidate: 86400 },
+        })
+          .then((r) => (r.ok ? r.json() : { events: [] }))
+          .catch(() => ({ events: [] }))
+      )
+    )
+
+    const allEvents: any[] = pages.flatMap((p) => p.events ?? [])
+
+    // De-duplicate by event id
+    const seen = new Set<number>()
+    const unique = allEvents.filter((e) => {
+      if (seen.has(e.id)) return false
+      seen.add(e.id)
+      return true
+    })
+
+    return unique
+      .filter((e) => e.status?.type === 'finished')
+      .map((e) => {
+        const isHome   = e.homeTeam?.id === apiId
+        const opponent = isHome ? e.awayTeam : e.homeTeam
+        const won  = (isHome && e.winnerCode === 1) || (!isHome && e.winnerCode === 2)
+        const lost = (isHome && e.winnerCode === 2) || (!isHome && e.winnerCode === 1)
+        const nc   = e.winType === 'NC'
+
+        return {
+          date:       e.startTimestamp ? new Date(e.startTimestamp * 1000).toISOString() : '',
+          eventName:  e.tournament?.name ?? e.season?.tournament?.name ?? 'UFC',
+          opponent:   opponent?.name ?? 'Unknown',
+          opponentId: opponent?.id ?? null,
+          result:     nc ? 'NC' : won ? 'W' : lost ? 'L' : 'D',
+          method:     e.winType ? mapWinType(e.winType) : null,
+          round:      e.finalRound ?? null,
+          time:       e.finalRoundTime ?? null,
+        } as ExternalFight
+      })
+      .filter((e) => e.date)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  } catch {
+    return []
+  }
+}
+
 type Props = { params: Promise<{ id: string }> }
 
 // ---------------------------------------------------------------------------
@@ -230,6 +327,75 @@ function FormPills({ form }: { form: string | null }) {
 }
 
 // ---------------------------------------------------------------------------
+// FightHistoryRow
+// ---------------------------------------------------------------------------
+function FightHistoryRow({
+  result, opponentName, opponentHref, eventName, date,
+  method, round, time, isTitle,
+}: {
+  result: 'W' | 'L' | 'D' | 'NC'
+  opponentName: string
+  opponentHref: string | null
+  eventName: string | null
+  date: string
+  method: string | null
+  round: number | null
+  time: string | null
+  isTitle?: boolean
+}) {
+  const badgeClass =
+    result === 'W'  ? 'bg-green-500/15 border-green-500/40 text-green-400' :
+    result === 'L'  ? 'bg-red-500/15 border-red-500/40 text-red-400' :
+    result === 'NC' ? 'bg-zinc-700/40 border-zinc-600 text-zinc-500' :
+                      'bg-zinc-700/40 border-zinc-600 text-zinc-400'
+
+  return (
+    <div className="flex items-center gap-3 px-5 py-3.5">
+      {/* Result badge */}
+      <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black border ${badgeClass}`}>
+        {result}
+      </span>
+
+      {/* Main info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-zinc-500 text-xs">vs</span>
+          {opponentHref ? (
+            <Link href={opponentHref} className="text-white text-sm font-bold hover:text-primary transition-colors">
+              {opponentName}
+            </Link>
+          ) : (
+            <span className="text-white text-sm font-bold">{opponentName}</span>
+          )}
+          {isTitle && (
+            <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-full">TITLE</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          {eventName && <span className="text-zinc-500 text-[11px]">{eventName}</span>}
+          {eventName && date && <span className="text-zinc-700 text-[11px]">·</span>}
+          {date && (
+            <span className="text-zinc-500 text-[11px]">
+              {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Method + round */}
+      <div className="shrink-0 text-right">
+        {method && <p className="text-zinc-300 text-xs font-semibold leading-tight">{method}</p>}
+        {round   && (
+          <p className="text-zinc-500 text-[11px] mt-0.5">
+            R{round}{time ? ` · ${time}` : ''}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 export default async function FighterProfilePage({ params }: Props) {
@@ -306,11 +472,12 @@ export default async function FighterProfilePage({ params }: Props) {
   const isF1    = upcomingFight?.fighter1_id === id
   const myOdds  = upcomingFight ? (isF1 ? upcomingFight.odds_f1 : upcomingFight.odds_f2) : null
 
-  // Fetch news, YouTube, Reddit in parallel
-  const [news, videos, redditPosts] = await Promise.all([
+  // Fetch everything external in parallel
+  const [news, videos, redditPosts, externalHistory] = await Promise.all([
     fetchFighterNews(f.name),
     fetchYouTubeHighlights(f.name),
     fetchRedditPosts(f.name),
+    fetchExternalFightHistory(id),
   ])
 
   return (
@@ -545,83 +712,61 @@ export default async function FighterProfilePage({ params }: Props) {
           </div>
         )}
 
-        {/* Fight History */}
-        {completedFights.length > 0 && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-            <div className="px-5 py-4 border-b border-zinc-800">
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                Fight History
-                <span className="ml-2 text-zinc-600 font-normal normal-case tracking-normal">
-                  ({completedFights.length} fights in system)
+        {/* Fight History — external API preferred, DB as fallback */}
+        {(externalHistory.length > 0 || completedFights.length > 0) && (() => {
+          // Prefer external data; fall back to DB-only rows
+          const useExternal = externalHistory.length > 0
+
+          return (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+                <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                  Fight History
+                </p>
+                <span className="text-[11px] text-zinc-600">
+                  {useExternal ? `${externalHistory.length} fights` : `${completedFights.length} fights in system`}
                 </span>
-              </p>
+              </div>
+
+              <div className="divide-y divide-zinc-800/60">
+                {useExternal
+                  ? externalHistory.map((fight, i) => (
+                      <FightHistoryRow
+                        key={i}
+                        result={fight.result}
+                        opponentName={fight.opponent}
+                        opponentHref={null}  // external IDs don't map to our DB routes
+                        eventName={fight.eventName}
+                        date={fight.date}
+                        method={fight.method}
+                        round={fight.round}
+                        time={fight.time}
+                      />
+                    ))
+                  : completedFights.map((fight) => {
+                      const won    = fight.winner_id === id
+                      const lost   = fight.winner_id && fight.winner_id !== id
+                      const result = won ? 'W' : lost ? 'L' : 'D'
+                      return (
+                        <FightHistoryRow
+                          key={fight.id}
+                          result={result as 'W' | 'L' | 'D'}
+                          opponentName={fight.opponent?.name ?? 'Unknown'}
+                          opponentHref={fight.opponent ? `/fighters/${fight.opponent.id}` : null}
+                          eventName={fight.event?.name ?? null}
+                          date={fight.fight_time}
+                          method={fight.method}
+                          round={fight.round}
+                          time={fight.time_of_finish}
+                          isTitle={fight.is_title_fight}
+                        />
+                      )
+                    })
+                }
+              </div>
             </div>
-            <div className="divide-y divide-zinc-800/60">
-              {completedFights.map((fight) => {
-                const won  = fight.winner_id === id
-                const lost = fight.winner_id && fight.winner_id !== id
-                const draw = fight.status === 'completed' && !fight.winner_id
-                const result = won ? 'W' : lost ? 'L' : draw ? 'D' : '–'
-
-                return (
-                  <div key={fight.id} className="flex items-center gap-3 px-5 py-3.5">
-                    {/* Result badge */}
-                    <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border ${
-                      result === 'W' ? 'bg-green-500/15 border-green-500/40 text-green-400' :
-                      result === 'L' ? 'bg-red-500/15 border-red-500/40 text-red-400' :
-                      'bg-zinc-700/40 border-zinc-600 text-zinc-400'
-                    }`}>
-                      {result}
-                    </span>
-
-                    {/* Main info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-zinc-400 text-xs">vs</span>
-                        {fight.opponent ? (
-                          <Link
-                            href={`/fighters/${fight.opponent.id}`}
-                            className="text-white text-sm font-bold hover:text-primary transition-colors"
-                          >
-                            {fight.opponent.name}
-                          </Link>
-                        ) : (
-                          <span className="text-zinc-300 text-sm font-bold">Unknown</span>
-                        )}
-                        {fight.is_title_fight && (
-                          <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-full">TITLE</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        {fight.event && (
-                          <span className="text-zinc-500 text-[11px]">{fight.event.name}</span>
-                        )}
-                        <span className="text-zinc-700 text-[11px]">·</span>
-                        <span className="text-zinc-500 text-[11px]">
-                          {new Date(fight.fight_time).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric', year: 'numeric',
-                          })}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Method + round */}
-                    <div className="shrink-0 text-right">
-                      {fight.method && (
-                        <p className="text-zinc-300 text-xs font-semibold leading-tight">{fight.method}</p>
-                      )}
-                      {fight.round && (
-                        <p className="text-zinc-500 text-[11px] mt-0.5">
-                          R{fight.round}{fight.time_of_finish ? ` · ${fight.time_of_finish}` : ''}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* YouTube Highlights */}
         {videos.length > 0 && (
