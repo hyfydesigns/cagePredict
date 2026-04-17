@@ -12,6 +12,7 @@ export const signUpSchema = z.object({
     .min(3, 'Username must be at least 3 characters')
     .max(20, 'Username must be 20 characters or less')
     .regex(/^[a-zA-Z0-9_]+$/, 'Only letters, numbers and underscores'),
+  inviteCode: z.string().optional(),
 })
 
 export const signInSchema = z.object({

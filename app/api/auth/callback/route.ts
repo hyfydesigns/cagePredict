@@ -5,8 +5,9 @@ import { welcomeTemplate } from '@/lib/email/templates'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+  const code       = searchParams.get('code')
+  const next       = searchParams.get('next') ?? '/'
+  const inviteCode = searchParams.get('invite')
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
@@ -43,7 +44,15 @@ export async function GET(request: NextRequest) {
     Date.now() - new Date(confirmedAt).getTime() < 60_000
 
   // Route new users to onboarding with a welcome flag; everyone else to `next`
-  const destination = isFirstVerification ? '/onboarding?welcome=1' : next
+  // Preserve invite code through both paths so the crew join happens after onboarding
+  let destination: string
+  if (isFirstVerification) {
+    const params = new URLSearchParams({ welcome: '1' })
+    if (inviteCode) params.set('invite', inviteCode)
+    destination = `/onboarding?${params.toString()}`
+  } else {
+    destination = inviteCode ? `${next}${next.includes('?') ? '&' : '?'}invite=${inviteCode}` : next
+  }
   const response = NextResponse.redirect(`${origin}${destination}`)
 
   // Transfer session cookies to the redirect response

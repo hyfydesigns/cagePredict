@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AvatarPicker } from '@/components/auth/avatar-picker'
 import { completeOnboarding } from '@/lib/actions/auth'
+import { joinCrew } from '@/lib/actions/crews'
 import { useToast } from '@/components/ui/use-toast'
 import { useSupabase } from '@/components/providers/supabase-provider'
 
@@ -22,8 +23,9 @@ const FEATURES = [
 
 export default function OnboardingPage() {
   const searchParams = useSearchParams()
-  const isWelcome = searchParams.get('welcome') === '1'
-  const { user } = useSupabase()
+  const isWelcome  = searchParams.get('welcome') === '1'
+  const inviteCode = searchParams.get('invite') ?? null
+  const { user }   = useSupabase()
 
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -48,6 +50,15 @@ export default function OnboardingPage() {
       })
       if (result?.error) {
         toast({ title: 'Error', description: result.error, variant: 'destructive' })
+        return
+      }
+      // Auto-join crew from invite link — best-effort, don't block on failure
+      if (inviteCode) {
+        const joinResult = await joinCrew(inviteCode)
+        if (joinResult?.error && joinResult.error !== 'You are already in this crew') {
+          toast({ title: 'Could not join crew', description: joinResult.error, variant: 'destructive' })
+        }
+        // joinCrew redirects to /crews/[id] on success — flow ends here
       }
     })
   }

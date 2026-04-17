@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,9 +11,11 @@ import { signUp } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
 
 export default function SignUpPage() {
+  const searchParams   = useSearchParams()
+  const inviteCode     = searchParams.get('invite') ?? undefined
   const [showPassword, setShowPassword] = useState(false)
-  const [isPending, startTransition] = useTransition()
-  const [isSuccess, setIsSuccess] = useState(false)
+  const [isPending, startTransition]    = useTransition()
+  const [isSuccess, setIsSuccess]       = useState(false)
   const { toast } = useToast()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -20,9 +23,10 @@ export default function SignUpPage() {
     const form = new FormData(e.currentTarget)
     startTransition(async () => {
       const result = await signUp({
-        email: form.get('email') as string,
-        password: form.get('password') as string,
-        username: form.get('username') as string,
+        email:      form.get('email') as string,
+        password:   form.get('password') as string,
+        username:   form.get('username') as string,
+        inviteCode,
       })
       if (result?.error) {
         toast({ title: 'Sign up failed', description: result.error, variant: 'destructive' })
@@ -38,7 +42,8 @@ export default function SignUpPage() {
         <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-3" />
         <h2 className="text-xl font-bold text-white mb-2">Check your email!</h2>
         <p className="text-zinc-400 text-sm">
-          We sent a confirmation link. Click it to activate your account and start predicting.
+          We sent a confirmation link. Click it to activate your account
+          {inviteCode ? ' and you\'ll be automatically joined to the crew.' : ' and start predicting.'}
         </p>
       </div>
     )

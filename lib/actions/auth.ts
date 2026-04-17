@@ -22,12 +22,19 @@ export async function signUp(data: SignUpInput): Promise<ActionResult> {
 
   if (existing) return { error: 'Username already taken' }
 
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cagepredict.com'
+  const callbackUrl = new URL(`${base}/api/auth/callback`)
+  callbackUrl.searchParams.set('next', '/onboarding')
+  if (parsed.data.inviteCode) {
+    callbackUrl.searchParams.set('invite', parsed.data.inviteCode)
+  }
+
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { username: parsed.data.username },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://cagepredict.com'}/api/auth/callback?next=/onboarding`,
+      emailRedirectTo: callbackUrl.toString(),
     },
   })
 
