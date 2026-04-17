@@ -27,6 +27,21 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
+  // Admin routes — must be authenticated AND have role=admin in user_metadata
+  if (pathname.startsWith('/admin')) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(url)
+    }
+    const isAdmin = user.user_metadata?.role === 'admin'
+    if (!isAdmin) {
+      // Redirect non-admins silently to home — don't reveal the page exists
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+  }
+
   // Protected routes — redirect to login if no session
   const protectedPaths = ['/dashboard', '/leaderboard', '/crews', '/profile/edit']
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))

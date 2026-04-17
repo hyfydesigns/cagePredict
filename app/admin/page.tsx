@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { AdminPanel } from '@/components/admin/admin-panel'
+import { isAdmin } from '@/lib/auth/is-admin'
 
 export const metadata: Metadata = { title: 'Admin Panel' }
 
@@ -9,7 +10,9 @@ export default async function AdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  // Double-check: middleware already blocks non-admins, but we verify again
+  // here so the page is safe even if middleware is bypassed or misconfigured.
+  if (!user || !isAdmin(user)) redirect('/')
 
   // Fetch all fights with event + fighter data for the results panel
   const { data: events } = await supabase

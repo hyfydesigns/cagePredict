@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { signUpSchema, signInSchema, onboardingSchema, editProfileSchema } from '@/lib/validations'
 import type { SignUpInput, SignInInput, OnboardingInput, EditProfileInput } from '@/lib/validations'
+import { isAdmin } from '@/lib/auth/is-admin'
 
 type ActionResult = { error?: string; success?: boolean }
 
@@ -140,11 +141,11 @@ export async function updateEmailNotifications(enabled: boolean): Promise<Action
   return { success: true }
 }
 
-/** Admin-only: delete any user by ID. Caller must be authenticated (admin check is in UI). */
+/** Admin-only: delete any user by ID. */
 export async function adminDeleteUser(targetUserId: string): Promise<ActionResult> {
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user || !isAdmin(user)) return { error: 'Unauthorized' }
 
   // Prevent self-deletion via this route
   if (user.id === targetUserId) return { error: 'Use account settings to delete your own account' }

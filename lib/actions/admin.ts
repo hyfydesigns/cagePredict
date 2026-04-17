@@ -5,8 +5,22 @@ import { revalidatePath } from 'next/cache'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { SEED_EVENTS, SEED_FIGHTERS } from '@/seeds/seed-data'
 import { sendCardLiveEmails } from '@/lib/actions/emails'
+import { isAdmin } from '@/lib/auth/is-admin'
 
 type ActionResult = { error?: string; success?: boolean; message?: string }
+
+// ─── Admin auth guard ────────────────────────────────────────────────────────
+
+/**
+ * Call at the top of every admin server action.
+ * Returns the authed user or throws/returns an error result.
+ */
+async function requireAdmin(): Promise<{ user: import('@supabase/supabase-js').User } | { error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdmin(user)) return { error: 'Unauthorized' }
+  return { user }
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -306,9 +320,8 @@ async function fetchStatsFromUFCStats(name: string): Promise<{
 // ─── Clear all data ──────────────────────────────────────────────────────────
 
 export async function clearAllData(): Promise<ActionResult> {
-  const authClient = await createClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
 
   const supabase = createServiceClient()
 
@@ -346,10 +359,8 @@ export async function fetchEventByDate(
   month: number,
   year: number,
 ): Promise<ActionResult> {
-  // Verify the caller is authenticated
-  const authClient = await createClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
 
   // Use service role to bypass RLS for admin writes
   const supabase = createServiceClient()
@@ -645,9 +656,8 @@ export async function fetchEventByDate(
 // ─── Seed (fake data fallback) ───────────────────────────────────────────────
 
 export async function seedEvents(): Promise<ActionResult> {
-  const authClient = await createClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
 
   const supabase = createServiceClient()
 
@@ -698,9 +708,8 @@ export async function completeFight(
   round?: number,
   timeOfFinish?: string,
 ): Promise<ActionResult> {
-  const authClient = await createClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
 
   const supabase = createServiceClient()
 
