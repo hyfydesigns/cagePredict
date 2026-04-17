@@ -28,7 +28,8 @@ Optional (features degrade gracefully if absent):
 
 | Variable | Feature |
 |---|---|
-| `RAPIDAPI_KEY` + `RAPIDAPI_UFC_HOST` | Import real UFC events via Admin panel |
+| `RAPIDAPI_KEY` + `RAPIDAPI_UFC_HOST` | Import real UFC events + auto-sync live results |
+| `CRON_SECRET` | Secures all `/api/cron/*` routes (set in Vercel env vars) |
 | `ANTHROPIC_API_KEY` | AI matchup analysis (Claude Haiku) on event import |
 | `RESEND_API_KEY` | Transactional emails (card-live, last-chance, weekly recap) |
 | `ODDS_API_KEY` | Live betting odds sync from The Odds API |
@@ -48,7 +49,7 @@ Optional (features degrade gracefully if absent):
 - `app/(auth)/` — Public auth pages (login, signup, onboarding). Middleware redirects authenticated users away.
 - `app/(protected)/` — Requires auth session (dashboard, crews, leaderboard, profile/edit). Middleware also enforces `/onboarding` redirect until `profiles.onboarding_complete = true`.
 - `app/admin/` — Admin panel. No middleware guard — access control is enforced inside the page by checking `profiles.is_admin`.
-- `app/api/` — Route handlers: `auth/callback` (OAuth + email verification), `cron/*` (last-chance emails, odds sync, weekly recap), `fighter-image/[id]` (proxy).
+- `app/api/` — Route handlers: `auth/callback` (OAuth + email verification), `cron/*` (scheduled jobs), `fighter-image/[id]` (proxy).
 
 ### Data Flow
 
@@ -62,6 +63,29 @@ All mutations go through **Next.js Server Actions** in `lib/actions/`:
 | `admin.ts` | Seed data, import events from RapidAPI, complete fights (triggers scoring RPC) |
 | `emails.ts` | Batch send via Resend (card-live, last-chance, weekly recap) |
 | `odds.ts` | `syncEventOdds()` — fetch from The Odds API, store current + opening odds + history |
+
+### Cron Jobs (`app/api/cron/`)
+
+All routes are protected by `Authorization: Bearer $CRON_SECRET`. Scheduled via `vercel.json`:
+
+| Route | Schedule | Purpose |
+|---|---|---|
+| `go-live` | every 15 min | Flips events upcoming→live (30 min before first fight) and live→completed (when all fights done) |
+| `sync-results` | every 5 min | Fetches RapidAPI schedule, auto-calls `complete_fight()` RPC for finished fights |
+| `sync-odds` | every hour | Pulls live American odds from The Odds API |
+| `last-chance` | 14:00 UTC daily | Sends pick-reminder emails before events |
+| `weekly-recap` | Mon 09:00 UTC | Sends weekly stats recap emails |
+
+### Live Event Architecture
+
+During a live event, fight cards update via two mechanisms:
+1. **Supabase realtime** (instant) — `LiveWrapper` subscribes to `postgres_changes` on the `fights` table. When `sync-results` calls `complete_fight()`, the result appears on all clients immediately.
+2. **Polling fallback** (30s when live, 60s otherwise) — catches event status transitions that realtime doesn't cover.
+
+**Required SQL** — run once in Supabase SQL editor to enable realtime on fights:
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.fights;
+```
 
 ### Supabase Client Pattern
 

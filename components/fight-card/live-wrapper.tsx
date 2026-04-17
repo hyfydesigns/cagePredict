@@ -7,6 +7,7 @@ import { format } from 'date-fns'
 import { MapPin, Calendar, ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import { getActiveEvents } from '@/lib/actions/events'
+import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
 import { usePredictions, type PredictionMap } from '@/hooks/use-predictions'
@@ -36,20 +37,59 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     setEvents(initialEvents)
   }, [initialEvents])
 
+  // ── Supabase realtime: instant fight result updates ───────────────────────
+  // When sync-results cron calls complete_fight(), the DB change is broadcast
+  // here immediately — no polling delay for fight results.
   useEffect(() => {
-    if (!isLive) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel('fights-live-updates')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'fights' },
+        (payload) => {
+          setEvents((prev) =>
+            prev.map((event) => ({
+              ...event,
+              fights: event.fights.map((fight) =>
+                fight.id === payload.new.id
+                  ? {
+                      ...fight,
+                      // Only merge scalar result fields; keep joined fighter objects intact
+                      status:         payload.new.status    ?? fight.status,
+                      winner_id:      payload.new.winner_id ?? fight.winner_id,
+                      method:         payload.new.method    ?? fight.method,
+                      round:          payload.new.round     ?? fight.round,
+                      time_of_finish: payload.new.time_of_finish ?? fight.time_of_finish,
+                    }
+                  : fight
+              ),
+            }))
+          )
+          setLastRefresh(new Date())
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
+  // ── Polling fallback: catches event status changes (upcoming→live→completed) ─
+  // Runs every 60s always, every 30s when live. The go-live cron handles the
+  // actual status flip; this just pulls the updated event list into the UI.
+  useEffect(() => {
+    const intervalMs = isLive ? 30_000 : 60_000
     const interval = setInterval(() => {
       startTransition(async () => {
         try {
           const fresh = await getActiveEvents()
           setEvents(fresh)
-          setLastRefresh(new Date())
           setRefreshError(false)
         } catch {
           setRefreshError(true)
         }
       })
-    }, 30_000)
+    }, intervalMs)
     return () => clearInterval(interval)
   }, [isLive])
 
@@ -62,16 +102,16 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
 
   return (
     <div className="space-y-4">
-      {/* Live refresh indicator */}
+      {/* Live indicator */}
       {isLive && (
         <div className="flex items-center justify-center gap-2 text-xs text-primary font-semibold">
           <Radio className="h-3.5 w-3.5 animate-pulse-red" />
-          Live — updating every 30s
+          Live — results update automatically
           <span className="text-zinc-400 font-normal">
             {refreshError
-              ? '· refresh error'
+              ? '· sync error'
               : lastRefresh
-              ? `· ${lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+              ? `· last update ${lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
               : ''}
           </span>
         </div>
