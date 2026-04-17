@@ -30,11 +30,18 @@ export default async function AdminPage() {
   const { count: fightCount } = await supabase.from('fights').select('id', { count: 'exact', head: true })
   const { count: predCount }  = await supabase.from('predictions').select('id', { count: 'exact', head: true })
 
+  // Fetch all user profiles for the user management section
+  const { data: usersData } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_emoji, total_points, total_picks, correct_picks, created_at, email_notifications')
+    .order('created_at', { ascending: false })
+
   return (
     <AdminPanel
       events={(events as any) ?? []}
       stats={{ users: userCount ?? 0, fights: fightCount ?? 0, predictions: predCount ?? 0 }}
       adminUserId={user.id}
+      users={(usersData as any) ?? []}
     />
   )
 }

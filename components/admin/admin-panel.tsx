@@ -4,13 +4,14 @@ import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, CheckCircle, Trophy, Users, Swords,
-  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp
+  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { seedEvents, completeFight, fetchEventByDate, clearAllData } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
+import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
 import { format } from 'date-fns'
 
@@ -32,13 +33,26 @@ interface AdminEvent {
   fights: AdminFight[]
 }
 
+interface AdminUser {
+  id: string
+  username: string
+  display_name: string | null
+  avatar_emoji: string
+  total_points: number
+  total_picks: number
+  correct_picks: number
+  created_at: string
+  email_notifications: boolean
+}
+
 interface Props {
   events: AdminEvent[]
   stats: { users: number; fights: number; predictions: number }
   adminUserId: string
+  users: AdminUser[]
 }
 
-export function AdminPanel({ events, stats, adminUserId }: Props) {
+export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const { toast } = useToast()
   const [isSeedPending, startSeedTransition]         = useTransition()
   const [isApiFetchPending, startApiFetchTransition] = useTransition()
@@ -47,6 +61,9 @@ export function AdminPanel({ events, stats, adminUserId }: Props) {
   const [isResultPending, startResultTransition]     = useTransition()
   const [isOddsPending, startOddsTransition]         = useTransition()
   const [oddsEventId, setOddsEventId]                = useState(() => events[0]?.id ?? '')
+  const [userSearch, setUserSearch]                  = useState('')
+  const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null)
+  const [isDeleteUserPending, startDeleteUserTransition] = useTransition()
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
@@ -109,6 +126,32 @@ export function AdminPanel({ events, stats, adminUserId }: Props) {
       }
     })
   }
+
+  function handleDeleteUser(userId: string) {
+    if (confirmDeleteUserId !== userId) {
+      setConfirmDeleteUserId(userId)
+      // auto-reset after 4s if not confirmed
+      setTimeout(() => setConfirmDeleteUserId((prev) => (prev === userId ? null : prev)), 4000)
+      return
+    }
+    setConfirmDeleteUserId(null)
+    startDeleteUserTransition(async () => {
+      const result = await adminDeleteUser(userId)
+      if (result?.error) {
+        toast({ title: 'Delete failed', description: result.error, variant: 'destructive' })
+      } else {
+        toast({ title: 'User deleted', description: 'The user account has been permanently removed.' })
+      }
+    })
+  }
+
+  const filteredUsers = users.filter((u) => {
+    const q = userSearch.toLowerCase()
+    return (
+      u.username.toLowerCase().includes(q) ||
+      (u.display_name ?? '').toLowerCase().includes(q)
+    )
+  })
 
   function handleCompleteFight(fightId: string) {
     const winnerId = selectedWinners[fightId]
@@ -264,6 +307,88 @@ export function AdminPanel({ events, stats, adminUserId }: Props) {
               : <><RefreshCw className="h-4 w-4 mr-1.5" />Seed Demo</>
             }
           </Button>
+        </div>
+      </div>
+
+      {/* User Management */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-bold text-white flex items-center gap-2">
+              <UserX className="h-4 w-4 text-blue-400" /> User Management
+            </h2>
+            <p className="text-zinc-500 text-sm mt-0.5">
+              {users.length} registered user{users.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="relative w-full sm:w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+            <Input
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              placeholder="Search users…"
+              className="pl-8 h-8 text-sm bg-zinc-800 border-zinc-700"
+            />
+          </div>
+        </div>
+
+        <div className="divide-y divide-zinc-800/60 max-h-[480px] overflow-y-auto">
+          {filteredUsers.length === 0 ? (
+            <p className="px-5 py-8 text-center text-zinc-600 text-sm">No users found.</p>
+          ) : (
+            filteredUsers.map((u) => {
+              const isAdmin = u.id === adminUserId
+              const isConfirming = confirmDeleteUserId === u.id
+              const accuracy = u.total_picks > 0 ? Math.round((u.correct_picks / u.total_picks) * 100) : 0
+              return (
+                <div key={u.id} className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-800/30 transition-colors">
+                  {/* Avatar */}
+                  <div className="h-9 w-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-lg shrink-0 select-none">
+                    {u.avatar_emoji}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-semibold text-white truncate">
+                        {u.display_name || u.username}
+                      </p>
+                      <span className="text-zinc-500 text-xs">@{u.username}</span>
+                      {isAdmin && (
+                        <Badge variant="warning" className="text-[10px] py-0 px-1.5">You</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-zinc-500 text-xs">{u.total_points} pts</span>
+                      <span className="text-zinc-600 text-xs">{u.total_picks} picks · {accuracy}% acc</span>
+                      <span className="text-zinc-700 text-xs hidden sm:inline">
+                        Joined {format(new Date(u.created_at), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Delete button */}
+                  {!isAdmin && (
+                    <Button
+                      size="sm"
+                      variant={isConfirming ? 'destructive' : 'ghost'}
+                      onClick={() => handleDeleteUser(u.id)}
+                      disabled={isDeleteUserPending}
+                      className={`shrink-0 h-7 text-xs ${!isConfirming ? 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10' : ''}`}
+                    >
+                      {isDeleteUserPending && confirmDeleteUserId === null ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : isConfirming ? (
+                        'Confirm?'
+                      ) : (
+                        <UserX className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
 

@@ -140,6 +140,23 @@ export async function updateEmailNotifications(enabled: boolean): Promise<Action
   return { success: true }
 }
 
+/** Admin-only: delete any user by ID. Caller must be authenticated (admin check is in UI). */
+export async function adminDeleteUser(targetUserId: string): Promise<ActionResult> {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Prevent self-deletion via this route
+  if (user.id === targetUserId) return { error: 'Use account settings to delete your own account' }
+
+  const service = createServiceClient()
+  const { error } = await service.auth.admin.deleteUser(targetUserId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin')
+  return { success: true }
+}
+
 export async function deleteAccount(): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
