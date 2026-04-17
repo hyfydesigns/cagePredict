@@ -74,6 +74,9 @@ export interface Database {
           fighting_style: string | null
           last_5_form: string | null
           analysis: string | null
+          x_handle: string | null
+          instagram_handle: string | null
+          ufc_url: string | null
           created_at: string
         }
         Insert: {
@@ -98,6 +101,9 @@ export interface Database {
           fighting_style?: string | null
           last_5_form?: string | null
           analysis?: string | null
+          x_handle?: string | null
+          instagram_handle?: string | null
+          ufc_url?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['fighters']['Insert']>

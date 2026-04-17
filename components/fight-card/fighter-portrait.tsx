@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { useState } from 'react'
 import { Crown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -38,8 +39,9 @@ export function FighterPortrait({
       )}
 
       {/* Fighter image */}
+      <Link href={`/fighters/${fighter.id}`} className="block group">
       <div className={cn(
-        'relative w-24 h-28 sm:w-28 sm:h-32 rounded-xl overflow-hidden border-2 transition-all duration-300',
+        'relative w-24 h-28 sm:w-28 sm:h-32 rounded-xl overflow-hidden border-2 transition-all duration-300 group-hover:border-primary/60 group-hover:scale-[1.03] transition-transform duration-200',
         isPicked ? 'border-primary shadow-[0_0_20px_rgba(239,68,68,0.35)]' : 'border-zinc-700',
         isWinner ? 'border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.35)]' : '',
       )}>
@@ -73,6 +75,7 @@ export function FighterPortrait({
           </div>
         )}
       </div>
+      </Link>
 
       {/* Fighter info */}
       <div className={cn('mt-2 w-full', isLeft ? 'text-left' : 'text-right')}>
