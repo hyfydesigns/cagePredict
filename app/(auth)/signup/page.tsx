@@ -87,7 +87,10 @@ export default function SignUpPage() {
       </form>
 
       <p className="text-center text-xs text-zinc-600 mt-4">
-        By signing up you agree to our Terms of Service.
+        By creating an account you agree to our{' '}
+        <Link href="/terms" className="hover:text-zinc-400 underline underline-offset-2">Terms of Service</Link>
+        {' '}and{' '}
+        <Link href="/privacy" className="hover:text-zinc-400 underline underline-offset-2">Privacy Policy</Link>.
       </p>
       <p className="text-center text-sm text-zinc-500 mt-3">
         Already have an account?{' '}

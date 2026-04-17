@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
   Home, Trophy, Users, User, LogOut, Menu, X,
-  Swords, Shield, Bell, BarChart2
+  Swords, Shield, Bell, BarChart2, HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -60,6 +60,20 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
             </Link>
           ))}
         </nav>
+
+        {/* Help link (desktop) */}
+        <Link
+          href="/help"
+          className={cn(
+            'hidden md:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+            pathname === '/help'
+              ? 'text-zinc-300'
+              : 'text-zinc-500 hover:text-zinc-300'
+          )}
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          Help
+        </Link>
 
         {/* Right side */}
         <div className="flex items-center gap-3">
@@ -133,8 +147,23 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
               {label}
             </Link>
           ))}
+          <div className="pt-2 border-t border-zinc-800">
+            <Link
+              href="/help"
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                pathname === '/help'
+                  ? 'bg-zinc-800 text-white'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+              )}
+            >
+              <HelpCircle className="h-4 w-4" />
+              Help
+            </Link>
+          </div>
           {isAuthenticated && (
-            <form action={signOut} className="pt-2 border-t border-zinc-800">
+            <form action={signOut}>
               <button className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-300 hover:text-white w-full">
                 <LogOut className="h-4 w-4" />
                 Sign Out

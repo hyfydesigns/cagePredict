@@ -5,6 +5,7 @@ import './globals.css'
 import { SupabaseProvider } from '@/components/providers/supabase-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { Navbar } from '@/components/layout/navbar'
+import { Footer } from '@/components/layout/footer'
 import { EventCountdownBanner } from '@/components/layout/event-countdown-banner'
 import { createClient } from '@/lib/supabase/server'
 
@@ -68,6 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <main className="min-h-[calc(100vh-4rem)]">
             {children}
           </main>
+          <Footer />
           <Toaster />
         </SupabaseProvider>
       </body>
