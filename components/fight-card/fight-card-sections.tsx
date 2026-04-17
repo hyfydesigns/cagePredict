@@ -19,12 +19,20 @@ function SectionDivider({ label, icon }: { label: string; icon: React.ReactNode 
 
 interface FightCardSectionsProps {
   fights: FightWithDetails[]
-  userPicks: PredictionMap
+  picks: PredictionMap
+  predict: (fightId: string, winnerId: string) => Promise<void>
+  toggleLock: (fightId: string, isConfidence: boolean) => Promise<void>
+  isPending: boolean
+  lockedFightId: string | null
   userId?: string
   commentsByFight?: Record<string, CommentWithProfile[]>
 }
 
-export function FightCardSections({ fights, userPicks, userId, commentsByFight = {} }: FightCardSectionsProps) {
+export function FightCardSections({
+  fights, picks, predict, toggleLock, isPending, lockedFightId, userId, commentsByFight = {},
+}: FightCardSectionsProps) {
+  const listProps = { picks, predict, toggleLock, isPending, lockedFightId, userId, commentsByFight }
+
   const maincard     = fights.filter((f) => (f as any).fight_type === 'maincard')
   const prelims      = fights.filter((f) => (f as any).fight_type === 'prelims')
   const earlyPrelims = fights.filter((f) =>
@@ -32,10 +40,9 @@ export function FightCardSections({ fights, userPicks, userId, commentsByFight =
   )
   const ungrouped = fights.filter((f) => !(f as any).fight_type)
 
-  // If nothing is categorised at all, render flat (no dividers)
   const hasSections = maincard.length > 0 || prelims.length > 0 || earlyPrelims.length > 0
   if (!hasSections) {
-    return <FightCardList fights={ungrouped} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
+    return <FightCardList fights={ungrouped} {...listProps} />
   }
 
   return (
@@ -43,23 +50,23 @@ export function FightCardSections({ fights, userPicks, userId, commentsByFight =
       {maincard.length > 0 && (
         <>
           <SectionDivider label="Main Card" icon={<Star className="h-3.5 w-3.5 text-primary fill-primary" />} />
-          <FightCardList fights={maincard} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
+          <FightCardList fights={maincard} {...listProps} />
         </>
       )}
       {prelims.length > 0 && (
         <>
           <SectionDivider label="Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-300" />} />
-          <FightCardList fights={prelims} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
+          <FightCardList fights={prelims} {...listProps} />
         </>
       )}
       {earlyPrelims.length > 0 && (
         <>
           <SectionDivider label="Early Prelims" icon={<Radio className="h-3.5 w-3.5 text-zinc-300" />} />
-          <FightCardList fights={earlyPrelims} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
+          <FightCardList fights={earlyPrelims} {...listProps} />
         </>
       )}
       {ungrouped.length > 0 && (
-        <FightCardList fights={ungrouped} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
+        <FightCardList fights={ungrouped} {...listProps} />
       )}
     </div>
   )

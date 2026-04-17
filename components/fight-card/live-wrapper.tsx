@@ -9,7 +9,7 @@ import Image from 'next/image'
 import { getActiveEvents } from '@/lib/actions/events'
 import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
-import type { PredictionMap } from '@/hooks/use-predictions'
+import { usePredictions, type PredictionMap } from '@/hooks/use-predictions'
 import { FightCardSections } from './fight-card-sections'
 
 interface LiveWrapperProps {
@@ -128,6 +128,59 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   )
 }
 
+function PicksProgressBadge({ total, picked }: { total: number; picked: number }) {
+  const allDone   = picked === total && total > 0
+  const hasNone   = picked === 0
+  const pct       = total > 0 ? Math.round((picked / total) * 100) : 0
+
+  // SVG circle params
+  const r  = 16
+  const cx = 20
+  const cy = 20
+  const circumference = 2 * Math.PI * r
+
+  const strokeColor = allDone ? '#22c55e' : hasNone ? '#71717a' : '#f59e0b'
+  const textColor   = allDone ? 'text-green-400' : hasNone ? 'text-zinc-400' : 'text-amber-400'
+  const bgColor     = allDone ? 'bg-green-500/10 border-green-500/30' : hasNone ? 'bg-zinc-800/80 border-zinc-700/60' : 'bg-amber-500/10 border-amber-500/30'
+
+  return (
+    <div className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 backdrop-blur-sm ${bgColor}`}>
+      {/* Circular progress */}
+      <div className="relative shrink-0">
+        <svg width="40" height="40" className="-rotate-90">
+          {/* Track */}
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
+          {/* Progress */}
+          <circle
+            cx={cx} cy={cy} r={r}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference - (pct / 100) * circumference}
+            style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+          />
+        </svg>
+        {/* Centre number */}
+        <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-black leading-none ${textColor}`}>
+          {picked}
+        </span>
+      </div>
+
+      {/* Label */}
+      <div className="leading-tight">
+        <p className={`text-xs font-black leading-none ${textColor}`}>
+          {picked}/{total}
+        </p>
+        <p className="text-[10px] text-zinc-500 leading-none mt-0.5">
+          {allDone ? 'All picked!' : 'Picks'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function EventSectionClient({
   event, userPicks, userId, commentsByFight = {},
 }: {
@@ -136,6 +189,13 @@ function EventSectionClient({
   userId?: string
   commentsByFight?: Record<string, CommentWithProfile[]>
 }) {
+  // Lift prediction state here so the picks counter and fight cards stay in sync
+  const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
+
+  const fightIds    = event.fights.map((f) => f.id)
+  const totalFights = fightIds.length
+  const pickedCount = fightIds.filter((id) => picks[id]?.winnerId).length
+
   return (
     <section>
       <div className="rounded-2xl overflow-hidden border border-zinc-800/60 mb-4">
@@ -145,16 +205,16 @@ function EventSectionClient({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent" />
           <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex items-start justify-between">
-              <div>
+            <div className="flex items-end justify-between gap-3">
+              <div className="flex-1 min-w-0">
                 <Badge variant={event.status === 'live' ? 'live' : 'outline'} className="mb-2 text-[11px]">
                   {event.status === 'live' ? '🔴 LIVE NOW' : 'Upcoming'}
                 </Badge>
                 <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                  {event.name}
+                  <span className="truncate">{event.name}</span>
                   <Link
                     href={`/events/${event.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
-                    className="text-zinc-400 hover:text-zinc-300 transition-colors"
+                    className="text-zinc-400 hover:text-zinc-300 transition-colors shrink-0"
                     title="Event page"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -173,11 +233,37 @@ function EventSectionClient({
                   )}
                 </div>
               </div>
+
+              {/* Picks progress — only shown to logged-in users */}
+              {userId && (
+                <PicksProgressBadge total={totalFights} picked={pickedCount} />
+              )}
             </div>
           </div>
         </div>
+
+        {/* Progress bar along the bottom of the banner */}
+        {userId && totalFights > 0 && (
+          <div className="h-1 bg-zinc-800 w-full">
+            <div
+              className={`h-full transition-all duration-500 ${
+                pickedCount === totalFights ? 'bg-green-500' : pickedCount > 0 ? 'bg-amber-500' : 'bg-zinc-700'
+              }`}
+              style={{ width: `${(pickedCount / totalFights) * 100}%` }}
+            />
+          </div>
+        )}
       </div>
-      <FightCardSections fights={event.fights} userPicks={userPicks} userId={userId} commentsByFight={commentsByFight} />
+      <FightCardSections
+        fights={event.fights}
+        picks={picks}
+        predict={predict}
+        toggleLock={toggleLock}
+        isPending={isPending}
+        lockedFightId={lockedFightId}
+        userId={userId}
+        commentsByFight={commentsByFight}
+      />
     </section>
   )
 }
