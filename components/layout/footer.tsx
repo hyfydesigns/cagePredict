@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Shield } from 'lucide-react'
 
 export function Footer() {
   const year = new Date().getFullYear()
@@ -11,9 +10,11 @@ export function Footer() {
           {/* Brand */}
           <div className="space-y-1.5">
             <Link href="/" className="flex items-center gap-2 group w-fit">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary shadow-[0_0_10px_rgba(239,68,68,0.35)]">
-                <Shield className="h-3.5 w-3.5 text-white" />
-              </div>
+              <img
+                src="/logo.svg"
+                alt="CagePredict"
+                className="h-7 w-7 drop-shadow-[0_0_6px_rgba(239,68,68,0.4)]"
+              />
               <span className="text-base font-black tracking-tight text-white">
                 Cage<span className="text-primary">Predict</span>
               </span>

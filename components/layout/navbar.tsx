@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
   Home, Trophy, Users, User, LogOut, Menu, X,
-  Swords, Shield, Bell, BarChart2, HelpCircle
+  Swords, Bell, BarChart2, HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -34,9 +34,11 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
       <div className="container mx-auto flex h-16 items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-[0_0_12px_rgba(239,68,68,0.4)]">
-            <Shield className="h-4 w-4 text-white" />
-          </div>
+          <img
+            src="/logo.svg"
+            alt="CagePredict"
+            className="h-8 w-8 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+          />
           <span className="text-lg font-black tracking-tight text-white">
             Cage<span className="text-primary">Predict</span>
           </span>
