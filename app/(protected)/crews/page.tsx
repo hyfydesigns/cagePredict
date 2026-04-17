@@ -22,22 +22,42 @@ export default async function CrewsPage() {
 
   let myCrews: CrewWithMembers[] = []
   if (myCrewIds.length > 0) {
-    const { data } = await supabase
+    // Fetch crews first
+    const { data: crewData } = await supabase
       .from('crews')
-      .select(`
-        *,
-        crew_members(
-          *,
-          profile:profiles(*)
-        )
-      `)
+      .select('*')
       .in('id', myCrewIds)
       .order('created_at', { ascending: false })
 
-    myCrews = ((data ?? []) as any[]).map((c) => ({
-      ...c,
-      member_count: (c.crew_members as unknown[])?.length ?? 0,
-    })) as CrewWithMembers[]
+    if (crewData && crewData.length > 0) {
+      // Fetch all members for these crews
+      const { data: allMembers } = await supabase
+        .from('crew_members')
+        .select('*')
+        .in('crew_id', myCrewIds)
+
+      // Fetch profiles for all member user IDs
+      const memberUserIds = [...new Set(((allMembers ?? []) as any[]).map((m) => m.user_id))]
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', memberUserIds)
+
+      const profilesById = Object.fromEntries(
+        ((profileData ?? []) as any[]).map((p) => [p.id, p])
+      )
+
+      myCrews = (crewData as any[]).map((crew) => {
+        const members = ((allMembers ?? []) as any[])
+          .filter((m) => m.crew_id === crew.id)
+          .map((m) => ({ ...m, profile: profilesById[m.user_id] ?? null }))
+        return {
+          ...crew,
+          crew_members: members,
+          member_count: members.length,
+        }
+      }) as CrewWithMembers[]
+    }
   }
 
   return (
