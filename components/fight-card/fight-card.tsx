@@ -198,6 +198,8 @@ export function FightCard({
             odds1Open={fight.odds_f1_open}
             odds2Open={fight.odds_f2_open}
             oddsHistory={fight.odds_history as import('@/lib/actions/odds').OddsSnapshot[] | null}
+            name1={fight.fighter1.name}
+            name2={fight.fighter2.name}
           />
           <div className="text-zinc-400 font-black text-xl">VS</div>
           {!isCompleted && !isLive && (

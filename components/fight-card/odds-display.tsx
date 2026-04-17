@@ -8,32 +8,43 @@ interface OddsDisplayProps {
   odds1Open?: number | null
   odds2Open?: number | null
   oddsHistory?: OddsSnapshot[] | null
+  name1?: string | null
+  name2?: string | null
   layout?: 'vertical' | 'horizontal'
+}
+
+/** Return just the last name (or full name if single word) */
+function lastName(name: string): string {
+  const parts = name.trim().split(' ')
+  return parts[parts.length - 1]
 }
 
 export function OddsDisplay({
   odds1, odds2,
   odds1Open, odds2Open,
   oddsHistory,
+  name1, name2,
   layout = 'vertical',
 }: OddsDisplayProps) {
   const implied1 = oddsToImplied(odds1)
   const implied2 = oddsToImplied(odds2)
+  const label1 = name1 ? lastName(name1) : null
+  const label2 = name2 ? lastName(name2) : null
 
   if (layout === 'horizontal') {
     return (
       <div className="flex items-center gap-3">
-        <OddsChip odds={odds1} implied={implied1} oddsOpen={odds1Open} />
+        <OddsChip odds={odds1} implied={implied1} oddsOpen={odds1Open} label={label1} />
         <span className="text-zinc-400 text-xs">vs</span>
-        <OddsChip odds={odds2} implied={implied2} oddsOpen={odds2Open} />
+        <OddsChip odds={odds2} implied={implied2} oddsOpen={odds2Open} label={label2} />
       </div>
     )
   }
 
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <OddsChip odds={odds1} implied={implied1} oddsOpen={odds1Open} label="F1" />
-      <OddsChip odds={odds2} implied={implied2} oddsOpen={odds2Open} label="F2" />
+      <OddsChip odds={odds1} implied={implied1} oddsOpen={odds1Open} label={label1} />
+      <OddsChip odds={odds2} implied={implied2} oddsOpen={odds2Open} label={label2} />
       {oddsHistory && oddsHistory.length > 1 && (
         <OddsSparkline history={oddsHistory} />
       )}
@@ -49,37 +60,46 @@ function OddsChip({
   odds: number
   implied: number
   oddsOpen?: number | null
-  label?: string
+  label?: string | null
 }) {
   const isFav = odds < 0
   const movement = oddsOpen != null ? getMovement(oddsOpen, odds) : null
 
   return (
-    <div className="flex flex-col items-center">
-      {/* Current odds + trend arrow */}
-      <div className="flex items-center gap-0.5">
-        <span className={cn(
-          'text-sm font-black leading-none',
-          isFav ? 'text-green-400' : 'text-red-400',
-        )}>
-          {formatOdds(odds)}
-        </span>
-        {movement && (
-          <MovementArrow direction={movement.direction} />
-        )}
-      </div>
-
-      {/* Implied probability */}
-      <span className="text-[10px] text-zinc-400 leading-none mt-0.5">
-        {implied}%
-      </span>
-
-      {/* Opening odds (if different from current) */}
-      {movement && movement.delta !== 0 && (
-        <span className="text-[9px] text-zinc-600 leading-none mt-0.5" title="Opening odds">
-          open {formatOdds(oddsOpen!)}
+    <div className="flex items-center gap-1.5">
+      {/* Fighter name label */}
+      {label && (
+        <span className="text-[10px] text-zinc-500 font-semibold w-12 text-right truncate leading-none">
+          {label}
         </span>
       )}
+
+      <div className="flex flex-col items-start">
+        {/* Current odds + trend arrow */}
+        <div className="flex items-center gap-0.5">
+          <span className={cn(
+            'text-sm font-black leading-none',
+            isFav ? 'text-green-400' : 'text-red-400',
+          )}>
+            {formatOdds(odds)}
+          </span>
+          {movement && (
+            <MovementArrow direction={movement.direction} />
+          )}
+        </div>
+
+        {/* Implied probability */}
+        <span className="text-[10px] text-zinc-400 leading-none mt-0.5">
+          {implied}%
+        </span>
+
+        {/* Opening odds (if different from current) */}
+        {movement && movement.delta !== 0 && (
+          <span className="text-[9px] text-zinc-600 leading-none mt-0.5" title="Opening odds">
+            open {formatOdds(oddsOpen!)}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
