@@ -59,6 +59,18 @@ interface YouTubeVideo {
   publishedAt: string
 }
 
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    .replace(/&apos;/g, "'")
+}
+
 async function fetchYouTubeHighlights(name: string): Promise<YouTubeVideo[]> {
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) return []
@@ -70,9 +82,9 @@ async function fetchYouTubeHighlights(name: string): Promise<YouTubeVideo[]> {
     const json = await res.json()
     return (json.items ?? []).map((item: any) => ({
       id: item.id.videoId,
-      title: item.snippet.title,
+      title: decodeHtmlEntities(item.snippet.title),
       thumbnail: item.snippet.thumbnails?.medium?.url ?? item.snippet.thumbnails?.default?.url ?? '',
-      channelTitle: item.snippet.channelTitle,
+      channelTitle: decodeHtmlEntities(item.snippet.channelTitle),
       publishedAt: item.snippet.publishedAt,
     }))
   } catch {
