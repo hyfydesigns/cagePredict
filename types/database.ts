@@ -287,6 +287,25 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['crew_members']['Insert']>
       }
+      crew_invites: {
+        Row: {
+          id: string
+          crew_id: string
+          invited_by: string
+          invited_user: string
+          status: 'pending' | 'accepted' | 'declined'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          crew_id: string
+          invited_by: string
+          invited_user: string
+          status?: 'pending' | 'accepted' | 'declined'
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['crew_invites']['Insert']>
+      }
     }
     Functions: {
       complete_fight: {
@@ -318,6 +337,7 @@ export type PredictionRow       = Database['public']['Tables']['predictions']['R
 export type FriendRow           = Database['public']['Tables']['friends']['Row']
 export type CrewRow             = Database['public']['Tables']['crews']['Row']
 export type CrewMemberRow       = Database['public']['Tables']['crew_members']['Row']
+export type CrewInviteRow       = Database['public']['Tables']['crew_invites']['Row']
 export type BadgeDefinitionRow  = Database['public']['Tables']['badge_definitions']['Row']
 export type UserBadgeRow        = Database['public']['Tables']['user_badges']['Row']
 
@@ -350,6 +370,11 @@ export type LeaderboardEntry = ProfileRow & {
 export type CrewWithMembers = CrewRow & {
   crew_members: Array<CrewMemberRow & { profile: ProfileRow }>
   member_count: number
+}
+
+export type CrewInviteWithDetails = CrewInviteRow & {
+  crew: { id: string; name: string; owner_id: string }
+  inviter: { username: string; avatar_emoji: string }
 }
 
 export type FriendWithProfile = FriendRow & {

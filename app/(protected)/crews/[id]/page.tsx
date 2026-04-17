@@ -9,6 +9,7 @@ import { leaveCrew } from '@/lib/actions/crews'
 import { crewInviteUrl } from '@/lib/utils'
 import { Users, Crown, LogOut } from 'lucide-react'
 import { InviteCopy } from '@/components/crews/invite-copy'
+import { InviteUserForm } from '@/components/crews/invite-user-form'
 import { CrewEventScores } from '@/components/crews/crew-event-scores'
 import type { LeaderboardEntry, ProfileRow } from '@/types/database'
 
@@ -153,6 +154,14 @@ export default async function CrewDetailPage({ params }: Props) {
           <p className="text-xs font-semibold text-zinc-500 mb-2">Invite Link</p>
           <InviteCopy inviteUrl={inviteUrl} inviteCode={crew.invite_code} />
         </div>
+
+        {/* Invite a specific player (owner only) */}
+        {isOwner && (
+          <div className="mt-4 pt-4 border-t border-zinc-800">
+            <p className="text-xs font-semibold text-zinc-500 mb-2">Invite a Player</p>
+            <InviteUserForm crewId={crew.id} />
+          </div>
+        )}
       </div>
 
       {/* Standings tabs */}

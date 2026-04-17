@@ -3,14 +3,50 @@ import { createClient } from '@/lib/supabase/server'
 import { CrewCard } from '@/components/crews/crew-card'
 import { CreateCrewDialog } from '@/components/crews/create-crew-dialog'
 import { JoinCrewForm } from '@/components/crews/join-crew-form'
+import { PendingInvites } from '@/components/crews/pending-invites'
 import { Users } from 'lucide-react'
-import type { CrewWithMembers } from '@/types/database'
+import type { CrewWithMembers, CrewInviteWithDetails } from '@/types/database'
 
 export const metadata: Metadata = { title: 'Crews' }
 
 export default async function CrewsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Fetch pending crew invites for the current user
+  const { data: inviteRows } = await supabase
+    .from('crew_invites')
+    .select('id, crew_id, invited_by, invited_user, status, created_at, crew:crews(id, name, owner_id)')
+    .eq('invited_user', user!.id)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+
+  const rawInvites = (inviteRows ?? []) as any[]
+
+  // Fetch inviters' profiles separately (no FK join through auth.users)
+  const inviterIds = [...new Set(rawInvites.map((inv) => inv.invited_by as string))]
+  let inviterProfiles: { id: string; username: string; avatar_emoji: string }[] = []
+  if (inviterIds.length > 0) {
+    const { data: inviterData } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_emoji')
+      .in('id', inviterIds)
+    inviterProfiles = (inviterData ?? []) as { id: string; username: string; avatar_emoji: string }[]
+  }
+  const inviterById = Object.fromEntries(inviterProfiles.map((p) => [p.id, p]))
+
+  const pendingInvites: CrewInviteWithDetails[] = rawInvites
+    .filter((inv) => inv.crew)
+    .map((inv) => ({
+      id: inv.id,
+      crew_id: inv.crew_id,
+      invited_by: inv.invited_by,
+      invited_user: inv.invited_user,
+      status: inv.status,
+      created_at: inv.created_at,
+      crew: Array.isArray(inv.crew) ? inv.crew[0] : inv.crew,
+      inviter: inviterById[inv.invited_by] ?? { username: 'unknown', avatar_emoji: '👤' },
+    }))
 
   // Get IDs of crews the user belongs to
   const { data: memberRows } = await supabase
@@ -76,6 +112,8 @@ export default async function CrewsPage() {
       </div>
 
       <JoinCrewForm />
+
+      {pendingInvites.length > 0 && <PendingInvites invites={pendingInvites} />}
 
       <div>
         <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-3">
