@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | grep -v 'CLAUDE\\.md' | grep -qE '\\.(ts|tsx|js|sql|json|css)$' && touch /tmp/cagepredict-src-changed.flag 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f /tmp/cagepredict-src-changed.flag ] && rm -f /tmp/cagepredict-src-changed.flag && printf '{\"systemMessage\":\"📝 Source files changed this session — update CLAUDE.md if any architecture, env vars, Supabase patterns, server actions, or DB schema changed.\"}' || true"
+          }
+        ]
+      }
+    ]
+  }
+}
