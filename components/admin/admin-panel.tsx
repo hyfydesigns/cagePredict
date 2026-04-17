@@ -4,12 +4,13 @@ import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, CheckCircle, Trophy, Users, Swords,
-  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2
+  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { seedEvents, completeFight, fetchEventByDate, clearAllData } from '@/lib/actions/admin'
+import { syncEventOdds } from '@/lib/actions/odds'
 import { useToast } from '@/components/ui/use-toast'
 import { format } from 'date-fns'
 
@@ -43,7 +44,9 @@ export function AdminPanel({ events, stats, adminUserId }: Props) {
   const [isApiFetchPending, startApiFetchTransition] = useTransition()
   const [isClearPending, startClearTransition]       = useTransition()
   const [confirmClear, setConfirmClear]              = useState(false)
-  const [isResultPending, startResultTransition] = useTransition()
+  const [isResultPending, startResultTransition]     = useTransition()
+  const [isOddsPending, startOddsTransition]         = useTransition()
+  const [oddsEventId, setOddsEventId]                = useState(() => events[0]?.id ?? '')
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
@@ -88,6 +91,21 @@ export function AdminPanel({ events, stats, adminUserId }: Props) {
         toast({ title: 'Seed failed', description: result.error, variant: 'destructive' })
       } else {
         toast({ title: 'Events seeded!', description: result.message })
+      }
+    })
+  }
+
+  function handleSyncOdds() {
+    if (!oddsEventId) {
+      toast({ title: 'Select an event first', variant: 'destructive' })
+      return
+    }
+    startOddsTransition(async () => {
+      const result = await syncEventOdds(oddsEventId)
+      if (result.error) {
+        toast({ title: 'Odds sync failed', description: result.error, variant: 'destructive' })
+      } else {
+        toast({ title: 'Odds synced!', description: result.message })
       }
     })
   }
@@ -195,6 +213,40 @@ export function AdminPanel({ events, stats, adminUserId }: Props) {
             }
           </Button>
         </div>
+      </div>
+
+      {/* Sync Odds */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-white flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-green-400" /> Sync Betting Odds
+          </h2>
+          <p className="text-zinc-500 text-sm mt-1">
+            Pull live American odds from The Odds API and save opening odds + history.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={oddsEventId}
+            onChange={(e) => setOddsEventId(e.target.value)}
+            className="flex-1 max-w-xs rounded-md border border-zinc-700 bg-zinc-800 text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.name} — {format(new Date(ev.date), 'MMM d')}
+              </option>
+            ))}
+          </select>
+          <Button onClick={handleSyncOdds} disabled={isOddsPending} className="shrink-0">
+            {isOddsPending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <><TrendingUp className="h-4 w-4 mr-1.5" />Sync Odds</>
+            }
+          </Button>
+        </div>
+        <p className="text-zinc-600 text-xs">
+          Run this manually before events, or set up a cron to call <code className="bg-zinc-800 px-1 rounded">/api/cron/sync-odds</code> hourly on fight days.
+        </p>
       </div>
 
       {/* Seed fake data (fallback) */}

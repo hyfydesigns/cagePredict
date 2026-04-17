@@ -139,6 +139,9 @@ export interface Database {
           time_of_finish: string | null
           odds_f1: number
           odds_f2: number
+          odds_f1_open: number | null
+          odds_f2_open: number | null
+          odds_history: Json | null
           analysis_f1: string | null
           analysis_f2: string | null
           is_main_event: boolean
@@ -161,6 +164,9 @@ export interface Database {
           time_of_finish?: string | null
           odds_f1: number
           odds_f2: number
+          odds_f1_open?: number | null
+          odds_f2_open?: number | null
+          odds_history?: Json | null
           analysis_f1?: string | null
           analysis_f2?: string | null
           is_main_event?: boolean

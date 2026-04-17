@@ -192,7 +192,13 @@ export function FightCard({
 
         {/* Center column */}
         <div className="flex flex-col items-center justify-center py-4 gap-2">
-          <OddsDisplay odds1={fight.odds_f1} odds2={fight.odds_f2} />
+          <OddsDisplay
+            odds1={fight.odds_f1}
+            odds2={fight.odds_f2}
+            odds1Open={fight.odds_f1_open}
+            odds2Open={fight.odds_f2_open}
+            oddsHistory={fight.odds_history as import('@/lib/actions/odds').OddsSnapshot[] | null}
+          />
           <div className="text-zinc-400 font-black text-xl">VS</div>
           {!isCompleted && !isLive && (
             <CountdownTimer fightTime={fight.fight_time} />
