@@ -51,6 +51,13 @@ export default function SignUpPage() {
 
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur">
+      <div className="flex justify-center mb-5">
+        <img
+          src="/logo.svg"
+          alt="CagePredict"
+          className="h-14 w-14 drop-shadow-[0_0_12px_rgba(239,68,68,0.5)]"
+        />
+      </div>
       <h1 className="text-2xl font-black text-white mb-1">Create account</h1>
       <p className="text-zinc-500 text-sm mb-6">Free forever. No credit card needed.</p>
 
