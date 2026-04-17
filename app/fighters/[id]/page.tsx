@@ -49,6 +49,74 @@ function formatDate(dateStr: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// YouTube highlights
+// ---------------------------------------------------------------------------
+interface YouTubeVideo {
+  id: string
+  title: string
+  thumbnail: string
+  channelTitle: string
+  publishedAt: string
+}
+
+async function fetchYouTubeHighlights(name: string): Promise<YouTubeVideo[]> {
+  const apiKey = process.env.YOUTUBE_API_KEY
+  if (!apiKey) return []
+  try {
+    const q = encodeURIComponent(`${name} UFC highlights`)
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=3&order=relevance&key=${apiKey}`
+    const res = await fetch(url, { next: { revalidate: 3600 } })
+    if (!res.ok) return []
+    const json = await res.json()
+    return (json.items ?? []).map((item: any) => ({
+      id: item.id.videoId,
+      title: item.snippet.title,
+      thumbnail: item.snippet.thumbnails?.medium?.url ?? item.snippet.thumbnails?.default?.url ?? '',
+      channelTitle: item.snippet.channelTitle,
+      publishedAt: item.snippet.publishedAt,
+    }))
+  } catch {
+    return []
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reddit r/MMA
+// ---------------------------------------------------------------------------
+interface RedditPost {
+  title: string
+  url: string
+  permalink: string
+  score: number
+  num_comments: number
+  created_utc: number
+  subreddit: string
+}
+
+async function fetchRedditPosts(name: string): Promise<RedditPost[]> {
+  try {
+    const q = encodeURIComponent(name)
+    const url = `https://www.reddit.com/r/MMA/search.json?q=${q}&sort=new&limit=8&restrict_sr=1&t=month`
+    const res = await fetch(url, {
+      next: { revalidate: 3600 },
+      headers: { 'User-Agent': 'CagePredict/1.0' },
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+    return (json.data?.children ?? [])
+      .map((c: any) => c.data as RedditPost)
+      .filter((p: RedditPost) => p.title && p.permalink)
+      .slice(0, 6)
+  } catch {
+    return []
+  }
+}
+
+function formatScore(score: number): string {
+  return score >= 1000 ? `${(score / 1000).toFixed(1)}k` : `${score}`
+}
+
+// ---------------------------------------------------------------------------
 // Google News RSS
 // ---------------------------------------------------------------------------
 async function fetchFighterNews(
@@ -220,8 +288,12 @@ export default async function FighterProfilePage({ params }: Props) {
   const isF1 = primaryFight?.fighter1_id === id
   const myOdds = primaryFight ? (isF1 ? primaryFight.odds_f1 : primaryFight.odds_f2) : null
 
-  // Fetch news
-  const news = await fetchFighterNews(f.name)
+  // Fetch news, YouTube, Reddit in parallel
+  const [news, videos, redditPosts] = await Promise.all([
+    fetchFighterNews(f.name),
+    fetchYouTubeHighlights(f.name),
+    fetchRedditPosts(f.name),
+  ])
 
   return (
     <div className="min-h-screen bg-zinc-950 pb-16">
@@ -466,6 +538,99 @@ export default async function FighterProfilePage({ params }: Props) {
                   </span>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* YouTube Highlights */}
+        {videos.length > 0 && (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">
+              Highlights
+            </p>
+            <div className="space-y-3">
+              {videos.map((video) => (
+                <a
+                  key={video.id}
+                  href={`https://www.youtube.com/watch?v=${video.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex gap-3 group"
+                >
+                  {/* Thumbnail */}
+                  <div className="relative w-28 h-16 rounded-lg overflow-hidden shrink-0 bg-zinc-800">
+                    <Image
+                      src={video.thumbnail}
+                      alt={video.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-200"
+                      sizes="112px"
+                    />
+                    {/* Play icon overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                      <div className="w-7 h-7 rounded-full bg-black/60 flex items-center justify-center">
+                        <div className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[9px] border-l-white ml-0.5" />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-zinc-200 group-hover:text-white font-medium leading-snug line-clamp-2">
+                      {video.title}
+                    </p>
+                    <p className="text-[11px] text-zinc-500 mt-1">
+                      {video.channelTitle} · {formatDate(video.publishedAt)}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Reddit r/MMA */}
+        {redditPosts.length > 0 && (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                r/MMA Discussion
+              </p>
+              <a
+                href={`https://www.reddit.com/r/MMA/search/?q=${encodeURIComponent(f.name)}&restrict_sr=1&sort=new`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                View all →
+              </a>
+            </div>
+            <div className="space-y-3">
+              {redditPosts.map((post, i) => (
+                <a
+                  key={i}
+                  href={`https://www.reddit.com${post.permalink}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex gap-3 group items-start"
+                >
+                  {/* Score */}
+                  <div className="shrink-0 w-10 text-center pt-0.5">
+                    <p className="text-xs font-bold text-zinc-400 group-hover:text-primary transition-colors">
+                      {formatScore(post.score)}
+                    </p>
+                    <p className="text-[9px] text-zinc-600 leading-none mt-0.5">pts</p>
+                  </div>
+                  {/* Title + meta */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-zinc-200 group-hover:text-white font-medium leading-snug line-clamp-2">
+                      {post.title}
+                    </p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      {post.num_comments} comments · {formatDate(new Date(post.created_utc * 1000).toISOString())}
+                    </p>
+                  </div>
+                </a>
+              ))}
             </div>
           </div>
         )}
