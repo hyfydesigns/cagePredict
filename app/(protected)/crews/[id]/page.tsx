@@ -5,9 +5,10 @@ import { LeaderboardTable } from '@/components/leaderboard/leaderboard-table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { leaveCrew } from '@/lib/actions/crews'
+import { leaveCrew, deleteCrew } from '@/lib/actions/crews'
 import { crewInviteUrl } from '@/lib/utils'
-import { Users, Crown, LogOut } from 'lucide-react'
+import { Users, Crown, LogOut, Trash2 } from 'lucide-react'
+import { DeleteCrewButton } from '@/components/crews/delete-crew-button'
 import { InviteCopy } from '@/components/crews/invite-copy'
 import { InviteUserForm } from '@/components/crews/invite-user-form'
 import { CrewEventScores } from '@/components/crews/crew-event-scores'
@@ -139,7 +140,9 @@ export default async function CrewDetailPage({ params }: Props) {
             </p>
           </div>
 
-          {!isOwner && (
+          {isOwner ? (
+            <DeleteCrewButton crewId={crew.id} />
+          ) : (
             <form action={async () => { 'use server'; await leaveCrew(id) }}>
               <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
                 <LogOut className="h-4 w-4 mr-1.5" />

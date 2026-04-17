@@ -68,6 +68,33 @@ export async function joinCrew(inviteCode: string): Promise<ActionResult> {
   redirect(`/crews/${crew.id}`)
 }
 
+export async function deleteCrew(crewId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Verify caller is the owner
+  const { data: crewRaw } = await supabase
+    .from('crews')
+    .select('owner_id')
+    .eq('id', crewId)
+    .single()
+
+  const crew = crewRaw as { owner_id: string } | null
+  if (!crew) return { error: 'Crew not found' }
+  if (crew.owner_id !== user.id) return { error: 'Only the crew owner can delete this crew' }
+
+  const { error } = await supabase
+    .from('crews')
+    .delete()
+    .eq('id', crewId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/crews')
+  redirect('/crews')
+}
+
 export async function leaveCrew(crewId: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
