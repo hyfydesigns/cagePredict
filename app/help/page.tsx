@@ -116,7 +116,7 @@ export default function HelpPage() {
       <Section title="Crews (private leagues)">
         <div className="space-y-3 text-zinc-400 text-sm leading-relaxed">
           <p>
-            <strong className="text-white">Crews</strong> are private leagues where you compete against friends.
+            <strong className="text-white">Crews</strong>{' '}are private leagues where you compete against friends.
             Each crew has its own mini-leaderboard showing only members&apos; scores.
           </p>
           <ul className="list-disc list-inside space-y-1 pl-2">
