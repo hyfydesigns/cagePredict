@@ -247,19 +247,17 @@ export default async function FighterProfilePage({ params }: Props) {
 
   const f = fighter as FighterRow
 
-  // Fetch recent/upcoming fights
+  // Fetch all fights for this fighter
   const { data: fightRows } = await supabase
     .from('fights')
     .select(
-      'id, fight_time, status, odds_f1, odds_f2, fighter1_id, fighter2_id, event_id, weight_class, is_main_event, is_title_fight'
+      'id, fight_time, status, odds_f1, odds_f2, fighter1_id, fighter2_id, event_id, weight_class, is_main_event, is_title_fight, winner_id, method, round, time_of_finish'
     )
     .or(`fighter1_id.eq.${id},fighter2_id.eq.${id}`)
     .neq('status', 'cancelled')
     .order('fight_time', { ascending: false })
-    .limit(3)
 
-  // Batch-fetch opponents and events
-  let fights: Array<{
+  type FightRow = {
     id: string
     fight_time: string
     status: string
@@ -271,19 +269,25 @@ export default async function FighterProfilePage({ params }: Props) {
     weight_class: string | null
     is_main_event: boolean
     is_title_fight: boolean
+    winner_id: string | null
+    method: string | null
+    round: number | null
+    time_of_finish: string | null
     opponent: FighterRow | null
     event: EventRow | null
-  }> = []
+  }
+
+  let fights: FightRow[] = []
 
   if (fightRows && fightRows.length > 0) {
-    const opponentIds = fightRows.map((f) =>
-      f.fighter1_id === id ? f.fighter2_id : f.fighter1_id
+    const opponentIds = fightRows.map((r) =>
+      r.fighter1_id === id ? r.fighter2_id : r.fighter1_id
     )
-    const eventIds = fightRows.map((f) => f.event_id)
+    const eventIds = fightRows.map((r) => r.event_id)
 
     const [{ data: opponents }, { data: events }] = await Promise.all([
-      supabase.from('fighters').select('*').in('id', opponentIds),
-      supabase.from('events').select('*').in('id', eventIds),
+      supabase.from('fighters').select('*').in('id', [...new Set(opponentIds)]),
+      supabase.from('events').select('*').in('id', [...new Set(eventIds)]),
     ])
 
     fights = fightRows.map((fight) => {
@@ -291,14 +295,16 @@ export default async function FighterProfilePage({ params }: Props) {
       return {
         ...fight,
         opponent: (opponents?.find((o) => o.id === opponentId) as FighterRow) ?? null,
-        event: (events?.find((e) => e.id === fight.event_id) as EventRow) ?? null,
+        event:    (events?.find((e) => e.id === fight.event_id) as EventRow)  ?? null,
       }
     })
   }
 
-  const primaryFight = fights[0] ?? null
-  const isF1 = primaryFight?.fighter1_id === id
-  const myOdds = primaryFight ? (isF1 ? primaryFight.odds_f1 : primaryFight.odds_f2) : null
+  const upcomingFight  = fights.find((f) => f.status === 'upcoming' || f.status === 'live') ?? null
+  const completedFights = fights.filter((f) => f.status === 'completed')
+
+  const isF1    = upcomingFight?.fighter1_id === id
+  const myOdds  = upcomingFight ? (isF1 ? upcomingFight.odds_f1 : upcomingFight.odds_f2) : null
 
   // Fetch news, YouTube, Reddit in parallel
   const [news, videos, redditPosts] = await Promise.all([
@@ -494,62 +500,125 @@ export default async function FighterProfilePage({ params }: Props) {
           </div>
         )}
 
-        {/* Next / Recent fight */}
-        {primaryFight && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">
-              {primaryFight.status === 'upcoming' ? 'Next Fight' : 'Recent Fight'}
+        {/* Next / Upcoming fight */}
+        {upcomingFight && (
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
+            <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3">
+              {upcomingFight.status === 'live' ? '🔴 Fighting Now' : 'Next Fight'}
             </p>
             <div className="space-y-2">
-              {primaryFight.event && (
-                <p className="text-white font-bold text-sm">{primaryFight.event.name}</p>
+              {upcomingFight.event && (
+                <p className="text-white font-bold text-sm">{upcomingFight.event.name}</p>
               )}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-zinc-400 text-xs">
-                  {new Date(primaryFight.fight_time).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
+                  {new Date(upcomingFight.fight_time).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric',
                   })}
                 </span>
-                {primaryFight.opponent && (
+                {upcomingFight.opponent && (
                   <>
                     <span className="text-zinc-600">vs</span>
-                    <Link
-                      href={`/fighters/${primaryFight.opponent.id}`}
-                      className="text-primary text-xs font-bold hover:underline"
-                    >
-                      {primaryFight.opponent.name}
+                    <Link href={`/fighters/${upcomingFight.opponent.id}`} className="text-primary text-xs font-bold hover:underline">
+                      {upcomingFight.opponent.name}
                     </Link>
                   </>
                 )}
-                {primaryFight.weight_class && (
-                  <span className="text-zinc-500 text-xs">{primaryFight.weight_class}</span>
+                {upcomingFight.weight_class && (
+                  <span className="text-zinc-500 text-xs">{upcomingFight.weight_class}</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-wrap mt-2">
-                {primaryFight.is_title_fight && (
-                  <span className="bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    TITLE FIGHT
-                  </span>
+              <div className="flex items-center gap-2 flex-wrap mt-1">
+                {upcomingFight.is_title_fight && (
+                  <span className="bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full">TITLE FIGHT</span>
                 )}
-                {primaryFight.is_main_event && (
-                  <span className="bg-zinc-700 text-zinc-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    MAIN EVENT
-                  </span>
+                {upcomingFight.is_main_event && (
+                  <span className="bg-zinc-700 text-zinc-300 text-[10px] font-bold px-2 py-0.5 rounded-full">MAIN EVENT</span>
                 )}
                 {myOdds !== null && (
-                  <span
-                    className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
-                      myOdds < 0
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                        : 'bg-zinc-800 border-zinc-700 text-zinc-300'
-                    }`}
-                  >
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${myOdds < 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800 border-zinc-700 text-zinc-300'}`}>
                     {formatOdds(myOdds)}
                   </span>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fight History */}
+        {completedFights.length > 0 && (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+            <div className="px-5 py-4 border-b border-zinc-800">
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                Fight History
+                <span className="ml-2 text-zinc-600 font-normal normal-case tracking-normal">
+                  ({completedFights.length} fights in system)
+                </span>
+              </p>
+            </div>
+            <div className="divide-y divide-zinc-800/60">
+              {completedFights.map((fight) => {
+                const won  = fight.winner_id === id
+                const lost = fight.winner_id && fight.winner_id !== id
+                const draw = fight.status === 'completed' && !fight.winner_id
+                const result = won ? 'W' : lost ? 'L' : draw ? 'D' : '–'
+
+                return (
+                  <div key={fight.id} className="flex items-center gap-3 px-5 py-3.5">
+                    {/* Result badge */}
+                    <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border ${
+                      result === 'W' ? 'bg-green-500/15 border-green-500/40 text-green-400' :
+                      result === 'L' ? 'bg-red-500/15 border-red-500/40 text-red-400' :
+                      'bg-zinc-700/40 border-zinc-600 text-zinc-400'
+                    }`}>
+                      {result}
+                    </span>
+
+                    {/* Main info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-zinc-400 text-xs">vs</span>
+                        {fight.opponent ? (
+                          <Link
+                            href={`/fighters/${fight.opponent.id}`}
+                            className="text-white text-sm font-bold hover:text-primary transition-colors"
+                          >
+                            {fight.opponent.name}
+                          </Link>
+                        ) : (
+                          <span className="text-zinc-300 text-sm font-bold">Unknown</span>
+                        )}
+                        {fight.is_title_fight && (
+                          <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-full">TITLE</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {fight.event && (
+                          <span className="text-zinc-500 text-[11px]">{fight.event.name}</span>
+                        )}
+                        <span className="text-zinc-700 text-[11px]">·</span>
+                        <span className="text-zinc-500 text-[11px]">
+                          {new Date(fight.fight_time).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Method + round */}
+                    <div className="shrink-0 text-right">
+                      {fight.method && (
+                        <p className="text-zinc-300 text-xs font-semibold leading-tight">{fight.method}</p>
+                      )}
+                      {fight.round && (
+                        <p className="text-zinc-500 text-[11px] mt-0.5">
+                          R{fight.round}{fight.time_of_finish ? ` · ${fight.time_of_finish}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
