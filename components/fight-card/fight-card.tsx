@@ -5,7 +5,6 @@ import { motion, AnimatePresence, useAnimate } from 'framer-motion'
 import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { FighterPortrait } from './fighter-portrait'
-import { OddsDisplay } from './odds-display'
 import { PredictionPicker } from './prediction-picker'
 import { CountdownTimer } from './countdown-timer'
 import { FightStatusBadge } from './fight-status-badge'
@@ -188,19 +187,11 @@ export function FightCard({
           isWinner={isCompleted && fight.winner_id === fight.fighter1.id}
           isLoser={isCompleted && !!fight.winner_id && fight.winner_id !== fight.fighter1.id}
           odds={fight.odds_f1}
+          oddsOpen={fight.odds_f1_open}
         />
 
-        {/* Center column */}
+        {/* Center column — VS + countdown only */}
         <div className="flex flex-col items-center justify-center py-4 gap-2">
-          <OddsDisplay
-            odds1={fight.odds_f1}
-            odds2={fight.odds_f2}
-            odds1Open={fight.odds_f1_open}
-            odds2Open={fight.odds_f2_open}
-            oddsHistory={fight.odds_history as import('@/lib/actions/odds').OddsSnapshot[] | null}
-            name1={fight.fighter1.name}
-            name2={fight.fighter2.name}
-          />
           <div className="text-zinc-400 font-black text-xl">VS</div>
           {!isCompleted && !isLive && (
             <CountdownTimer fightTime={fight.fight_time} />
@@ -214,6 +205,7 @@ export function FightCard({
           isWinner={isCompleted && fight.winner_id === fight.fighter2.id}
           isLoser={isCompleted && !!fight.winner_id && fight.winner_id !== fight.fighter2.id}
           odds={fight.odds_f2}
+          oddsOpen={fight.odds_f2_open}
         />
       </div>
 
