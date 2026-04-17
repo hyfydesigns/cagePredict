@@ -146,8 +146,8 @@ export default function TermsPage() {
         <Section title="Contact">
           <p>
             Questions about these terms? Email us at{' '}
-            <a href="mailto:legal@cagepredict.app" className="text-primary hover:underline">
-              legal@cagepredict.app
+            <a href="mailto:legal@cagepredict.com" className="text-primary hover:underline">
+              legal@cagepredict.com
             </a>
             .
           </p>

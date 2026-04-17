@@ -170,8 +170,8 @@ export default function HelpPage() {
 
           <FAQ q="CagePredict shows the wrong fight result.">
             Results are pulled automatically from a third-party MMA data provider. If you believe a result is incorrect, please contact us at{' '}
-            <a href="mailto:support@cagepredict.app" className="text-primary hover:underline">
-              support@cagepredict.app
+            <a href="mailto:support@cagepredict.com" className="text-primary hover:underline">
+              support@cagepredict.com
             </a>{' '}
             and we&apos;ll investigate.
           </FAQ>
@@ -185,7 +185,7 @@ export default function HelpPage() {
             Can&apos;t find the answer you&apos;re looking for?
           </p>
           <a
-            href="mailto:support@cagepredict.app"
+            href="mailto:support@cagepredict.com"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
           >
             Email Support

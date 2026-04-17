@@ -110,8 +110,8 @@ export default function PrivacyPage() {
         <Section title="Contact">
           <p>
             Questions or requests regarding your data? Reach us at{' '}
-            <a href="mailto:privacy@cagepredict.app" className="text-primary hover:underline">
-              privacy@cagepredict.app
+            <a href="mailto:privacy@cagepredict.com" className="text-primary hover:underline">
+              privacy@cagepredict.com
             </a>
             .
           </p>
