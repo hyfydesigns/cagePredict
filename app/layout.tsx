@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { Navbar } from '@/components/layout/navbar'
 import { Footer } from '@/components/layout/footer'
 import { EventCountdownBanner } from '@/components/layout/event-countdown-banner'
+import { StagingBanner } from '@/components/layout/staging-banner'
 import { createClient } from '@/lib/supabase/server'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-geist-sans' })
@@ -59,6 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className="dark">
       <body className={`${inter.variable} font-sans min-h-screen bg-[#080808]`}>
         <SupabaseProvider>
+          <StagingBanner />
           <Navbar profile={profile} isAuthenticated={!!user} />
           {bannerEventName && bannerFightTime && (
             <EventCountdownBanner
