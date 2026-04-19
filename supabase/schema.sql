@@ -221,6 +221,13 @@ declare
   v_total_pts    integer;
   v_is_draw      boolean;
 begin
+  -- Idempotency guard: if the fight is already completed, do nothing.
+  -- Prevents double-scoring when the admin panel and sync-results cron
+  -- both call complete_fight() for the same fight.
+  if exists (select 1 from public.fights where id = p_fight_id and status = 'completed') then
+    return;
+  end if;
+
   v_is_draw := (p_winner_id is null);
 
   -- Update fight record

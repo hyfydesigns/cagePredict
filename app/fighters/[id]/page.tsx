@@ -9,7 +9,7 @@ import type { FighterRow, EventRow } from '@/types/database'
 export const revalidate = 3600
 
 // ---------------------------------------------------------------------------
-// RapidAPI fight history
+// External fight history (api-sports.io preferred, RapidAPI fallback, Sherdog for full records)
 // ---------------------------------------------------------------------------
 
 interface ExternalFight {
@@ -23,40 +23,64 @@ interface ExternalFight {
   time: string | null
 }
 
-/** Decode the deterministic UUID back to the original RapidAPI integer ID */
-function uuidToApiId(uuid: string): number | null {
-  // Format created by apiIdToUuid: 00000000-0000-0001-0000-XXXXXXXXXXXX
+type HistorySource = 'api-sports' | 'rapidapi' | 'sherdog' | 'db'
+
+/** Decode a RapidAPI UUID back to the original integer ID (prefix 0001) */
+function rapidApiUuidToId(uuid: string): number | null {
   const parts = uuid.split('-')
-  if (parts.length !== 5) return null
+  if (parts.length !== 5 || parts[2] !== '0001') return null
   const n = parseInt(parts[4], 10)
   return isNaN(n) || n === 0 ? null : n
 }
 
 function mapWinType(winType: string): string {
   const map: Record<string, string> = {
-    UD:  'Decision (Unanimous)',
-    SD:  'Decision (Split)',
-    MD:  'Decision (Majority)',
-    TKO: 'TKO',
-    KO:  'KO',
-    SUB: 'Submission',
-    DQ:  'Disqualification',
-    NC:  'No Contest',
-    RTD: 'RTD',
+    UD:  'Decision (Unanimous)', SD: 'Decision (Split)', MD: 'Decision (Majority)',
+    TKO: 'TKO', KO: 'KO', SUB: 'Submission', DQ: 'Disqualification', NC: 'No Contest', RTD: 'RTD',
   }
   return map[winType] ?? winType
 }
 
-async function fetchExternalFightHistory(fighterId: string): Promise<ExternalFight[]> {
-  const apiId = uuidToApiId(fighterId)
-  if (!apiId) return []
+/** Fetch fight history via api-sports.io (for UUIDs with prefix 0004) */
+async function fetchHistoryFromApiSports(fighterApiId: number): Promise<ExternalFight[]> {
+  try {
+    const { getFighterFights } = await import('@/lib/apis/api-sports')
+    const fights = await getFighterFights(fighterApiId)
 
+    return fights
+      .filter((f) => f.status === 'Finished' || f.status === 'Final')
+      .map((f) => {
+        const isFirst  = f.fighters.first.id === fighterApiId
+        const opponent = isFirst ? f.fighters.second : f.fighters.first
+        const won      = f.winner?.id === fighterApiId
+        const isNC     = f.result?.type?.toLowerCase().includes('no contest') ?? false
+        const isDraw   = f.result?.type?.toLowerCase().includes('draw') ?? false
+
+        return {
+          date:       f.date,
+          eventName:  f.event.name,
+          opponent:   opponent.name,
+          opponentId: opponent.id,
+          result:     isNC ? 'NC' : isDraw ? 'D' : won ? 'W' : 'L',
+          method:     f.result?.type ?? null,
+          round:      f.result?.round ?? null,
+          time:       f.result?.clock ?? null,
+        } as ExternalFight
+      })
+      .filter((e) => e.date)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  } catch {
+    return []
+  }
+}
+
+/** Fetch fight history via RapidAPI (for UUIDs with prefix 0001, legacy) */
+async function fetchHistoryFromRapidApi(apiId: number): Promise<ExternalFight[]> {
   const key  = process.env.RAPIDAPI_KEY
   const host = process.env.RAPIDAPI_UFC_HOST ?? 'mmaapi.p.rapidapi.com'
   if (!key) return []
 
   try {
-    // Fetch pages 0, 1, 2 (up to ~30 fights) in parallel
     const pages = await Promise.all(
       [0, 1, 2].map((page) =>
         fetch(`https://${host}/api/mma/team/${apiId}/events/last/${page}`, {
@@ -69,23 +93,17 @@ async function fetchExternalFightHistory(fighterId: string): Promise<ExternalFig
     )
 
     const allEvents: any[] = pages.flatMap((p) => p.events ?? [])
-
-    // De-duplicate by event id
     const seen = new Set<number>()
-    const unique = allEvents.filter((e) => {
-      if (seen.has(e.id)) return false
-      seen.add(e.id)
-      return true
-    })
+    const unique = allEvents.filter((e) => { if (seen.has(e.id)) return false; seen.add(e.id); return true })
 
     return unique
       .filter((e) => e.status?.type === 'finished')
       .map((e) => {
         const isHome   = e.homeTeam?.id === apiId
         const opponent = isHome ? e.awayTeam : e.homeTeam
-        const won  = (isHome && e.winnerCode === 1) || (!isHome && e.winnerCode === 2)
-        const lost = (isHome && e.winnerCode === 2) || (!isHome && e.winnerCode === 1)
-        const nc   = e.winType === 'NC'
+        const won      = (isHome && e.winnerCode === 1) || (!isHome && e.winnerCode === 2)
+        const lost     = (isHome && e.winnerCode === 2) || (!isHome && e.winnerCode === 1)
+        const nc       = e.winType === 'NC'
 
         return {
           date:       e.startTimestamp ? new Date(e.startTimestamp * 1000).toISOString() : '',
@@ -103,6 +121,62 @@ async function fetchExternalFightHistory(fighterId: string): Promise<ExternalFig
   } catch {
     return []
   }
+}
+
+/** Fetch fight history from Sherdog by fighter name (used as fallback/supplement) */
+async function fetchHistoryFromSherdog(name: string): Promise<ExternalFight[]> {
+  try {
+    const { getSherdogData } = await import('@/lib/apis/sherdog')
+    const { fights } = await getSherdogData(name)
+    return fights
+      .filter((f) => f.dateIso)
+      .map((f) => ({
+        date:       f.dateIso!,
+        eventName:  f.eventName ?? 'Unknown Event',
+        opponent:   f.opponent,
+        opponentId: null,
+        result:     f.result,
+        method:     f.method,
+        round:      f.round,
+        time:       f.time,
+      }))
+  } catch {
+    return []
+  }
+}
+
+async function fetchExternalFightHistory(
+  fighterId: string,
+  fighterName: string,
+): Promise<{ fights: ExternalFight[]; source: HistorySource }> {
+  // Detect UUID source from the third segment of the UUID
+  const parts = fighterId.split('-')
+  if (parts.length === 5) {
+    if (parts[2] === '0004') {
+      // api-sports.io fighter
+      const n = parseInt(parts[4], 10)
+      if (!isNaN(n) && n !== 0) {
+        const fights = await fetchHistoryFromApiSports(n)
+        if (fights.length > 0) return { fights, source: 'api-sports' }
+      }
+    }
+    if (parts[2] === '0001') {
+      // RapidAPI fighter
+      const n = parseInt(parts[4], 10)
+      if (!isNaN(n) && n !== 0) {
+        const fights = await fetchHistoryFromRapidApi(n)
+        if (fights.length > 0) return { fights, source: 'rapidapi' }
+      }
+    }
+  }
+
+  // Fallback: scrape Sherdog by fighter name (complete career history)
+  if (fighterName) {
+    const fights = await fetchHistoryFromSherdog(fighterName)
+    if (fights.length > 0) return { fights, source: 'sherdog' }
+  }
+
+  return { fights: [], source: 'db' }
 }
 
 type Props = { params: Promise<{ id: string }> }
@@ -473,12 +547,14 @@ export default async function FighterProfilePage({ params }: Props) {
   const myOdds  = upcomingFight ? (isF1 ? upcomingFight.odds_f1 : upcomingFight.odds_f2) : null
 
   // Fetch everything external in parallel
-  const [news, videos, redditPosts, externalHistory] = await Promise.all([
+  const [news, videos, redditPosts, historyResult] = await Promise.all([
     fetchFighterNews(f.name),
     fetchYouTubeHighlights(f.name),
     fetchRedditPosts(f.name),
-    fetchExternalFightHistory(id),
+    fetchExternalFightHistory(id, f.name),
   ])
+  const externalHistory = historyResult.fights
+  const historySource   = historyResult.source
 
   return (
     <div className="min-h-screen bg-zinc-950 pb-16">
@@ -513,8 +589,8 @@ export default async function FighterProfilePage({ params }: Props) {
               <span className="text-8xl">{f.flag_emoji ?? '🥊'}</span>
             </div>
           )}
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+          {/* Gradient overlay — pointer-events-none so links underneath stay clickable */}
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
 
           {/* Name + badges */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -532,10 +608,13 @@ export default async function FighterProfilePage({ params }: Props) {
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <span className="inline-block bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-1.5 text-white font-black text-lg">
+                <Link
+                  href={`/fighters/${id}/record`}
+                  className="inline-block bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-500 rounded-xl px-3 py-1.5 text-white font-black text-lg transition-colors"
+                >
                   {f.record}
-                </span>
-                <p className="text-zinc-500 text-[10px] mt-1">W-L-D</p>
+                </Link>
+                <p className="text-zinc-500 text-[10px] mt-1">W-L-D · tap for full record</p>
               </div>
             </div>
           </div>
@@ -724,7 +803,13 @@ export default async function FighterProfilePage({ params }: Props) {
                   Fight History
                 </p>
                 <span className="text-[11px] text-zinc-600">
-                  {useExternal ? `${externalHistory.length} fights` : `${completedFights.length} fights in system`}
+                  {useExternal
+                    ? `${externalHistory.length} fights · via ${
+                        historySource === 'sherdog'    ? 'Sherdog' :
+                        historySource === 'api-sports' ? 'api-sports' :
+                        historySource === 'rapidapi'   ? 'RapidAPI' : 'external'
+                      }`
+                    : `${completedFights.length} fights in system`}
                 </span>
               </div>
 
