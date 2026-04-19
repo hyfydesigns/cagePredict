@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { Radio } from 'lucide-react'
+import { Radio, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { MapPin, Calendar, ExternalLink } from 'lucide-react'
@@ -38,11 +38,18 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
 
   const isLive = events.some((e) => e.status === 'live')
 
-  // Default to the live event, otherwise the first one
-  const defaultId = (events.find((e) => e.status === 'live') ?? events[0])?.id ?? ''
-  const [activeId, setActiveId] = useState(defaultId)
+  // Default to the live event, then most recent upcoming, then last in list
+  const defaultIndex = Math.max(
+    0,
+    events.findIndex((e) => e.status === 'live') !== -1
+      ? events.findIndex((e) => e.status === 'live')
+      : events.findIndex((e) => e.status === 'upcoming') !== -1
+        ? events.findIndex((e) => e.status === 'upcoming')
+        : events.length - 1
+  )
+  const [activeIndex, setActiveIndex] = useState(defaultIndex)
 
-  // Keep active tab valid if events list changes
+  // Keep index in bounds if events list changes
   useEffect(() => {
     setEvents(initialEvents)
   }, [initialEvents])
@@ -132,12 +139,12 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     return () => clearInterval(interval)
   }, [isLive])
 
-  const activeEvent = events.find((e) => e.id === activeId) ?? events[0]
+  const activeEvent = events[activeIndex] ?? events[events.length - 1]
 
   if (!activeEvent) return null
 
-  // Only show tabs when there are multiple events
-  const multiEvent = events.length > 1
+  const hasPrev = activeIndex > 0
+  const hasNext = activeIndex < events.length - 1
 
   return (
     <div className="space-y-4">
@@ -156,43 +163,49 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         </div>
       )}
 
-      {/* Event tab switcher */}
-      {multiEvent && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {events.map((event) => {
-            const live = event.status === 'live'
-            const active = event.id === activeId
-            return (
-              <button
-                key={event.id}
-                onClick={() => setActiveId(event.id)}
-                className={`
-                  shrink-0 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
-                  border transition-all whitespace-nowrap
-                  ${active
-                    ? 'bg-zinc-800 border-zinc-600 text-white shadow-sm'
-                    : 'bg-transparent border-zinc-800 text-zinc-300 hover:text-zinc-200 hover:border-zinc-700'}
-                `}
-              >
-                {live && (
-                  <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse-red shrink-0" />
-                )}
-                {/* Shorten "UFC 315: Pereira vs Ankalaev" → "UFC 315" on small screens */}
-                <span className="hidden sm:inline">{event.name}</span>
-                <span className="sm:hidden">{event.name.split(':')[0].trim()}</span>
-                <span className={`
-                  text-[10px] font-bold px-1.5 py-0.5 rounded-md
-                  ${live
-                    ? 'bg-primary/20 text-primary'
-                    : active
-                    ? 'bg-zinc-700 text-zinc-300'
-                    : 'bg-zinc-800/80 text-zinc-400'}
-                `}>
-                  {live ? 'LIVE' : format(new Date(event.date), 'MMM d')}
-                </span>
-              </button>
-            )
-          })}
+      {/* Event navigation — arrows on each side, event name + date in centre */}
+      {events.length > 1 && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
+            disabled={!hasPrev}
+            aria-label="Previous event"
+            className="shrink-0 h-8 w-8 rounded-lg border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-500 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+            {activeEvent.status === 'live' && (
+              <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse-red shrink-0" />
+            )}
+            <span className="text-sm font-semibold text-white truncate">
+              {activeEvent.name.split(':')[0].trim()}
+            </span>
+            <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+              activeEvent.status === 'live'
+                ? 'bg-primary/20 text-primary'
+                : activeEvent.status === 'completed'
+                ? 'bg-zinc-800 text-zinc-500'
+                : 'bg-zinc-800/80 text-zinc-400'
+            }`}>
+              {activeEvent.status === 'live' ? 'LIVE' : format(new Date(activeEvent.date), 'MMM d')}
+            </span>
+            {events.length > 1 && (
+              <span className="shrink-0 text-[10px] text-zinc-600">
+                {activeIndex + 1}/{events.length}
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={() => setActiveIndex((i) => Math.min(events.length - 1, i + 1))}
+            disabled={!hasNext}
+            aria-label="Next event"
+            className="shrink-0 h-8 w-8 rounded-lg border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-500 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
       )}
 

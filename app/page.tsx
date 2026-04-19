@@ -41,9 +41,30 @@ export default async function HomePage({
     .order('date', { ascending: true })
     .limit(4)
 
+  // Also fetch the 2 most recent completed events so users can browse back
+  const { data: recentCompleted } = await supabase
+    .from('events')
+    .select(`
+      *,
+      fights(
+        *,
+        fighter1:fighters!fights_fighter1_id_fkey(*),
+        fighter2:fighters!fights_fighter2_id_fkey(*)
+      )
+    `)
+    .eq('status', 'completed')
+    .order('date', { ascending: false })
+    .limit(2)
+
+  // Merge: completed (oldest first) + upcoming/live
+  const allEventsRaw = [
+    ...((recentCompleted ?? []) as any[]).reverse(),
+    ...((eventsRaw ?? []) as any[]),
+  ]
+
   // Fetch user picks including is_confidence
   let userPicks: PredictionMap = {}
-  const events = (eventsRaw ?? []) as any[]
+  const events = allEventsRaw
 
   if (user && events.length > 0) {
     const fightIds = events.flatMap((e: any) => (e.fights ?? []).map((f: any) => f.id as string))
