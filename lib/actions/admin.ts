@@ -699,6 +699,36 @@ export async function seedEvents(): Promise<ActionResult> {
   }
 }
 
+// ─── Force sync results ──────────────────────────────────────────────────────
+
+export async function forceSyncResults(): Promise<ActionResult & { log?: string[]; skipped?: string[] }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const secret  = process.env.CRON_SECRET
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+
+  if (!secret) return { error: 'CRON_SECRET not configured' }
+
+  try {
+    const res = await fetch(`${baseUrl}/api/cron/sync-results`, {
+      headers: { Authorization: `Bearer ${secret}` },
+      cache: 'no-store',
+    })
+    const data = await res.json()
+    if (!res.ok) return { error: data.error ?? `HTTP ${res.status}` }
+
+    return {
+      success: true,
+      message: `Synced ${data.synced} fight(s). ${data.errors?.length ? `${data.errors.length} error(s).` : ''}`,
+      log:     [...(data.log ?? []), ...(data.errors ?? [])],
+      skipped: data.skipped ?? [],
+    }
+  } catch (e: any) {
+    return { error: `Fetch failed: ${e.message}` }
+  }
+}
+
 // ─── Complete fight ──────────────────────────────────────────────────────────
 
 export async function completeFight(

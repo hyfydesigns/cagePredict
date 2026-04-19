@@ -67,6 +67,7 @@ export async function GET(req: Request) {
   let synced = 0
   const errors: string[] = []
   const log: string[] = []
+  const skipped: string[] = []
 
   for (const event of liveEvents) {
     const dbFights: any[] = (event as any).fights ?? []
@@ -76,6 +77,8 @@ export async function GET(req: Request) {
     const day   = d.getUTCDate()
     const month = d.getUTCMonth() + 1
     const year  = d.getUTCFullYear()
+
+    log.push(`Checking ${event.name} (${dbFights.length} DB fights) for ${year}-${month}-${day}`)
 
     // ── Fetch RapidAPI schedule for this event's date ──────────────────────
     const url = `https://${host}/api/mma/unique-tournament/19906/schedules/${day}/${month}/${year}`
@@ -91,6 +94,7 @@ export async function GET(req: Request) {
       }
       const data = await res.json()
       apiFights  = data.events ?? []
+      log.push(`  API returned ${apiFights.length} fights`)
     } catch (e: any) {
       errors.push(`Fetch failed for ${event.name}: ${e.message}`)
       continue
@@ -100,12 +104,16 @@ export async function GET(req: Request) {
     for (const apiFight of apiFights) {
       const fightUuid = apiIdToUuid(apiFight.id, 'fight')
       const dbFight   = dbFights.find((f: any) => f.id === fightUuid)
-      if (!dbFight) continue
+      const home      = apiFight.homeTeam?.name ?? '?'
+      const away      = apiFight.awayTeam?.name ?? '?'
+
+      if (!dbFight) {
+        skipped.push(`No DB match for API fight ${apiFight.id} (${home} vs ${away}) → uuid ${fightUuid}`)
+        continue
+      }
 
       const apiStatus  = (apiFight.status?.type ?? apiFight.statusType ?? '').toLowerCase()
-      const isFinished = ['finished', 'complete', 'ended'].includes(apiStatus)
-      const home       = apiFight.homeTeam?.name ?? '?'
-      const away       = apiFight.awayTeam?.name ?? '?'
+      const isFinished = ['finished', 'complete', 'ended', 'after'].includes(apiStatus)
       const method     = apiFight.winType ? mapMethod(apiFight.winType) : null
       const round      = apiFight.finalRound ?? null
 
@@ -118,8 +126,19 @@ export async function GET(req: Request) {
         continue
       }
 
+      // ── Already handled ───────────────────────────────────────────────
+      if (dbFight.status === 'completed') {
+        log.push(`  ⏭ ${home} vs ${away} already completed in DB`)
+        continue
+      }
+
+      if (!isFinished) {
+        log.push(`  ⏳ ${home} vs ${away} — API status: "${apiStatus}", winnerCode: ${apiFight.winnerCode ?? 'null'}`)
+        continue
+      }
+
       // ── Draw: finished with no winner ────────────────────────────────
-      if (isFinished && apiFight.winnerCode === 0 && dbFight.status !== 'completed') {
+      if (apiFight.winnerCode === 0) {
         const { error: drawErr } = await supabase.rpc('complete_fight', {
           p_fight_id:  fightUuid,
           p_winner_id: null,
@@ -133,13 +152,18 @@ export async function GET(req: Request) {
       }
 
       // ── Completed with a winner ───────────────────────────────────────
-      if (!apiFight.winnerCode || apiFight.winnerCode === 0) continue
-      if (dbFight.status === 'completed') continue
+      if (!apiFight.winnerCode) {
+        log.push(`  ⚠ ${home} vs ${away} — finished but winnerCode is null/undefined`)
+        continue
+      }
 
       const winnerApiId = apiFight.winnerCode === 1
         ? apiFight.homeTeam?.id
         : apiFight.awayTeam?.id
-      if (!winnerApiId) continue
+      if (!winnerApiId) {
+        errors.push(`No winner team ID for fight ${apiFight.id} (${home} vs ${away})`)
+        continue
+      }
       const winnerUuid = apiIdToUuid(winnerApiId, 'fighter')
 
       const { error: rpcErr } = await supabase.rpc('complete_fight', {
@@ -166,5 +190,5 @@ export async function GET(req: Request) {
     revalidatePath('/admin')
   }
 
-  return NextResponse.json({ success: true, synced, errors, log, checkedAt: new Date().toISOString() })
+  return NextResponse.json({ success: true, synced, errors, log, skipped, checkedAt: new Date().toISOString() })
 }
