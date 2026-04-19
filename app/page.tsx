@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { LiveWrapper } from '@/components/fight-card/live-wrapper'
 import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
+import type { PredictionMap } from '@/hooks/use-predictions'
 
 export const revalidate = 60
 
@@ -41,7 +42,7 @@ export default async function HomePage({
     .limit(4)
 
   // Fetch user picks including is_confidence
-  let userPicks: Record<string, { winnerId: string; isConfidence: boolean }> = {}
+  let userPicks: PredictionMap = {}
   const events = (eventsRaw ?? []) as any[]
 
   if (user && events.length > 0) {
