@@ -57,7 +57,7 @@ export default async function HomePage({
         userPicks[p.fight_id] = {
           winnerId:     p.predicted_winner_id,
           isConfidence: p.is_confidence ?? false,
-          pointsEarned: p.points_earned ?? 0,
+          pointsEarned: p.points_earned > 0 ? p.points_earned : undefined,
         }
       })
     }
