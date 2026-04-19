@@ -4,12 +4,12 @@ import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, CheckCircle, Trophy, Users, Swords,
-  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search
+  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search, Zap
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -64,6 +64,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [userSearch, setUserSearch]                  = useState('')
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null)
   const [isDeleteUserPending, startDeleteUserTransition] = useTransition()
+  const [isSyncPending, startSyncTransition]           = useTransition()
+  const [syncLog, setSyncLog]                          = useState<string[] | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
@@ -108,6 +110,24 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
         toast({ title: 'Seed failed', description: result.error, variant: 'destructive' })
       } else {
         toast({ title: 'Events seeded!', description: result.message })
+      }
+    })
+  }
+
+  function handleForceSync() {
+    setSyncLog(null)
+    startSyncTransition(async () => {
+      const result = await forceSyncResults()
+      if (result.error) {
+        toast({ title: 'Sync failed', description: result.error, variant: 'destructive' })
+        setSyncLog([`ERROR: ${result.error}`])
+      } else {
+        toast({ title: result.message ?? 'Sync complete' })
+        const allLines = [
+          ...(result.log ?? []),
+          ...(result.skipped?.length ? ['— Skipped (no DB match) —', ...(result.skipped ?? [])] : []),
+        ]
+        setSyncLog(allLines.length ? allLines : ['Nothing to sync — no live events, or all fights already completed.'])
       }
     })
   }
@@ -390,6 +410,39 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             })
           )}
         </div>
+      </div>
+
+      {/* Force Resync Results */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-white flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-400" /> Force Resync Results
+          </h2>
+          <p className="text-zinc-500 text-sm mt-1">
+            Manually trigger the sync-results cron. Useful for diagnosing fights that haven&apos;t auto-updated.
+          </p>
+        </div>
+        <Button onClick={handleForceSync} disabled={isSyncPending} variant="outline" className="border-zinc-700">
+          {isSyncPending
+            ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Syncing…</>
+            : <><Zap className="h-4 w-4 mr-1.5 text-amber-400" />Run Sync Now</>
+          }
+        </Button>
+        {syncLog && (
+          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-3 max-h-64 overflow-y-auto">
+            {syncLog.map((line, i) => (
+              <p key={i} className={`text-xs font-mono leading-relaxed ${
+                line.startsWith('✓') ? 'text-green-400' :
+                line.startsWith('✗') ? 'text-red-400' :
+                line.startsWith('🤝') ? 'text-blue-400' :
+                line.startsWith('⚠') || line.startsWith('ERROR') ? 'text-amber-400' :
+                line.startsWith('—') ? 'text-zinc-500 mt-2 font-semibold' :
+                line.startsWith('No DB match') ? 'text-orange-400' :
+                'text-zinc-400'
+              }`}>{line}</p>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Set Fight Results */}

@@ -73,7 +73,8 @@ export async function GET(req: Request) {
     const fights: any[] = (event as any).fights ?? []
     if (!fights.length) continue
 
-    const allDone = fights.every((f: any) => f.status === 'completed')
+    // cancelled fights count as "done" — don't block event completion
+    const allDone = fights.every((f: any) => f.status === 'completed' || f.status === 'cancelled')
     if (allDone) {
       const { error } = await supabase
         .from('events')
