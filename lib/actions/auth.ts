@@ -2,10 +2,23 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { signUpSchema, signInSchema, onboardingSchema, editProfileSchema } from '@/lib/validations'
 import type { SignUpInput, SignInInput, OnboardingInput, EditProfileInput } from '@/lib/validations'
 import { isAdmin } from '@/lib/auth/is-admin'
+
+/** Derive the public-facing origin from the current request headers.
+ *  Falls back to NEXT_PUBLIC_APP_URL, then the hardcoded production URL. */
+async function getOrigin(): Promise<string> {
+  try {
+    const h    = await headers()
+    const host = h.get('x-forwarded-host') ?? h.get('host') ?? ''
+    const proto = h.get('x-forwarded-proto')?.split(',')[0] ?? 'https'
+    if (host) return `${proto}://${host}`
+  } catch { /* not in a request context */ }
+  return process.env.NEXT_PUBLIC_APP_URL ?? 'https://cagepredict.com'
+}
 
 type ActionResult = { error?: string; success?: boolean }
 
@@ -45,11 +58,41 @@ export async function signUp(data: SignUpInput): Promise<ActionResult> {
 
 export async function requestPasswordReset(email: string): Promise<ActionResult> {
   if (!email?.trim()) return { error: 'Email is required' }
-  const supabase = await createClient()
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cagepredict.com'
+
+  const base       = await getOrigin()
   const redirectTo = `${base}/api/auth/callback?next=/reset-password`
+
+  // If Resend is configured, generate the link ourselves and send a branded email
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const service = createServiceClient()
+      const { data, error: linkErr } = await service.auth.admin.generateLink({
+        type:    'recovery',
+        email:   email.trim(),
+        options: { redirectTo },
+      })
+
+      if (!linkErr && data?.properties?.action_link) {
+        const { resend }                  = await import('@/lib/email/resend')
+        const { passwordResetTemplate }   = await import('@/lib/email/templates')
+        const { subject, html }           = passwordResetTemplate(data.properties.action_link)
+        await resend.emails.send({
+          from:    'CagePredict <noreply@cagepredict.com>',
+          to:      [email.trim()],
+          subject,
+          html,
+        })
+        return { success: true }
+      }
+    } catch (e) {
+      console.error('[requestPasswordReset] Resend path failed:', e)
+      // fall through to Supabase built-in
+    }
+  }
+
+  // Fallback: let Supabase send its default email
+  const supabase = await createClient()
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
-  // Always return success to avoid leaking whether an email exists
   if (error) console.error('[requestPasswordReset]', error.message)
   return { success: true }
 }
