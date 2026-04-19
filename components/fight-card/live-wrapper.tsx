@@ -322,24 +322,16 @@ function EventSectionClient({
           return (
             <div className="border-t border-zinc-800/60 bg-zinc-900/60 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
               {/* Points breakdown */}
-              <div className="flex items-center gap-3">
-                {/* Total */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-amber-400 text-lg font-black leading-none">{totalPts}</span>
-                  <div className="text-[10px] text-zinc-500 leading-tight">
-                    <div>pts this</div>
-                    <div>event</div>
-                  </div>
-                </div>
-
-                {/* Base + streak breakdown */}
-                <div className="flex flex-col gap-0.5 text-[10px] leading-none">
-                  <span className="text-zinc-400">{basePts} base</span>
-                  {streakPts > 0
-                    ? <span className="text-orange-400">+{streakPts} streak</span>
-                    : <span className="text-zinc-600">+0 streak</span>
-                  }
-                </div>
+              <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                <span className="text-zinc-400 font-semibold">Points:</span>
+                <span className="text-white font-bold">{basePts}</span>
+                <span className="text-zinc-500">base</span>
+                <span className="text-zinc-600">+</span>
+                <span className={streakPts > 0 ? 'text-orange-400 font-bold' : 'text-zinc-600 font-bold'}>{streakPts}</span>
+                <span className="text-zinc-500">streak</span>
+                <span className="text-zinc-600">=</span>
+                <span className="text-amber-400 font-black">{totalPts}</span>
+                <span className="text-zinc-500">total</span>
               </div>
 
               {/* Divider */}
