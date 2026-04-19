@@ -23,33 +23,40 @@ export type EventStats = {
 export async function getEventStats(eventId: string, userId: string): Promise<EventStats> {
   const supabase = await createClient()
 
-  // 1. All completed fights for this event
+  // 1. ALL fights for this event (any status — we don't filter by 'completed'
+  //    because complete_fight() may have scored predictions without the fight
+  //    status being updated if there was a partial failure)
   const { data: fights } = await supabase
     .from('fights')
-    .select('id, winner_id')
+    .select('id, winner_id, status')
     .eq('event_id', eventId)
-    .eq('status', 'completed')
 
   if (!fights?.length) {
     return { correct: 0, wrong: 0, draws: 0, basePts: 0, streakPts: 0, totalPts: 0 }
   }
+
+  const fightMap = Object.fromEntries((fights as any[]).map((f) => [f.id, f]))
 
   // 2. This user's predictions for those fights
   const { data: preds } = await supabase
     .from('predictions')
     .select('fight_id, is_confidence, is_correct, points_earned')
     .eq('user_id', userId)
-    .in('fight_id', fights.map((f) => f.id))
-
-  const predMap = Object.fromEntries((preds ?? []).map((p: any) => [p.fight_id, p]))
+    .in('fight_id', fights.map((f: any) => f.id))
 
   let correct = 0, wrong = 0, draws = 0, basePts = 0, streakPts = 0
 
-  for (const fight of fights as any[]) {
-    const pred = predMap[fight.id]
-    if (!pred) continue
+  for (const pred of (preds ?? []) as any[]) {
+    const fight = fightMap[pred.fight_id]
+    if (!fight) continue
 
-    if (!fight.winner_id) {
+    // Only include scored predictions (either completed fight or points already earned)
+    const isScored = fight.status === 'completed' || pred.points_earned > 0 || pred.is_correct === true || pred.is_correct === false
+
+    // Skip fights that haven't finished yet (upcoming/live with no result)
+    if (fight.status !== 'completed' && pred.is_correct === null) continue
+
+    if (!fight.winner_id && fight.status === 'completed') {
       draws++
       continue
     }
@@ -61,7 +68,7 @@ export async function getEventStats(eventId: string, userId: string): Promise<Ev
       const earned = pred.points_earned > 0 ? pred.points_earned : base
       basePts   += base
       streakPts += Math.max(0, earned - base)
-    } else {
+    } else if (pred.is_correct === false) {
       wrong++
     }
   }
