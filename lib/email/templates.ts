@@ -411,3 +411,57 @@ export function weeklyRecapTemplate(data: WeeklyRecapData): { subject: string; h
 
   return { subject, html }
 }
+
+// ─── Password Reset Email ─────────────────────────────────────────────────────
+
+export function passwordResetTemplate(resetLink: string): { subject: string; html: string } {
+  const subject = '🔐 Reset your CagePredict password'
+
+  const html = layout(`
+    <!-- Lock icon -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:50%;">
+        <span style="font-size:28px;line-height:1;">🔐</span>
+      </div>
+    </div>
+
+    <!-- Headline -->
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:900;color:#ffffff;text-align:center;line-height:1.25;">
+      Reset your password
+    </h1>
+    <p style="margin:0 0 28px;text-align:center;color:#71717a;font-size:14px;line-height:1.6;">
+      We received a request to reset the password for your CagePredict account.
+      Click the button below to choose a new password.
+    </p>
+
+    <!-- CTA -->
+    ${primaryButton('Reset Password', resetLink)}
+
+    <!-- Expiry note -->
+    <p style="margin:24px 0 0;text-align:center;font-size:13px;color:#52525b;">
+      This link expires in <strong style="color:#a1a1aa;">1 hour</strong>.
+      If you didn't request a password reset, you can safely ignore this email —
+      your password will not change.
+    </p>
+
+    <!-- Divider -->
+    <div style="border-top:1px solid #1f1f1f;margin:28px 0 20px;"></div>
+
+    <!-- Security tip -->
+    <table cellpadding="0" cellspacing="0" width="100%">
+      <tr>
+        <td style="width:32px;vertical-align:top;padding-top:1px;">
+          <span style="font-size:16px;">🛡️</span>
+        </td>
+        <td>
+          <p style="margin:0;font-size:13px;color:#71717a;line-height:1.5;">
+            <strong style="color:#a1a1aa;">Security tip:</strong>
+            Never share this link with anyone. CagePredict staff will never ask for your password.
+          </p>
+        </td>
+      </tr>
+    </table>
+  `)
+
+  return { subject, html }
+}
