@@ -175,18 +175,19 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
 
   function handleCompleteFight(fightId: string) {
     const winnerId = selectedWinners[fightId]
+    // 'draw' is a valid special value meaning null winner
     if (!winnerId) {
-      toast({ title: 'Select a winner first', variant: 'destructive' })
+      toast({ title: 'Select a winner or Draw first', variant: 'destructive' })
       return
     }
     startResultTransition(async () => {
       setCompletingFight(fightId)
-      const result = await completeFight(fightId, winnerId)
+      const result = await completeFight(fightId, winnerId === 'draw' ? null : winnerId)
       setCompletingFight(null)
       if (result.error) {
         toast({ title: 'Error', description: result.error, variant: 'destructive' })
       } else {
-        toast({ title: 'Fight completed!', description: 'Scores updated for all predictions.' })
+        toast({ title: winnerId === 'draw' ? 'Fight recorded as Draw' : 'Fight completed!', description: 'Scores updated for all predictions.' })
       }
     })
   }
@@ -569,7 +570,7 @@ function FightResultRow({
         ) : (
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             {/* Winner picker */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               <button
                 onClick={() => onSelectWinner(fight.fighter1.id)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
@@ -589,6 +590,16 @@ function FightResultRow({
                 }`}
               >
                 {fight.fighter2.name.split(' ').pop()}
+              </button>
+              <button
+                onClick={() => onSelectWinner('draw')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
+                  selectedWinner === 'draw'
+                    ? 'border-blue-500 bg-blue-500/15 text-blue-400'
+                    : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                }`}
+              >
+                Draw
               </button>
             </div>
 
