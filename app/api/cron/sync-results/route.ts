@@ -96,28 +96,52 @@ export async function GET(req: Request) {
       continue
     }
 
-    // ── Process each fight that has a result ──────────────────────────────
+    // ── Process each fight ────────────────────────────────────────────────
     for (const apiFight of apiFights) {
-      // winnerCode 0 = no result yet
-      if (!apiFight.winnerCode || apiFight.winnerCode === 0) continue
-
       const fightUuid = apiIdToUuid(apiFight.id, 'fight')
+      const dbFight   = dbFights.find((f: any) => f.id === fightUuid)
+      if (!dbFight) continue
 
-      // Skip if already scored
-      const dbFight = dbFights.find((f: any) => f.id === fightUuid)
-      if (!dbFight || dbFight.status === 'completed') continue
+      const apiStatus  = (apiFight.status?.type ?? apiFight.statusType ?? '').toLowerCase()
+      const isFinished = ['finished', 'complete', 'ended'].includes(apiStatus)
+      const home       = apiFight.homeTeam?.name ?? '?'
+      const away       = apiFight.awayTeam?.name ?? '?'
+      const method     = apiFight.winType ? mapMethod(apiFight.winType) : null
+      const round      = apiFight.finalRound ?? null
 
-      // Resolve winner — homeTeam = fighter1, awayTeam = fighter2
+      // ── Cancellation / postponement ──────────────────────────────────
+      if (['cancelled', 'canceled', 'postponed', 'abandoned'].includes(apiStatus) && dbFight.status !== 'cancelled') {
+        const { error: cancelErr } = await supabase
+          .from('fights').update({ status: 'cancelled' }).eq('id', fightUuid)
+        if (cancelErr) errors.push(`cancel(${fightUuid}): ${cancelErr.message}`)
+        else log.push(`✗ ${home} vs ${away} → cancelled`)
+        continue
+      }
+
+      // ── Draw: finished with no winner ────────────────────────────────
+      if (isFinished && apiFight.winnerCode === 0 && dbFight.status !== 'completed') {
+        const { error: drawErr } = await supabase.rpc('complete_fight', {
+          p_fight_id:  fightUuid,
+          p_winner_id: null,
+          p_method:    method ?? 'Draw',
+          p_round:     round,
+          p_time:      null,
+        } as any)
+        if (drawErr) errors.push(`draw(${fightUuid}): ${drawErr.message}`)
+        else log.push(`🤝 ${home} vs ${away} → Draw (${method ?? 'Draw'})`)
+        continue
+      }
+
+      // ── Completed with a winner ───────────────────────────────────────
+      if (!apiFight.winnerCode || apiFight.winnerCode === 0) continue
+      if (dbFight.status === 'completed') continue
+
       const winnerApiId = apiFight.winnerCode === 1
         ? apiFight.homeTeam?.id
         : apiFight.awayTeam?.id
       if (!winnerApiId) continue
       const winnerUuid = apiIdToUuid(winnerApiId, 'fighter')
 
-      const method = apiFight.winType   ? mapMethod(apiFight.winType) : null
-      const round  = apiFight.finalRound ?? null
-
-      // Call the complete_fight RPC — scores all predictions, updates streaks/points
       const { error: rpcErr } = await supabase.rpc('complete_fight', {
         p_fight_id:  fightUuid,
         p_winner_id: winnerUuid,
@@ -130,10 +154,8 @@ export async function GET(req: Request) {
         errors.push(`complete_fight(${fightUuid}): ${rpcErr.message}`)
       } else {
         synced++
-        const home = apiFight.homeTeam?.name ?? '?'
-        const away = apiFight.awayTeam?.name ?? '?'
         const winner = apiFight.winnerCode === 1 ? home : away
-        log.push(`✓ ${home} vs ${away} → ${winner} (${method ?? 'unknown method'}, R${round ?? '?'})`)
+        log.push(`✓ ${home} vs ${away} → ${winner} (${method ?? 'unknown'}, R${round ?? '?'})`)
       }
     }
   }

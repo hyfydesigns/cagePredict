@@ -206,7 +206,7 @@ create trigger update_predictions_updated_at
 --     10+ streak  → +20 pts
 create or replace function public.complete_fight(
   p_fight_id   uuid,
-  p_winner_id  uuid,
+  p_winner_id  uuid,   -- NULL = draw / no contest
   p_method     text default null,
   p_round      integer default null,
   p_time       text default null
@@ -219,7 +219,10 @@ declare
   v_base_pts     integer;
   v_streak_bonus integer;
   v_total_pts    integer;
+  v_is_draw      boolean;
 begin
+  v_is_draw := (p_winner_id is null);
+
   -- Update fight record
   update public.fights
   set
@@ -237,12 +240,22 @@ begin
     join   public.profiles    pr on pr.id = p.user_id
     where  p.fight_id = p_fight_id
   loop
-    if v_pred.predicted_winner_id = p_winner_id then
-      -- Base: 10 pts; double for confidence/lock picks
+    if v_is_draw then
+      -- Draw / No Contest: picks are voided — 0 pts, streak unchanged, total_picks incremented
+      update public.predictions
+        set is_correct    = false,
+            points_earned = 0
+        where id = v_pred.id;
+
+      update public.profiles
+        set total_picks = total_picks + 1
+        where id = v_pred.user_id;
+
+    elsif v_pred.predicted_winner_id = p_winner_id then
+      -- Correct pick
       v_base_pts    := case when v_pred.is_confidence then 20 else 10 end;
       v_new_streak  := v_pred.user_streak + 1;
 
-      -- Streak bonus tier
       v_streak_bonus := case
         when v_new_streak >= 10 then 20
         when v_new_streak >=  5 then 10
@@ -265,7 +278,9 @@ begin
           current_streak = v_new_streak,
           longest_streak = greatest(longest_streak, v_new_streak)
         where id = v_pred.user_id;
+
     else
+      -- Wrong pick
       update public.predictions
         set is_correct    = false,
             points_earned = 0
