@@ -37,19 +37,25 @@ export function FighterPortrait({
 
   return (
     <div className={cn(
-      'relative flex flex-col items-center p-4 pt-5 transition-all duration-300',
+      'relative flex flex-col items-center p-4 transition-all duration-300',
       isLeft ? 'items-start' : 'items-end',
       isPicked && 'bg-primary/5',
       isWinner && 'bg-green-500/5',
       isLoser && 'opacity-50'
     )}>
-      {/* Winner crown */}
-      {isWinner && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-amber-500/20 border border-amber-500/40 rounded-full px-2 py-0.5">
+      {/* Winner crown — in normal flow so it doesn't overlap the image.
+          Spacer shown for the loser side so both columns stay the same height. */}
+      {isWinner ? (
+        <div className={cn(
+          'flex items-center gap-1 bg-amber-500/20 border border-amber-500/40 rounded-full px-2 py-0.5 mb-2',
+          isLeft ? 'self-start' : 'self-end'
+        )}>
           <Crown className="h-3 w-3 text-amber-400" />
           <span className="text-[10px] font-bold text-amber-400">WINNER</span>
         </div>
-      )}
+      ) : isLoser ? (
+        <div className="h-[22px] mb-2" />
+      ) : null}
 
       {/* Fighter image */}
       <Link href={`/fighters/${fighter.id}`} className="block group">
