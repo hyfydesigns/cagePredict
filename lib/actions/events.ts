@@ -16,37 +16,40 @@ export type EventStats = {
  * Fetch authoritative points breakdown for a user's picks in a specific event.
  * Reads directly from predictions.points_earned (set by complete_fight RPC)
  * so base + streak are always accurate without any client-side computation.
+ *
+ * Uses two separate queries joined in JS to avoid unreliable embedded-table
+ * filters in PostgREST (`.eq('predictions.user_id', …)` can return wrong rows).
  */
 export async function getEventStats(eventId: string, userId: string): Promise<EventStats> {
   const supabase = await createClient()
 
-  // Get all completed fights for this event with the user's predictions
-  const { data } = await supabase
+  // 1. All completed fights for this event
+  const { data: fights } = await supabase
     .from('fights')
-    .select(`
-      id,
-      winner_id,
-      predictions!inner(
-        predicted_winner_id,
-        is_confidence,
-        is_correct,
-        points_earned
-      )
-    `)
+    .select('id, winner_id')
     .eq('event_id', eventId)
     .eq('status', 'completed')
-    .eq('predictions.user_id', userId)
 
-  const rows = (data ?? []) as any[]
+  if (!fights?.length) {
+    return { correct: 0, wrong: 0, draws: 0, basePts: 0, streakPts: 0, totalPts: 0 }
+  }
+
+  // 2. This user's predictions for those fights
+  const { data: preds } = await supabase
+    .from('predictions')
+    .select('fight_id, is_confidence, is_correct, points_earned')
+    .eq('user_id', userId)
+    .in('fight_id', fights.map((f) => f.id))
+
+  const predMap = Object.fromEntries((preds ?? []).map((p: any) => [p.fight_id, p]))
 
   let correct = 0, wrong = 0, draws = 0, basePts = 0, streakPts = 0
 
-  for (const fight of rows) {
-    const pred = fight.predictions?.[0]
+  for (const fight of fights as any[]) {
+    const pred = predMap[fight.id]
     if (!pred) continue
 
     if (!fight.winner_id) {
-      // Draw — prediction voided
       draws++
       continue
     }
