@@ -379,6 +379,20 @@ export function FightCard({
         </div>
       )}
 
+      {/* Draw banner */}
+      {isCompleted && !fight.winner_id && (
+        <div className="px-4 py-2.5 bg-zinc-800/30 border-t border-zinc-800/40 flex items-center justify-center gap-2">
+          <span className="text-base">🤝</span>
+          <span className="text-sm font-bold text-zinc-300">
+            Draw
+            {fight.method && (
+              <span className="font-normal text-zinc-400 ml-1 text-xs">— {fight.method}</span>
+            )}
+          </span>
+          <span className="text-[10px] text-zinc-500 ml-1">picks voided, no points awarded</span>
+        </div>
+      )}
+
       {/* Prediction picker */}
       {!isCompleted && !isCancelled && (
         <PredictionPicker
