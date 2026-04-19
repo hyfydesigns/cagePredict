@@ -348,8 +348,11 @@ function EventSectionClient({
             if (pick.winnerId === fight.winner_id) {
               correct++
               const base = pick.isConfidence ? 20 : 10
-              // Prefer the live realtime value; fall back to server-fetched; fall back to base
-              const earned = liveEarned[fight.id] ?? pick.pointsEarned ?? base
+              // Prefer live realtime value, then server-fetched, then base.
+              // Treat 0 as "not yet scored" and fall back to base so streak
+              // never shows negative and unscored fights don't zero out the total.
+              const rawEarned = liveEarned[fight.id] ?? pick.pointsEarned
+              const earned    = rawEarned != null && rawEarned > 0 ? rawEarned : base
               basePts   += base
               streakPts += Math.max(0, earned - base)
             } else {
