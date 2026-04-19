@@ -98,18 +98,22 @@ export default async function HomePage({
         (pickCountMap[p.fight_id][p.predicted_winner_id] ?? 0) + 1
     })
 
-    // Build H2H map: "f1id_f2id" → { f1Wins, f2Wins, total }
+    // Build H2H map: "f1id_f2id" → { f1Wins, f2Wins }
     const h2hMap: Record<string, { f1Wins: number; f2Wins: number }> = {}
     ;(histFights ?? []).forEach((hf: any) => {
       const key1 = `${hf.fighter1_id}_${hf.fighter2_id}`
       const key2 = `${hf.fighter2_id}_${hf.fighter1_id}`
-      const key = h2hMap[key1] !== undefined ? key1 : key2
-      if (key) {
-        if (hf.winner_id === hf.fighter1_id) h2hMap[key].f1Wins++
-        else h2hMap[key].f2Wins++
+      if (h2hMap[key1] !== undefined) {
+        // key1 exists: f1/f2 orientation matches
+        if (hf.winner_id === hf.fighter1_id) h2hMap[key1].f1Wins++
+        else h2hMap[key1].f2Wins++
+      } else if (h2hMap[key2] !== undefined) {
+        // key2 exists: orientation is flipped — fighter2_id is f1 in the stored record
+        if (hf.winner_id === hf.fighter2_id) h2hMap[key2].f1Wins++
+        else h2hMap[key2].f2Wins++
       } else {
-        const newKey = key1
-        h2hMap[newKey] = {
+        // First time we see this matchup — create under key1
+        h2hMap[key1] = {
           f1Wins: hf.winner_id === hf.fighter1_id ? 1 : 0,
           f2Wins: hf.winner_id === hf.fighter2_id ? 1 : 0,
         }
