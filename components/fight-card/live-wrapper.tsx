@@ -293,6 +293,90 @@ function EventSectionClient({
             />
           </div>
         )}
+
+        {/* Live stats strip — shown during live/completed events for logged-in users */}
+        {userId && (event.status === 'live' || event.status === 'completed') && (() => {
+          const completedFights = event.fights.filter((f: any) => f.status === 'completed')
+          if (completedFights.length === 0) return null
+
+          let correct = 0, wrong = 0, draws = 0, pts = 0
+          for (const fight of completedFights as any[]) {
+            const pick = picks[fight.id]
+            if (!pick?.winnerId) continue
+            if (!fight.winner_id) { draws++; continue }
+            if (pick.winnerId === fight.winner_id) {
+              correct++
+              pts += pick.isConfidence ? 20 : 10
+            } else {
+              wrong++
+            }
+          }
+
+          const scored = correct + wrong + draws
+          if (scored === 0) return null
+
+          return (
+            <div className="border-t border-zinc-800/60 bg-zinc-900/60 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+              {/* Points */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-amber-400 text-lg font-black leading-none">{pts}</span>
+                <div className="text-[10px] text-zinc-500 leading-tight">
+                  <div>pts this</div>
+                  <div>event*</div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-8 w-px bg-zinc-800 hidden sm:block" />
+
+              {/* Record */}
+              <div className="flex items-center gap-3 text-sm font-bold">
+                <span className="text-green-400">{correct}W</span>
+                <span className="text-zinc-600">·</span>
+                <span className="text-red-400">{wrong}L</span>
+                {draws > 0 && <>
+                  <span className="text-zinc-600">·</span>
+                  <span className="text-zinc-400">{draws}D</span>
+                </>}
+                <span className="text-zinc-600 font-normal text-xs">/ {completedFights.length} fights done</span>
+              </div>
+
+              {/* Divider */}
+              <div className="h-8 w-px bg-zinc-800 hidden sm:block" />
+
+              {/* Per-fight mini results */}
+              <div className="flex items-center gap-1 flex-wrap">
+                {(completedFights as any[]).map((fight: any) => {
+                  const pick = picks[fight.id]
+                  if (!pick?.winnerId) return (
+                    <div key={fight.id} title="No pick" className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[9px] text-zinc-600">–</div>
+                  )
+                  if (!fight.winner_id) return (
+                    <div key={fight.id} title="Draw" className="w-5 h-5 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center text-[9px] text-zinc-400">D</div>
+                  )
+                  const won = pick.winnerId === fight.winner_id
+                  return (
+                    <div
+                      key={fight.id}
+                      title={won ? `+${pick.isConfidence ? 20 : 10} pts` : '0 pts'}
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border ${
+                        won
+                          ? pick.isConfidence
+                            ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                            : 'bg-green-500/20 border-green-500/50 text-green-400'
+                          : 'bg-red-500/10 border-red-500/30 text-red-400'
+                      }`}
+                    >
+                      {won ? (pick.isConfidence ? '🔒' : '✓') : '✗'}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <p className="w-full text-[9px] text-zinc-600 -mt-1">* Base pts only. Streak bonuses applied separately.</p>
+            </div>
+          )
+        })()}
       </div>
       <FightCardSections
         fights={event.fights}
