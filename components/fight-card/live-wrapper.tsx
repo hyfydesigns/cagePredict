@@ -26,6 +26,16 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   const [refreshError, setRefreshError] = useState(false)
   const [, startTransition] = useTransition()
 
+  // Live points_earned map — updated in realtime when predictions are scored.
+  // Keyed by fight_id. Starts from the server-fetched values in userPicks.
+  const [liveEarned, setLiveEarned] = useState<Record<string, number>>(() =>
+    Object.fromEntries(
+      Object.entries(userPicks)
+        .filter(([, v]) => (v.pointsEarned ?? 0) > 0)
+        .map(([fightId, v]) => [fightId, v.pointsEarned!])
+    )
+  )
+
   const isLive = events.some((e) => e.status === 'live')
 
   // Default to the live event, otherwise the first one
@@ -73,6 +83,35 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
 
     return () => { supabase.removeChannel(channel) }
   }, [])
+
+  // ── Supabase realtime: catch points_earned updates when fights are scored ───
+  // complete_fight() writes points_earned to predictions immediately after
+  // updating the fight row. Subscribe here so the live stats strip reflects
+  // the true total (base + streak) without waiting for a page reload.
+  useEffect(() => {
+    if (!userId) return
+    const supabase = createClient()
+    const channel  = supabase
+      .channel('predictions-live-scored')
+      .on(
+        'postgres_changes',
+        {
+          event:  'UPDATE',
+          schema: 'public',
+          table:  'predictions',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const { fight_id, points_earned } = payload.new as { fight_id: string; points_earned: number }
+          if (fight_id && points_earned != null) {
+            setLiveEarned((prev) => ({ ...prev, [fight_id]: points_earned }))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [userId])
 
   // ── Polling fallback: catches event status changes (upcoming→live→completed) ─
   // Runs every 60s always, every 30s when live. The go-live cron handles the
@@ -163,6 +202,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         userPicks={userPicks}
         userId={userId}
         commentsByFight={commentsByFight}
+        liveEarned={liveEarned}
       />
     </div>
   )
@@ -222,12 +262,13 @@ function PicksProgressBadge({ total, picked }: { total: number; picked: number }
 }
 
 function EventSectionClient({
-  event, userPicks, userId, commentsByFight = {},
+  event, userPicks, userId, commentsByFight = {}, liveEarned = {},
 }: {
   event: EventWithFights
   userPicks: PredictionMap
   userId?: string
   commentsByFight?: Record<string, CommentWithProfile[]>
+  liveEarned?: Record<string, number>
 }) {
   // Lift prediction state here so the picks counter and fight cards stay in sync
   const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
@@ -306,8 +347,9 @@ function EventSectionClient({
             if (!fight.winner_id) { draws++; continue }
             if (pick.winnerId === fight.winner_id) {
               correct++
-              const base   = pick.isConfidence ? 20 : 10
-              const earned = pick.pointsEarned ?? base
+              const base = pick.isConfidence ? 20 : 10
+              // Prefer the live realtime value; fall back to server-fetched; fall back to base
+              const earned = liveEarned[fight.id] ?? pick.pointsEarned ?? base
               basePts   += base
               streakPts += Math.max(0, earned - base)
             } else {
@@ -363,7 +405,7 @@ function EventSectionClient({
                     <div key={fight.id} title="Draw" className="w-5 h-5 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center text-[9px] text-zinc-400">D</div>
                   )
                   const won    = pick.winnerId === fight.winner_id
-                  const earned = pick.pointsEarned ?? (pick.isConfidence ? 20 : 10)
+                  const earned = liveEarned[fight.id] ?? pick.pointsEarned ?? (pick.isConfidence ? 20 : 10)
                   return (
                     <div
                       key={fight.id}
