@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { MapPin, Calendar, ExternalLink } from 'lucide-react'
 import Image from 'next/image'
-import { getActiveEvents, getEventStats, type EventStats } from '@/lib/actions/events'
+import { getActiveEvents, getPicksStats, type EventStats } from '@/lib/actions/events'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
@@ -48,6 +48,19 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         : events.length - 1
   )
   const [activeIndex, setActiveIndex] = useState(defaultIndex)
+
+  // ── DB-authoritative stats (all events on page, all fight IDs) ──────────────
+  // Queried by fight ID — not event_id — so prelim events stored under a
+  // different event_id in the DB are still included.
+  const [dbStats, setDbStats] = useState<EventStats | null>(null)
+  const allFightIds  = events.flatMap((e) => e.fights.map((f) => f.id))
+  const completedAny = events.some((e) => e.fights.some((f: any) => f.status === 'completed'))
+
+  useEffect(() => {
+    if (!userId || !completedAny) { setDbStats(null); return }
+    getPicksStats(allFightIds, userId).then(setDbStats)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, completedAny, allFightIds.join(',')])
 
   // Keep index in bounds if events list changes
   useEffect(() => {
@@ -214,6 +227,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         event={activeEvent}
         userPicks={userPicks}
         userId={userId}
+        dbStats={dbStats}
         commentsByFight={commentsByFight}
         liveEarned={liveEarned}
       />
@@ -275,26 +289,17 @@ function PicksProgressBadge({ total, picked }: { total: number; picked: number }
 }
 
 function EventSectionClient({
-  event, userPicks, userId, commentsByFight = {}, liveEarned = {},
+  event, userPicks, userId, commentsByFight = {}, liveEarned = {}, dbStats = null,
 }: {
   event: EventWithFights
   userPicks: PredictionMap
   userId?: string
   commentsByFight?: Record<string, CommentWithProfile[]>
   liveEarned?: Record<string, number>
+  dbStats?: EventStats | null
 }) {
   // Lift prediction state here so the picks counter and fight cards stay in sync
   const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
-
-  // ── DB-authoritative stats ────────────────────────────────────────────────
-  // Re-fetch from server whenever the fights list changes (i.e. a fight is
-  // marked completed via the realtime subscription in LiveWrapper).
-  const [dbStats, setDbStats] = useState<EventStats | null>(null)
-  const completedCount = event.fights.filter((f: any) => f.status === 'completed').length
-  useEffect(() => {
-    if (!userId || completedCount === 0) { setDbStats(null); return }
-    getEventStats(event.id, userId).then(setDbStats)
-  }, [event.id, userId, completedCount])
 
   const fightIds    = event.fights.map((f) => f.id)
   const totalFights = fightIds.length
