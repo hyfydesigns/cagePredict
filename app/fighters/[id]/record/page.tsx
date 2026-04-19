@@ -150,6 +150,49 @@ async function getCareerFights(fighter: FighterRow): Promise<{ fights: CareerFig
   return { fights: [], source: '' }
 }
 
+/** Load fights we already have in our DB for this fighter as a last-resort fallback. */
+async function getDbFights(fighterId: string): Promise<CareerFight[]> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+
+  const { data: rows } = await supabase
+    .from('fights')
+    .select('fighter1_id, fighter2_id, fight_time, status, winner_id, method, round, time_of_finish, event_id')
+    .or(`fighter1_id.eq.${fighterId},fighter2_id.eq.${fighterId}`)
+    .eq('status', 'completed')
+    .order('fight_time', { ascending: false })
+
+  if (!rows?.length) return []
+
+  const opponentIds = rows.map((r) => r.fighter1_id === fighterId ? r.fighter2_id : r.fighter1_id)
+  const eventIds    = rows.map((r) => r.event_id)
+
+  const [{ data: opponents }, { data: events }] = await Promise.all([
+    supabase.from('fighters').select('id, name').in('id', [...new Set(opponentIds)]),
+    supabase.from('events').select('id, name').in('id', [...new Set(eventIds)]),
+  ])
+
+  return rows.map((r) => {
+    const oppId   = r.fighter1_id === fighterId ? r.fighter2_id : r.fighter1_id
+    const opp     = opponents?.find((o) => o.id === oppId)
+    const event   = events?.find((e) => e.id === r.event_id)
+    const won     = r.winner_id === fighterId
+    const lost    = r.winner_id && r.winner_id !== fighterId
+    const result: CareerFight['result'] = won ? 'W' : lost ? 'L' : 'D'
+    return {
+      result,
+      opponent:    opp?.name ?? 'Unknown',
+      opponentHref: opp ? `/fighters/${opp.id}` : null,
+      eventName:   event?.name ?? null,
+      date:        r.fight_time?.slice(0, 10) ?? null,
+      method:      r.method,
+      round:       r.round,
+      time:        r.time_of_finish,
+      isUFC:       isUFCEvent(event?.name ?? null),
+    }
+  })
+}
+
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -217,7 +260,18 @@ export default async function FighterRecordPage({ params }: Props) {
   if (!fighter) notFound()
   const f = fighter as FighterRow
 
-  const { fights, source } = await getCareerFights(f)
+  const [externalResult, dbFights] = await Promise.all([
+    getCareerFights(f),
+    getDbFights(id),
+  ])
+
+  // Prefer external (Sherdog/api-sports) for completeness; fall back to DB
+  let fights  = externalResult.fights
+  let source  = externalResult.source
+  if (fights.length === 0 && dbFights.length > 0) {
+    fights = dbFights
+    source = 'CagePredict database'
+  }
 
   if (fights.length === 0) {
     return (
@@ -229,8 +283,16 @@ export default async function FighterRecordPage({ params }: Props) {
             </Link>
           </div>
         </div>
-        <div className="max-w-2xl mx-auto px-4 pt-16 text-center">
-          <p className="text-zinc-500 text-sm">No career records found for {f.name}.</p>
+        <div className="max-w-2xl mx-auto px-4 pt-16 text-center space-y-4">
+          <p className="text-zinc-400 text-sm">No career records found for <span className="text-white font-bold">{f.name}</span>.</p>
+          <a
+            href={`https://www.sherdog.com/stats/fightfinder?SearchTxt=${encodeURIComponent(f.name)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-xs text-zinc-500 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded-lg px-4 py-2 transition-colors"
+          >
+            Search on Sherdog →
+          </a>
         </div>
       </div>
     )
