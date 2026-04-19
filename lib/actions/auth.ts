@@ -43,6 +43,25 @@ export async function signUp(data: SignUpInput): Promise<ActionResult> {
   return { success: true }
 }
 
+export async function requestPasswordReset(email: string): Promise<ActionResult> {
+  if (!email?.trim()) return { error: 'Email is required' }
+  const supabase = await createClient()
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cagepredict.com'
+  const redirectTo = `${base}/api/auth/callback?next=/reset-password`
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
+  // Always return success to avoid leaking whether an email exists
+  if (error) console.error('[requestPasswordReset]', error.message)
+  return { success: true }
+}
+
+export async function updatePassword(password: string): Promise<ActionResult> {
+  if (!password || password.length < 8) return { error: 'Password must be at least 8 characters' }
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
 export async function signIn(data: SignInInput, redirectTo = '/'): Promise<ActionResult> {
   const parsed = signInSchema.safeParse(data)
   if (!parsed.success) return { error: parsed.error.errors[0].message }
