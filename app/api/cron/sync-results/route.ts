@@ -96,16 +96,35 @@ export async function GET(req: Request) {
       continue
     }
 
-    // ── Process each fight that has a result ──────────────────────────────
+    // ── Process each fight ────────────────────────────────────────────────
     for (const apiFight of apiFights) {
-      // winnerCode 0 = no result yet
-      if (!apiFight.winnerCode || apiFight.winnerCode === 0) continue
-
       const fightUuid = apiIdToUuid(apiFight.id, 'fight')
+      const dbFight   = dbFights.find((f: any) => f.id === fightUuid)
+      if (!dbFight) continue
 
-      // Skip if already scored
-      const dbFight = dbFights.find((f: any) => f.id === fightUuid)
-      if (!dbFight || dbFight.status === 'completed') continue
+      // ── Detect cancellations / postponements ───────────────────────────
+      const apiStatus = (apiFight.status?.type ?? apiFight.statusType ?? '').toLowerCase()
+      const isCancelled = ['cancelled', 'canceled', 'postponed', 'abandoned'].includes(apiStatus)
+
+      if (isCancelled && dbFight.status !== 'cancelled') {
+        const { error: cancelErr } = await supabase
+          .from('fights')
+          .update({ status: 'cancelled' })
+          .eq('id', fightUuid)
+
+        if (cancelErr) {
+          errors.push(`cancel(${fightUuid}): ${cancelErr.message}`)
+        } else {
+          const home = apiFight.homeTeam?.name ?? '?'
+          const away = apiFight.awayTeam?.name ?? '?'
+          log.push(`✗ ${home} vs ${away} → cancelled (${apiStatus})`)
+        }
+        continue
+      }
+
+      // ── Detect completed fights (winnerCode 0 = no result yet) ────────
+      if (!apiFight.winnerCode || apiFight.winnerCode === 0) continue
+      if (dbFight.status === 'completed') continue
 
       // Resolve winner — homeTeam = fighter1, awayTeam = fighter2
       const winnerApiId = apiFight.winnerCode === 1
