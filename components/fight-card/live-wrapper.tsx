@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { MapPin, Calendar, ExternalLink } from 'lucide-react'
 import Image from 'next/image'
-import { getActiveEvents } from '@/lib/actions/events'
+import { getActiveEvents, getEventStats, type EventStats } from '@/lib/actions/events'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
@@ -273,6 +273,16 @@ function EventSectionClient({
   // Lift prediction state here so the picks counter and fight cards stay in sync
   const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
 
+  // ── DB-authoritative stats ────────────────────────────────────────────────
+  // Re-fetch from server whenever the fights list changes (i.e. a fight is
+  // marked completed via the realtime subscription in LiveWrapper).
+  const [dbStats, setDbStats] = useState<EventStats | null>(null)
+  const completedCount = event.fights.filter((f: any) => f.status === 'completed').length
+  useEffect(() => {
+    if (!userId || completedCount === 0) { setDbStats(null); return }
+    getEventStats(event.id, userId).then(setDbStats)
+  }, [event.id, userId, completedCount])
+
   const fightIds    = event.fights.map((f) => f.id)
   const totalFights = fightIds.length
   const pickedCount = fightIds.filter((id) => picks[id]?.winnerId).length
@@ -336,37 +346,13 @@ function EventSectionClient({
         )}
 
         {/* Live stats strip — shown during live/completed events for logged-in users */}
-        {userId && (event.status === 'live' || event.status === 'completed') && (() => {
+        {userId && (event.status === 'live' || event.status === 'completed') && dbStats && dbStats.correct + dbStats.wrong + dbStats.draws > 0 && (() => {
+          const { correct, wrong, draws, basePts, streakPts, totalPts } = dbStats
           const completedFights = event.fights.filter((f: any) => f.status === 'completed')
-          if (completedFights.length === 0) return null
-
-          let correct = 0, wrong = 0, draws = 0, basePts = 0, streakPts = 0
-          for (const fight of completedFights as any[]) {
-            const pick = picks[fight.id]
-            if (!pick?.winnerId) continue
-            if (!fight.winner_id) { draws++; continue }
-            if (pick.winnerId === fight.winner_id) {
-              correct++
-              const base = pick.isConfidence ? 20 : 10
-              // Prefer live realtime value, then server-fetched, then base.
-              // Treat 0 as "not yet scored" and fall back to base so streak
-              // never shows negative and unscored fights don't zero out the total.
-              const rawEarned = liveEarned[fight.id] ?? pick.pointsEarned
-              const earned    = rawEarned != null && rawEarned > 0 ? rawEarned : base
-              basePts   += base
-              streakPts += Math.max(0, earned - base)
-            } else {
-              wrong++
-            }
-          }
-
-          const totalPts = basePts + streakPts
-          const scored   = correct + wrong + draws
-          if (scored === 0) return null
 
           return (
             <div className="border-t border-zinc-800/60 bg-zinc-900/60 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
-              {/* Points breakdown */}
+              {/* Points breakdown — read from DB via getEventStats, always accurate */}
               <div className="flex items-center gap-1.5 text-xs flex-wrap">
                 <span className="text-zinc-400 font-semibold">Points:</span>
                 <span className="text-white font-bold">{basePts}</span>
@@ -399,7 +385,7 @@ function EventSectionClient({
 
               {/* Per-fight mini results */}
               <div className="flex items-center gap-1 flex-wrap">
-                {(completedFights as any[]).map((fight: any) => {
+                {completedFights.map((fight: any) => {
                   const pick = picks[fight.id]
                   if (!pick?.winnerId) return (
                     <div key={fight.id} title="No pick" className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[9px] text-zinc-600">–</div>
