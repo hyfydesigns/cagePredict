@@ -608,10 +608,13 @@ export default async function FighterProfilePage({ params }: Props) {
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <span className="inline-block bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-1.5 text-white font-black text-lg">
+                <Link
+                  href={`/fighters/${id}/record`}
+                  className="inline-block bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-500 rounded-xl px-3 py-1.5 text-white font-black text-lg transition-colors"
+                >
                   {f.record}
-                </span>
-                <p className="text-zinc-500 text-[10px] mt-1">W-L-D</p>
+                </Link>
+                <p className="text-zinc-500 text-[10px] mt-1">W-L-D · tap for full record</p>
               </div>
             </div>
           </div>
