@@ -98,9 +98,10 @@ export function FightCard({
   const [scope, animate] = useAnimate()
   const flashedRef = useRef(false)
 
-  const isCompleted = fight.status === 'completed'
-  const isLive      = fight.status === 'live'
-  const isLocked    = isFightLocked(fight.fight_time, eventDate)
+  const isCompleted  = fight.status === 'completed'
+  const isLive       = fight.status === 'live'
+  const isCancelled  = fight.status === 'cancelled'
+  const isLocked     = isFightLocked(fight.fight_time, eventDate)
 
   const pickCorrect   = isCompleted && localPick !== null && localPick === fight.winner_id
   const pickIncorrect = isCompleted && localPick !== null && localPick !== fight.winner_id
@@ -179,7 +180,7 @@ export function FightCard({
       </div>
 
       {/* Fighters row */}
-      <div className="grid grid-cols-[1fr,72px,1fr]">
+      <div className={cn('grid grid-cols-[1fr,72px,1fr]', isCancelled && 'opacity-40 grayscale')}>
         <FighterPortrait
           fighter={fight.fighter1}
           side="left"
@@ -193,7 +194,7 @@ export function FightCard({
         {/* Center column — VS + countdown only */}
         <div className="flex flex-col items-center justify-center py-4 gap-2">
           <div className="text-zinc-400 font-black text-xl">VS</div>
-          {!isCompleted && !isLive && (
+          {!isCompleted && !isLive && !isCancelled && (
             <CountdownTimer fightTime={fight.fight_time} />
           )}
         </div>
@@ -351,6 +352,14 @@ export function FightCard({
         )}
       </AnimatePresence>
 
+      {/* Cancelled banner */}
+      {isCancelled && (
+        <div className="px-4 py-2.5 bg-zinc-800/40 border-t border-zinc-700/40 flex items-center justify-center gap-2">
+          <XCircle className="h-3.5 w-3.5 text-zinc-500" />
+          <span className="text-sm text-zinc-500 font-semibold">Fight Cancelled — picks voided, no points awarded</span>
+        </div>
+      )}
+
       {/* Result banner */}
       {isCompleted && fight.winner_id && (
         <div className="px-4 py-2.5 bg-zinc-800/30 border-t border-zinc-800/40 flex items-center justify-center gap-2">
@@ -371,7 +380,7 @@ export function FightCard({
       )}
 
       {/* Prediction picker */}
-      {!isCompleted && (
+      {!isCompleted && !isCancelled && (
         <PredictionPicker
           fighter1={fight.fighter1}
           fighter2={fight.fighter2}
