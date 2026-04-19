@@ -6,6 +6,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { SEED_EVENTS, SEED_FIGHTERS } from '@/seeds/seed-data'
 import { sendCardLiveEmails } from '@/lib/actions/emails'
 import { isAdmin } from '@/lib/auth/is-admin'
+import { runSyncResults } from '@/lib/sync-results'
 
 type ActionResult = { error?: string; success?: boolean; message?: string }
 
@@ -705,27 +706,13 @@ export async function forceSyncResults(): Promise<ActionResult & { log?: string[
   const auth = await requireAdmin()
   if ('error' in auth) return { error: auth.error }
 
-  const secret  = process.env.CRON_SECRET
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const result = await runSyncResults()
 
-  if (!secret) return { error: 'CRON_SECRET not configured' }
-
-  try {
-    const res = await fetch(`${baseUrl}/api/cron/sync-results`, {
-      headers: { Authorization: `Bearer ${secret}` },
-      cache: 'no-store',
-    })
-    const data = await res.json()
-    if (!res.ok) return { error: data.error ?? `HTTP ${res.status}` }
-
-    return {
-      success: true,
-      message: `Synced ${data.synced} fight(s). ${data.errors?.length ? `${data.errors.length} error(s).` : ''}`,
-      log:     [...(data.log ?? []), ...(data.errors ?? [])],
-      skipped: data.skipped ?? [],
-    }
-  } catch (e: any) {
-    return { error: `Fetch failed: ${e.message}` }
+  return {
+    success: result.success,
+    message: `Synced ${result.synced} fight(s). ${result.errors.length ? `${result.errors.length} error(s).` : ''}`,
+    log:     [...result.log, ...result.errors],
+    skipped: result.skipped,
   }
 }
 
