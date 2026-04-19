@@ -11,13 +11,21 @@ import { isAdmin } from '@/lib/auth/is-admin'
 /** Derive the public-facing origin from the current request headers.
  *  Falls back to NEXT_PUBLIC_APP_URL, then the hardcoded production URL. */
 async function getOrigin(): Promise<string> {
+  // Prefer the explicitly configured app URL — this is the source of truth for
+  // email links. Reading the Host header first caused localhost to leak into
+  // reset emails when the server was running locally.
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
+
+  // Fallback for Vercel deployments where the env var may not be set:
+  // x-forwarded-host carries the real public hostname.
   try {
-    const h    = await headers()
-    const host = h.get('x-forwarded-host') ?? h.get('host') ?? ''
+    const h     = await headers()
+    const host  = h.get('x-forwarded-host') ?? h.get('host') ?? ''
     const proto = h.get('x-forwarded-proto')?.split(',')[0] ?? 'https'
-    if (host) return `${proto}://${host}`
+    if (host && !host.startsWith('localhost')) return `${proto}://${host}`
   } catch { /* not in a request context */ }
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'https://cagepredict.com'
+
+  return 'https://cagepredict.com'
 }
 
 type ActionResult = { error?: string; success?: boolean }
@@ -59,41 +67,58 @@ export async function signUp(data: SignUpInput): Promise<ActionResult> {
 export async function requestPasswordReset(email: string): Promise<ActionResult> {
   if (!email?.trim()) return { error: 'Email is required' }
 
-  const base       = await getOrigin()
-  const redirectTo = `${base}/api/auth/callback?next=/reset-password`
+  const base = await getOrigin()
 
-  // If Resend is configured, generate the link ourselves and send a branded email
+  // Generate the recovery link via service role so we get back the raw
+  // hashed_token. We then embed it in OUR link (/reset-password?token_hash=…)
+  // rather than sending Supabase's redirect URL. This bypasses:
+  //  - Supabase's "Site URL" setting (often localhost in dev)
+  //  - Supabase's redirect-URL allowlist
+  //  - Implicit-flow hash-fragment fragility
+  const service = createServiceClient()
+  const { data: linkData, error: linkErr } = await service.auth.admin.generateLink({
+    type:  'recovery',
+    email: email.trim(),
+    // redirectTo is required by the API but we won't use the action_link URL
+    options: { redirectTo: `${base}/reset-password` },
+  })
+
+  if (linkErr || !linkData?.properties?.hashed_token) {
+    // Email doesn't exist or service error — return success to prevent enumeration
+    console.error('[requestPasswordReset] generateLink error:', linkErr?.message)
+    return { success: true }
+  }
+
+  // Build a direct link that our own page verifies with verifyOtp()
+  const resetLink = `${base}/reset-password?token_hash=${linkData.properties.hashed_token}`
+
+  // If Resend is configured, send a branded email with our direct link
   if (process.env.RESEND_API_KEY) {
     try {
-      const service = createServiceClient()
-      const { data, error: linkErr } = await service.auth.admin.generateLink({
-        type:    'recovery',
-        email:   email.trim(),
-        options: { redirectTo },
+      const { resend }                = await import('@/lib/email/resend')
+      const { passwordResetTemplate } = await import('@/lib/email/templates')
+      const { subject, html }         = passwordResetTemplate(resetLink)
+      await resend.emails.send({
+        from:    'CagePredict <noreply@cagepredict.com>',
+        to:      [email.trim()],
+        subject,
+        html,
       })
-
-      if (!linkErr && data?.properties?.action_link) {
-        const { resend }                  = await import('@/lib/email/resend')
-        const { passwordResetTemplate }   = await import('@/lib/email/templates')
-        const { subject, html }           = passwordResetTemplate(data.properties.action_link)
-        await resend.emails.send({
-          from:    'CagePredict <noreply@cagepredict.com>',
-          to:      [email.trim()],
-          subject,
-          html,
-        })
-        return { success: true }
-      }
+      return { success: true }
     } catch (e) {
-      console.error('[requestPasswordReset] Resend path failed:', e)
-      // fall through to Supabase built-in
+      console.error('[requestPasswordReset] Resend send failed:', e)
+      // fall through to Supabase built-in below
     }
   }
 
-  // Fallback: let Supabase send its default email
+  // Fallback: let Supabase send its default email, but point it at our direct
+  // link so the user lands on /reset-password?token_hash=… regardless of what
+  // the Supabase dashboard "Site URL" is set to.
   const supabase = await createClient()
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
-  if (error) console.error('[requestPasswordReset]', error.message)
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: resetLink,
+  })
+  if (error) console.error('[requestPasswordReset] fallback email error:', error.message)
   return { success: true }
 }
 
