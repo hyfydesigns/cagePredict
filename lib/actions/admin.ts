@@ -720,7 +720,7 @@ export async function forceSyncResults(): Promise<ActionResult & { log?: string[
 
 export async function completeFight(
   fightId: string,
-  winnerId: string,
+  winnerId: string | null,   // null = draw / no contest
   method?: string,
   round?: number,
   timeOfFinish?: string,
