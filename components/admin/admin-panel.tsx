@@ -123,7 +123,9 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
         setSyncLog([`ERROR: ${result.error}`])
       } else {
         toast({ title: result.message ?? 'Sync complete' })
+        const providerLine = (result as any).provider ? [`Provider: ${(result as any).provider}`] : []
         const allLines = [
+          ...providerLine,
           ...(result.log ?? []),
           ...(result.skipped?.length ? ['— Skipped (no DB match) —', ...(result.skipped ?? [])] : []),
         ]
@@ -420,7 +422,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             <Zap className="h-4 w-4 text-amber-400" /> Force Resync Results
           </h2>
           <p className="text-zinc-500 text-sm mt-1">
-            Manually trigger the sync-results cron. Useful for diagnosing fights that haven&apos;t auto-updated.
+            Manually trigger the sync-results cron. Uses api-sports.io if <code className="text-xs bg-zinc-800 px-1 rounded">APISPORTS_KEY</code> is set, otherwise RapidAPI.
           </p>
         </div>
         <Button onClick={handleForceSync} disabled={isSyncPending} variant="outline" className="border-zinc-700">
