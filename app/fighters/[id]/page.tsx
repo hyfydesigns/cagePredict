@@ -589,8 +589,8 @@ export default async function FighterProfilePage({ params }: Props) {
               <span className="text-8xl">{f.flag_emoji ?? '🥊'}</span>
             </div>
           )}
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+          {/* Gradient overlay — pointer-events-none so links underneath stay clickable */}
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
 
           {/* Name + badges */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
