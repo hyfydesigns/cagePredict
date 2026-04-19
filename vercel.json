@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/cron/sync-results",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/2 * * * *"
     }
   ]
 }
