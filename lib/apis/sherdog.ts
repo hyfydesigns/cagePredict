@@ -100,28 +100,37 @@ export async function findFighterUrl(name: string): Promise<string | null> {
     const html = await fetchHtml(url)
     if (!html) break
 
-    // Rows: <tr onclick="document.location='/fighter/Name-ID';">
-    //         <td width="60">...</td>
-    //         <td><a href="/fighter/Name-ID">Full Name</a></td>
-    const rowRx = /document\.location='(\/fighter\/[^']+)';/g
-    const nameRx = /<a href="\/fighter\/[^"]+">([^<]+)<\/a>/g
-
-    const paths: string[] = []
-    const names: string[] = []
+    // Parse each result row as a unit so path and name stay aligned.
+    // Row format:
+    //   <tr onclick="document.location='/fighter/Jon-Jones-27944';">
+    //     <td>...</td>
+    //     <td><a href="/fighter/Jon-Jones-27944">Jon Jones</a></td>
+    //   </tr>
+    const rowRx = /document\.location='(\/fighter\/[^']+)';[\s\S]*?<\/tr>/g
+    const rows: { path: string; name: string }[] = []
 
     let m: RegExpExecArray | null
-    while ((m = rowRx.exec(html)) !== null) paths.push(m[1])
-    while ((m = nameRx.exec(html)) !== null) names.push(m[1].trim())
-
-    // Match by exact name
-    for (let i = 0; i < Math.min(paths.length, names.length); i++) {
-      if (names[i].toLowerCase() === searchName) {
-        return paths[i]
-      }
+    while ((m = rowRx.exec(html)) !== null) {
+      const path     = m[1]
+      const rowHtml  = m[0]
+      const nameM    = rowHtml.match(/href="\/fighter\/[^"]+">([^<]+)<\/a>/)
+      const rowName  = nameM?.[1]?.trim()
+      if (rowName) rows.push({ path, name: rowName })
     }
 
-    // No more pages if we got fewer than 20 results
-    if (paths.length < 20) break
+    // 1. Exact match
+    const exact = rows.find((r) => r.name.toLowerCase() === searchName)
+    if (exact) return exact.path
+
+    // 2. Partial match — handles "Conor McGregor" vs "Conor Anthony McGregor"
+    const partial = rows.find((r) => {
+      const rn = r.name.toLowerCase()
+      return rn.includes(searchName) || searchName.includes(rn)
+    })
+    if (partial) return partial.path
+
+    // No more pages if fewer than 20 results
+    if (rows.length < 20) break
   }
 
   return null
