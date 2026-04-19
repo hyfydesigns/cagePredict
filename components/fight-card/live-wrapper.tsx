@@ -299,30 +299,46 @@ function EventSectionClient({
           const completedFights = event.fights.filter((f: any) => f.status === 'completed')
           if (completedFights.length === 0) return null
 
-          let correct = 0, wrong = 0, draws = 0, pts = 0
+          let correct = 0, wrong = 0, draws = 0, basePts = 0, streakPts = 0
           for (const fight of completedFights as any[]) {
             const pick = picks[fight.id]
             if (!pick?.winnerId) continue
             if (!fight.winner_id) { draws++; continue }
             if (pick.winnerId === fight.winner_id) {
               correct++
-              pts += pick.isConfidence ? 20 : 10
+              const base   = pick.isConfidence ? 20 : 10
+              const earned = pick.pointsEarned ?? base
+              basePts   += base
+              streakPts += Math.max(0, earned - base)
             } else {
               wrong++
             }
           }
 
-          const scored = correct + wrong + draws
+          const totalPts = basePts + streakPts
+          const scored   = correct + wrong + draws
           if (scored === 0) return null
 
           return (
             <div className="border-t border-zinc-800/60 bg-zinc-900/60 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
-              {/* Points */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-amber-400 text-lg font-black leading-none">{pts}</span>
-                <div className="text-[10px] text-zinc-500 leading-tight">
-                  <div>pts this</div>
-                  <div>event*</div>
+              {/* Points breakdown */}
+              <div className="flex items-center gap-3">
+                {/* Total */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-amber-400 text-lg font-black leading-none">{totalPts}</span>
+                  <div className="text-[10px] text-zinc-500 leading-tight">
+                    <div>pts this</div>
+                    <div>event</div>
+                  </div>
+                </div>
+
+                {/* Base + streak breakdown */}
+                <div className="flex flex-col gap-0.5 text-[10px] leading-none">
+                  <span className="text-zinc-400">{basePts} base</span>
+                  {streakPts > 0
+                    ? <span className="text-orange-400">+{streakPts} streak</span>
+                    : <span className="text-zinc-600">+0 streak</span>
+                  }
                 </div>
               </div>
 
@@ -354,11 +370,12 @@ function EventSectionClient({
                   if (!fight.winner_id) return (
                     <div key={fight.id} title="Draw" className="w-5 h-5 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center text-[9px] text-zinc-400">D</div>
                   )
-                  const won = pick.winnerId === fight.winner_id
+                  const won    = pick.winnerId === fight.winner_id
+                  const earned = pick.pointsEarned ?? (pick.isConfidence ? 20 : 10)
                   return (
                     <div
                       key={fight.id}
-                      title={won ? `+${pick.isConfidence ? 20 : 10} pts` : '0 pts'}
+                      title={won ? `+${earned} pts` : '0 pts'}
                       className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border ${
                         won
                           ? pick.isConfidence
@@ -372,8 +389,6 @@ function EventSectionClient({
                   )
                 })}
               </div>
-
-              <p className="w-full text-[9px] text-zinc-600 -mt-1">* Base pts only. Streak bonuses applied separately.</p>
             </div>
           )
         })()}

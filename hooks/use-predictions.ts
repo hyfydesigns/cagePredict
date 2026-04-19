@@ -4,7 +4,7 @@ import { useOptimistic, useTransition } from 'react'
 import { upsertPrediction, toggleConfidencePick } from '@/lib/actions/predictions'
 import { useToast } from '@/components/ui/use-toast'
 
-export type PredictionEntry = { winnerId: string; isConfidence: boolean }
+export type PredictionEntry = { winnerId: string; isConfidence: boolean; pointsEarned?: number }
 export type PredictionMap   = Record<string, PredictionEntry>
 
 export function usePredictions(initial: PredictionMap) {

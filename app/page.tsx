@@ -49,11 +49,15 @@ export default async function HomePage({
     if (fightIds.length > 0) {
       const { data: preds } = await supabase
         .from('predictions')
-        .select('fight_id, predicted_winner_id, is_confidence')
+        .select('fight_id, predicted_winner_id, is_confidence, points_earned')
         .eq('user_id', user.id)
         .in('fight_id', fightIds)
       ;(preds ?? []).forEach((p: any) => {
-        userPicks[p.fight_id] = { winnerId: p.predicted_winner_id, isConfidence: p.is_confidence ?? false }
+        userPicks[p.fight_id] = {
+          winnerId:     p.predicted_winner_id,
+          isConfidence: p.is_confidence ?? false,
+          pointsEarned: p.points_earned ?? 0,
+        }
       })
     }
   }
