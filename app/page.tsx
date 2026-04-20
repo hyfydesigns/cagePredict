@@ -1,6 +1,7 @@
 import { ChevronRight, Swords } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { LiveWrapper } from '@/components/fight-card/live-wrapper'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +9,12 @@ import type { EventWithFights, CommentWithProfile } from '@/types/database'
 import type { PredictionMap } from '@/hooks/use-predictions'
 
 export const revalidate = 60
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: 'https://cagepredict.com',
+  },
+}
 
 export default async function HomePage({
   searchParams,
