@@ -704,20 +704,21 @@ export async function forceSyncResults(): Promise<ActionResult & { log?: string[
 // ─── Backfill win breakdown ───────────────────────────────────────────────────
 
 /**
- * Loops through all fighters that are missing ko_tko_wins/sub_wins/dec_wins,
- * fetches their UFCStats fight history, calculates the breakdown, and updates
- * the fighters table. Safe to run multiple times (only touches null rows).
+ * Loops through all fighters missing any UFCStats-sourced data
+ * (win breakdown OR striking/grappling career stats), fetches everything
+ * in one scrape call per fighter, and updates the fighters table.
+ * Safe to run multiple times — only touches rows that have at least one null column.
  */
 export async function backfillWinBreakdown(): Promise<{ updated: number; errors: number }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !isAdmin(user)) return { updated: 0, errors: 0 }
 
-  // Fetch fighters that still have null breakdown columns
+  // Fetch fighters missing any of the UFCStats-backed columns
   const { data: fighters, error } = await supabase
     .from('fighters')
     .select('id, name')
-    .is('ko_tko_wins', null)
+    .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null')
     .order('name')
 
   if (error || !fighters?.length) return { updated: 0, errors: 0 }
@@ -728,14 +729,34 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
   for (const fighter of fighters) {
     try {
       const ufc = await getUFCStatsData(fighter.name)
+
+      // Need at least career stats OR fight history to be worth updating
+      const hasStats  = ufc.str_acc != null || ufc.slpm != null || ufc.td_avg != null || ufc.sub_avg != null
+      const hasFights = ufc.fights.length > 0
+
+      if (!hasStats && !hasFights) continue
+
       const breakdown = calcWinBreakdown(ufc.fights)
 
-      // Only update if we actually got fight history
-      if (ufc.fights.length === 0) continue
+      const patch: Record<string, number | null> = {
+        // Win breakdown (only write if we have fight history)
+        ...(hasFights ? breakdown : {}),
+        // Career striking / grappling stats
+        ...(ufc.str_acc  != null ? { striking_accuracy: ufc.str_acc  } : {}),
+        ...(ufc.slpm     != null ? { sig_str_landed:    ufc.slpm     } : {}),
+        ...(ufc.td_avg   != null ? { td_avg:            ufc.td_avg   } : {}),
+        ...(ufc.sub_avg  != null ? { sub_avg:           ufc.sub_avg  } : {}),
+        ...(ufc.height_cm != null ? { height_cm:        ufc.height_cm } : {}),
+        ...(ufc.reach_cm  != null ? { reach_cm:         ufc.reach_cm  } : {}),
+        ...(ufc.age       != null ? { age:              ufc.age       } : {}),
+        ...(ufc.fighting_style != null ? { fighting_style: ufc.fighting_style as any } : {}),
+      }
+
+      if (Object.keys(patch).length === 0) continue
 
       const { error: upErr } = await supabase
         .from('fighters')
-        .update(breakdown)
+        .update(patch)
         .eq('id', fighter.id)
 
       if (upErr) { errors++; console.error(`backfill error (${fighter.name}):`, upErr.message) }
