@@ -277,9 +277,12 @@ async function fetchEventByDateApiSports(
         if (!age)            age             = ufcStats.age
         if (!fighting_style) fighting_style  = ufcStats.fighting_style
 
-        // Compute last-5 form from the fights returned for this event date
-        // (full history available via getFighterFights but costs an extra API call)
-        const last_5_form: string | null = null
+        // Derive last-5 form from UFCStats fight history (newest first)
+        const last_5_form: string | null = ufcStats.fights.length > 0
+          ? ufcStats.fights.slice(0, 5).map((f) =>
+              f.result === 'W' ? 'W' : f.result === 'L' ? 'L' : f.result === 'D' ? 'D' : 'N'
+            ).join('')
+          : null
 
         const winBreakdown = calcWinBreakdown(ufcStats.fights)
 
@@ -718,7 +721,7 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
   const { data: fighters, error } = await supabase
     .from('fighters')
     .select('id, name')
-    .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null')
+    .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null,last_5_form.is.null')
     .order('name')
 
   if (error || !fighters?.length) return { updated: 0, errors: 0 }
@@ -738,9 +741,16 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
 
       const breakdown = calcWinBreakdown(ufc.fights)
 
-      const patch: Record<string, number | null> = {
+      const last_5_form = hasFights
+        ? ufc.fights.slice(0, 5).map((f) =>
+            f.result === 'W' ? 'W' : f.result === 'L' ? 'L' : f.result === 'D' ? 'D' : 'N'
+          ).join('')
+        : null
+
+      const patch: Record<string, unknown> = {
         // Win breakdown (only write if we have fight history)
         ...(hasFights ? breakdown : {}),
+        ...(last_5_form != null ? { last_5_form } : {}),
         // Career striking / grappling stats
         ...(ufc.str_acc  != null ? { striking_accuracy: ufc.str_acc  } : {}),
         ...(ufc.slpm     != null ? { sig_str_landed:    ufc.slpm     } : {}),
@@ -749,7 +759,7 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
         ...(ufc.height_cm != null ? { height_cm:        ufc.height_cm } : {}),
         ...(ufc.reach_cm  != null ? { reach_cm:         ufc.reach_cm  } : {}),
         ...(ufc.age       != null ? { age:              ufc.age       } : {}),
-        ...(ufc.fighting_style != null ? { fighting_style: ufc.fighting_style as any } : {}),
+        ...(ufc.fighting_style != null ? { fighting_style: ufc.fighting_style } : {}),
       }
 
       if (Object.keys(patch).length === 0) continue
