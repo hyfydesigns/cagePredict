@@ -2,7 +2,7 @@
  * api-sports.io MMA API client
  *
  * Docs:   https://api-sports.io/documentation/mma/v1
- * Base:   https://api.mma.api-sports.io
+ * Base:   https://v1.mma.api-sports.io
  * Auth:   x-apisports-key: {APISPORTS_KEY}
  * Limits: 100 req/day (free) · all plans include all endpoints
  *
@@ -13,7 +13,7 @@
  *   UFC = 1 (confirmed from /leagues endpoint)
  */
 
-const BASE_URL = 'https://api.mma.api-sports.io'
+const BASE_URL = 'https://v1.mma.api-sports.io'
 
 // ─── UFC league ID ────────────────────────────────────────────────────────────
 // Filter fights by this league to avoid non-UFC bouts on the same date.
@@ -365,7 +365,6 @@ async function apiGet<T>(
   const res = await fetch(url.toString(), {
     headers: {
       'x-apisports-key': key,
-      'x-rapidapi-host': 'api.mma.api-sports.io',
     },
     cache: 'no-store',
   })
