@@ -9,7 +9,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, autoImportUpcomingEvents } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -94,13 +94,18 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   function handleAutoImport() {
     setAutoImportLog(null)
     startAutoImportTransition(async () => {
-      const result = await autoImportUpcomingEvents()
-      setAutoImportLog(result.log)
-      toast({
-        title: result.error ? 'Auto-import failed' : result.message,
-        description: result.error,
-        variant: result.error ? 'destructive' : 'default',
-      })
+      try {
+        const res  = await fetch('/api/admin/auto-import', { method: 'POST' })
+        const data = await res.json()
+        setAutoImportLog(data.log ?? [data.message ?? 'Done'])
+        toast({
+          title: data.error ? 'Auto-import failed' : (data.message ?? 'Auto-import complete'),
+          description: data.error,
+          variant: data.error ? 'destructive' : 'default',
+        })
+      } catch (e: any) {
+        toast({ title: 'Auto-import failed', description: e.message, variant: 'destructive' })
+      }
     })
   }
 
