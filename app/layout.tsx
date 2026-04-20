@@ -13,18 +13,43 @@ import { createClient } from '@/lib/supabase/server'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-geist-sans' })
 
+const APP_URL = 'https://cagepredict.com'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   title: {
     default: 'CagePredict — Predict. Compete. Climb the Rankings.',
     template: '%s | CagePredict',
   },
   description:
     'Free-to-play UFC fantasy prediction game. Pick every fight, earn points, and climb the global leaderboard.',
-  keywords: ['UFC', 'MMA', 'fantasy', 'predictions', 'fight picks', 'CagePredict'],
+  keywords: ['UFC', 'MMA', 'fantasy predictions', 'UFC picks', 'fight picks', 'MMA predictions', 'CagePredict', 'UFC fantasy game'],
+  authors: [{ name: 'CagePredict' }],
+  creator: 'CagePredict',
   openGraph: {
-    title: 'CagePredict',
-    description: 'Predict. Compete. Climb the Rankings.',
-    type: 'website',
+    siteName:    'CagePredict',
+    title:       'CagePredict — Predict. Compete. Climb the Rankings.',
+    description: 'Free-to-play UFC fantasy prediction game. Pick every fight, earn points, and climb the global leaderboard.',
+    type:        'website',
+    url:         APP_URL,
+    locale:      'en_US',
+  },
+  twitter: {
+    card:        'summary_large_image',
+    title:       'CagePredict — Predict. Compete. Climb the Rankings.',
+    description: 'Free-to-play UFC fantasy prediction game. Pick every fight, earn points, and climb the global leaderboard.',
+    site:        '@cagepredict',
+  },
+  robots: {
+    index:  true,
+    follow: true,
+    googleBot: {
+      index:               true,
+      follow:              true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet':       -1,
+    },
   },
 }
 

@@ -187,12 +187,43 @@ type Props = { params: Promise<{ id: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const supabase = await createClient()
-  const { data } = await supabase.from('fighters').select('name, weight_class').eq('id', id).single()
+  const { data } = await supabase
+    .from('fighters')
+    .select('name, weight_class, nickname, record, nationality, image_url')
+    .eq('id', id)
+    .single()
+
+  if (!data) return { title: 'Fighter Not Found' }
+
+  const f = data as any
+  const title       = `${f.name} UFC Fighter Stats & Profile | CagePredict`
+  const description = [
+    `${f.name}${f.nickname ? ` "${f.nickname}"` : ''} UFC ${f.weight_class} fighter.`,
+    f.record ? `Record: ${f.record}.` : '',
+    `View stats, fight history, and predictions on CagePredict.`,
+  ].filter(Boolean).join(' ')
+
+  const url = `https://cagepredict.com/fighters/${id}`
+
   return {
-    title: data ? `${(data as any).name} · CagePredict` : 'Fighter',
-    description: data
-      ? `${(data as any).name} UFC fighter profile, stats, and analysis`
-      : '',
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type:   'profile',
+      url,
+      images: f.image_url ? [{ url: f.image_url, width: 400, height: 400, alt: f.name }] : [],
+    },
+    twitter: {
+      card:        f.image_url ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      images:      f.image_url ? [f.image_url] : [],
+    },
+    alternates: {
+      canonical: url,
+    },
   }
 }
 
@@ -556,7 +587,37 @@ export default async function FighterProfilePage({ params }: Props) {
   const externalHistory = historyResult.fights
   const historySource   = historyResult.source
 
+  // ---------------------------------------------------------------------------
+  // JSON-LD structured data (Person / Athlete schema)
+  // ---------------------------------------------------------------------------
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: f.name,
+    ...(f.nickname ? { alternateName: `"${f.nickname}"` } : {}),
+    ...(f.image_url ? { image: f.image_url } : {}),
+    ...(f.nationality ? { nationality: f.nationality } : {}),
+    jobTitle: `UFC ${f.weight_class ?? 'Fighter'}`,
+    url: `https://cagepredict.com/fighters/${id}`,
+    description: [
+      `${f.name}${f.nickname ? ` "${f.nickname}"` : ''} is a UFC ${f.weight_class ?? ''} fighter.`,
+      f.record ? `Professional MMA record: ${f.record}.` : '',
+    ].filter(Boolean).join(' '),
+    sport: 'Mixed Martial Arts',
+    ...(f.record
+      ? {
+          numberOfWins:   parseInt(f.record.split('-')[0] ?? '0', 10) || undefined,
+          numberOfLosses: parseInt(f.record.split('-')[1] ?? '0', 10) || undefined,
+        }
+      : {}),
+  }
+
   return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     <div className="min-h-screen bg-zinc-950 pb-16">
       {/* Top nav */}
       <div className="sticky top-0 z-10 bg-zinc-950/90 backdrop-blur border-b border-zinc-800/60">
@@ -975,5 +1036,6 @@ export default async function FighterProfilePage({ params }: Props) {
         )}
       </div>
     </div>
+    </>
   )
 }

@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow:     '/',
-        disallow:  ['/admin', '/api/', '/dashboard', '/profile/edit', '/onboarding'],
+        disallow:  ['/admin', '/api/', '/dashboard', '/profile/edit', '/onboarding', '/invite/'],
       },
     ],
     sitemap: 'https://cagepredict.com/sitemap.xml',
