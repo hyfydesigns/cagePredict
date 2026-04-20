@@ -9,7 +9,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -66,6 +66,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [isDeleteUserPending, startDeleteUserTransition] = useTransition()
   const [isSyncPending, startSyncTransition]           = useTransition()
   const [syncLog, setSyncLog]                          = useState<string[] | null>(null)
+  const [isBackfillPending, startBackfillTransition]   = useTransition()
+  const [backfillResult, setBackfillResult]            = useState<{ updated: number; errors: number } | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
@@ -130,6 +132,23 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
           ...(result.skipped?.length ? ['— Skipped (no DB match) —', ...(result.skipped ?? [])] : []),
         ]
         setSyncLog(allLines.length ? allLines : ['Nothing to sync — no live events, or all fights already completed.'])
+      }
+    })
+  }
+
+  function handleBackfill() {
+    setBackfillResult(null)
+    startBackfillTransition(async () => {
+      const result = await backfillWinBreakdown()
+      setBackfillResult(result)
+      if (result.updated === 0 && result.errors === 0) {
+        toast({ title: 'Nothing to backfill', description: 'All fighters already have win breakdown data.' })
+      } else {
+        toast({
+          title: 'Backfill complete',
+          description: `${result.updated} fighter${result.updated !== 1 ? 's' : ''} updated${result.errors ? `, ${result.errors} failed` : ''}.`,
+          variant: result.errors > 0 ? 'destructive' : 'default',
+        })
       }
     })
   }
@@ -279,6 +298,37 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             }
           </Button>
         </div>
+      </div>
+
+      {/* Backfill Win Breakdown */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-white flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-purple-400" /> Backfill Win Breakdown
+          </h2>
+          <p className="text-zinc-500 text-sm mt-1">
+            Fetch KO/TKO · Submission · Decision win counts from UFCStats for fighters missing that data. Safe to run multiple times.
+          </p>
+        </div>
+        <div className="flex items-center gap-4 flex-wrap">
+          <Button onClick={handleBackfill} disabled={isBackfillPending} variant="outline" className="border-zinc-700">
+            {isBackfillPending
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Fetching…</>
+              : <><BarChart3 className="h-4 w-4 mr-1.5 text-purple-400" />Run Backfill</>
+            }
+          </Button>
+          {backfillResult && (
+            <p className="text-sm text-zinc-400">
+              <span className="text-green-400 font-semibold">{backfillResult.updated}</span> updated
+              {backfillResult.errors > 0 && (
+                <>, <span className="text-red-400 font-semibold">{backfillResult.errors}</span> failed</>
+              )}
+            </p>
+          )}
+        </div>
+        <p className="text-zinc-600 text-xs">
+          This scrapes ufcstats.com for each fighter — expect it to take 10–60 s depending on roster size.
+        </p>
       </div>
 
       {/* Sync Odds */}

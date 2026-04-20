@@ -284,38 +284,94 @@ export function FightMatchupTabs({
             <span className="text-[11px] font-black text-blue-400 uppercase tracking-wide text-right">{f2LastName}</span>
           </div>
 
-          {/* Win percentage comparison */}
-          <div className="py-3 space-y-4">
-            {/* Side-by-side win rate */}
-            <CompBar
-              f1={fighter1.wins}
-              f2={fighter2.wins}
-              f1Label={f1LastName}
-              f2Label={f2LastName}
-              suffix=" wins"
-            />
+          {(fighter1.ko_tko_wins != null || fighter2.ko_tko_wins != null) ? (
+            <div className="py-2 space-y-5">
+              {/* KO / TKO */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">
+                  KO / TKO
+                </p>
+                <CompBar
+                  f1={fighter1.ko_tko_wins}
+                  f2={fighter2.ko_tko_wins}
+                  f1Label={f1LastName}
+                  f2Label={f2LastName}
+                  suffix=" wins"
+                />
+              </div>
 
-            <div className="border-t border-zinc-800/40 pt-4 space-y-4">
-              <WinRateBar
-                wins={fighter1.wins}
-                losses={fighter1.losses}
-                draws={fighter1.draws}
-                side="left"
-                name={fighter1.name}
-              />
-              <WinRateBar
-                wins={fighter2.wins}
-                losses={fighter2.losses}
-                draws={fighter2.draws}
-                side="right"
-                name={fighter2.name}
-              />
+              {/* Submission */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">
+                  Submission
+                </p>
+                <CompBar
+                  f1={fighter1.sub_wins}
+                  f2={fighter2.sub_wins}
+                  f1Label={f1LastName}
+                  f2Label={f2LastName}
+                  suffix=" wins"
+                />
+              </div>
+
+              {/* Decision */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">
+                  Decision
+                </p>
+                <CompBar
+                  f1={fighter1.dec_wins}
+                  f2={fighter2.dec_wins}
+                  f1Label={f1LastName}
+                  f2Label={f2LastName}
+                  suffix=" wins"
+                />
+              </div>
+
+              {/* Per-fighter method breakdown bars */}
+              <div className="border-t border-zinc-800/40 pt-4 space-y-4">
+                {[
+                  { fighter: fighter1, side: 'left'  as const },
+                  { fighter: fighter2, side: 'right' as const },
+                ].map(({ fighter, side }) => {
+                  const ko  = fighter.ko_tko_wins ?? 0
+                  const sub = fighter.sub_wins    ?? 0
+                  const dec = fighter.dec_wins    ?? 0
+                  const total = ko + sub + dec
+                  if (total === 0) return null
+                  const koPct  = Math.round((ko  / total) * 100)
+                  const subPct = Math.round((sub / total) * 100)
+                  const decPct = 100 - koPct - subPct
+                  const color  = side === 'left' ? 'text-red-400' : 'text-blue-400'
+                  return (
+                    <div key={fighter.id} className="space-y-1.5">
+                      <div className="flex justify-between text-[11px]">
+                        <span className={cn('font-bold', color)}>{fighter.name}</span>
+                        <span className="text-zinc-500 text-[10px]">{total} wins</span>
+                      </div>
+                      <div className="flex h-2 rounded-full overflow-hidden gap-px">
+                        {koPct  > 0 && <div className="h-full bg-red-500"    style={{ width: `${koPct}%`  }} title={`KO/TKO ${koPct}%`} />}
+                        {subPct > 0 && <div className="h-full bg-amber-500"  style={{ width: `${subPct}%` }} title={`Sub ${subPct}%`} />}
+                        {decPct > 0 && <div className="h-full bg-blue-500"   style={{ width: `${decPct}%` }} title={`Dec ${decPct}%`} />}
+                      </div>
+                      <div className="flex gap-3 text-[10px] text-zinc-500">
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-red-500   mr-1 align-middle" />{koPct}% KO/TKO</span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1 align-middle" />{subPct}% Sub</span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500  mr-1 align-middle" />{decPct}% Dec</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-
-            <p className="text-[10px] text-zinc-600 text-center pt-1">
-              KO/TKO · Sub · Decision breakdown coming soon
-            </p>
-          </div>
+          ) : (
+            /* Fallback: overall W/L/D rate bars until backfill runs */
+            <div className="py-3 space-y-4">
+              <WinRateBar wins={fighter1.wins} losses={fighter1.losses} draws={fighter1.draws} side="left"  name={fighter1.name} />
+              <WinRateBar wins={fighter2.wins} losses={fighter2.losses} draws={fighter2.draws} side="right" name={fighter2.name} />
+              <p className="text-[10px] text-zinc-600 text-center pt-1">KO/TKO · Sub · Decision detail loading…</p>
+            </div>
+          )}
         </div>
       </TabsContent>
 

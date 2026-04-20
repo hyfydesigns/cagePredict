@@ -73,6 +73,9 @@ export interface Database {
           sig_str_landed: number | null
           fighting_style: string | null
           last_5_form: string | null
+          ko_tko_wins: number | null
+          sub_wins: number | null
+          dec_wins: number | null
           analysis: string | null
           x_handle: string | null
           instagram_handle: string | null
@@ -100,6 +103,9 @@ export interface Database {
           sig_str_landed?: number | null
           fighting_style?: string | null
           last_5_form?: string | null
+          ko_tko_wins?: number | null
+          sub_wins?: number | null
+          dec_wins?: number | null
           analysis?: string | null
           x_handle?: string | null
           instagram_handle?: string | null
@@ -194,6 +200,8 @@ export interface Database {
           points_earned: number
           confidence: number
           is_confidence: boolean
+          predicted_method: string | null
+          predicted_round: number | null
           created_at: string
           updated_at: string
         }
@@ -206,6 +214,8 @@ export interface Database {
           points_earned?: number
           confidence?: number
           is_confidence?: boolean
+          predicted_method?: string | null
+          predicted_round?: number | null
           created_at?: string
           updated_at?: string
         }

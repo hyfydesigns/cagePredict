@@ -279,6 +279,35 @@ export async function getFighterHistory(detailUrl: string): Promise<UFCStatsFigh
   return fights
 }
 
+// ─── Win-by breakdown ─────────────────────────────────────────────────────────
+
+export interface WinBreakdown {
+  ko_tko_wins: number
+  sub_wins:    number
+  dec_wins:    number
+}
+
+/**
+ * Counts career wins by method from a UFCStats fight history array.
+ * Method strings look like "KO (Punches)", "TKO (Punches)", "SUB (Armbar)",
+ * "U-DEC", "S-DEC", "M-DEC", "DEC", etc.
+ */
+export function calcWinBreakdown(fights: UFCStatsFight[]): WinBreakdown {
+  let ko_tko_wins = 0
+  let sub_wins    = 0
+  let dec_wins    = 0
+
+  for (const f of fights) {
+    if (f.result !== 'W' || !f.method) continue
+    const m = f.method.toUpperCase()
+    if (m.startsWith('KO') || m.startsWith('TKO')) ko_tko_wins++
+    else if (m.startsWith('SUB'))                   sub_wins++
+    else if (m.includes('DEC'))                     dec_wins++
+  }
+
+  return { ko_tko_wins, sub_wins, dec_wins }
+}
+
 // ─── Convenience: find + fetch in one call ────────────────────────────────────
 
 export interface UFCStatsData extends UFCStatsFighterStats {
