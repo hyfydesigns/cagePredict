@@ -1,11 +1,16 @@
 import { ImageResponse } from 'next/og'
+import { readFile } from 'fs/promises'
+import { join } from 'path'
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 export const alt = 'CagePredict — Predict. Compete. Climb the Rankings.'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-export default function OGImage() {
+export default async function OGImage() {
+  const svgData = await readFile(join(process.cwd(), 'public', 'logo.svg'))
+  const logoSrc = `data:image/svg+xml;base64,${svgData.toString('base64')}`
+
   return new ImageResponse(
     (
       <div
@@ -40,25 +45,13 @@ export default function OGImage() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 16,
+            gap: 20,
             marginBottom: 32,
           }}
         >
-          <div
-            style={{
-              background: '#ef4444',
-              borderRadius: 16,
-              width: 64,
-              height: 64,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 36,
-            }}
-          >
-            ⚔️
-          </div>
-          <span style={{ fontSize: 48, fontWeight: 900, color: '#ffffff', letterSpacing: -2 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoSrc} width={80} height={80} alt="CagePredict logo" />
+          <span style={{ fontSize: 56, fontWeight: 900, color: '#ffffff', letterSpacing: -2 }}>
             CagePredict
           </span>
         </div>
