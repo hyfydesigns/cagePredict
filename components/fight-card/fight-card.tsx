@@ -79,22 +79,27 @@ interface FightCardProps {
   fight: FightWithDetails
   eventDate?: string | null
   userPick?: string | null
+  userMethod?: string | null
+  userRound?: number | null
   isConfidence?: boolean
   lockTaken?: boolean
   userId?: string
   isPending?: boolean
   initialComments?: CommentWithProfile[]
-  onPredict: (fightId: string, winnerId: string) => Promise<void>
+  onPredict: (fightId: string, winnerId: string, method?: string | null, round?: number | null) => Promise<void>
   onToggleLock: (fightId: string, isConfidence: boolean) => Promise<void>
 }
 
 export function FightCard({
-  fight, eventDate, userPick, isConfidence = false, lockTaken = false,
+  fight, eventDate, userPick, userMethod = null, userRound = null,
+  isConfidence = false, lockTaken = false,
   userId, isPending = false, initialComments = [], onPredict, onToggleLock,
 }: FightCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [showComments, setShowComments] = useState(false)
-  const [localPick, setLocalPick] = useState<string | null>(userPick ?? null)
+  const [localPick, setLocalPick]     = useState<string | null>(userPick   ?? null)
+  const [localMethod, setLocalMethod] = useState<string | null>(userMethod ?? null)
+  const [localRound, setLocalRound]   = useState<number | null>(userRound  ?? null)
   const [scope, animate] = useAnimate()
   const flashedRef = useRef(false)
 
@@ -121,9 +126,11 @@ export function FightCard({
     }, { duration: 1.2, times: [0, 0.4, 1], ease: 'easeOut' })
   }, [isCompleted, localPick, pickCorrect, animate, scope])
 
-  async function handlePredict(winnerId: string) {
+  async function handlePredict(winnerId: string, method?: string | null, round?: number | null) {
     setLocalPick(winnerId)
-    await onPredict(fight.id, winnerId)
+    setLocalMethod(method ?? null)
+    setLocalRound(round  ?? null)
+    await onPredict(fight.id, winnerId, method, round)
   }
 
   return (
@@ -394,6 +401,8 @@ export function FightCard({
           fighter1={fight.fighter1}
           fighter2={fight.fighter2}
           currentPick={localPick}
+          currentMethod={localMethod}
+          currentRound={localRound}
           isConfidence={isConfidence}
           lockTaken={lockTaken}
           isLocked={isLocked}

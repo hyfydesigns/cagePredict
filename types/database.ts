@@ -194,6 +194,8 @@ export interface Database {
           points_earned: number
           confidence: number
           is_confidence: boolean
+          predicted_method: string | null
+          predicted_round: number | null
           created_at: string
           updated_at: string
         }
@@ -206,6 +208,8 @@ export interface Database {
           points_earned?: number
           confidence?: number
           is_confidence?: boolean
+          predicted_method?: string | null
+          predicted_round?: number | null
           created_at?: string
           updated_at?: string
         }

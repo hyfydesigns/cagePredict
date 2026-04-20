@@ -4,8 +4,14 @@ import { useOptimistic, useTransition } from 'react'
 import { upsertPrediction, toggleConfidencePick } from '@/lib/actions/predictions'
 import { useToast } from '@/components/ui/use-toast'
 
-export type PredictionEntry = { winnerId: string; isConfidence: boolean; pointsEarned?: number }
-export type PredictionMap   = Record<string, PredictionEntry>
+export type PredictionEntry = {
+  winnerId: string
+  isConfidence: boolean
+  method: string | null
+  round: number | null
+  pointsEarned?: number
+}
+export type PredictionMap = Record<string, PredictionEntry>
 
 export function usePredictions(initial: PredictionMap) {
   const { toast } = useToast()
@@ -19,12 +25,24 @@ export function usePredictions(initial: PredictionMap) {
   // The fight ID that has is_confidence=true, if any
   const lockedFightId = Object.entries(optimisticPicks).find(([, v]) => v.isConfidence)?.[0] ?? null
 
-  const predict = (fightId: string, winnerId: string): Promise<void> => {
+  const predict = (
+    fightId: string,
+    winnerId: string,
+    method?: string | null,
+    round?: number | null,
+  ): Promise<void> => {
     return new Promise((resolve) => {
       startTransition(async () => {
         const prev = optimisticPicks[fightId]
-        updateOptimistic({ [fightId]: { winnerId, isConfidence: prev?.isConfidence ?? false } })
-        const result = await upsertPrediction(fightId, winnerId)
+        updateOptimistic({
+          [fightId]: {
+            winnerId,
+            isConfidence: prev?.isConfidence ?? false,
+            method: method ?? null,
+            round:  round  ?? null,
+          },
+        })
+        const result = await upsertPrediction(fightId, winnerId, method, round)
         if (result.error) {
           toast({ title: 'Error', description: result.error, variant: 'destructive' })
         } else {

@@ -9,6 +9,8 @@ type ActionResult = { error?: string; success?: boolean }
 export async function upsertPrediction(
   fightId: string,
   predictedWinnerId: string,
+  predictedMethod?: string | null,
+  predictedRound?: number | null,
 ): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -28,10 +30,20 @@ export async function upsertPrediction(
     return { error: 'Invalid fighter selection' }
   }
 
+  // Round only makes sense for finishes; Decision never has a round
+  const cleanRound =
+    predictedMethod && predictedMethod !== 'decision' ? (predictedRound ?? null) : null
+
   const { error } = await supabase
     .from('predictions')
     .upsert(
-      { user_id: user.id, fight_id: fightId, predicted_winner_id: predictedWinnerId },
+      {
+        user_id: user.id,
+        fight_id: fightId,
+        predicted_winner_id: predictedWinnerId,
+        predicted_method: predictedMethod ?? null,
+        predicted_round: cleanRound,
+      },
       { onConflict: 'user_id,fight_id' }
     )
 
@@ -93,22 +105,27 @@ export async function toggleConfidencePick(
 
 export async function getUserPredictionsForEvent(
   eventId: string
-): Promise<{ data: Record<string, { winnerId: string; isConfidence: boolean }> | null; error?: string }> {
+): Promise<{ data: Record<string, { winnerId: string; isConfidence: boolean; method: string | null; round: number | null }> | null; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null }
 
   const { data, error } = await supabase
     .from('predictions')
-    .select('fight_id, predicted_winner_id, is_confidence, fights!inner(event_id)')
+    .select('fight_id, predicted_winner_id, is_confidence, predicted_method, predicted_round, fights!inner(event_id)')
     .eq('user_id', user.id)
     .eq('fights.event_id', eventId)
 
   if (error) return { data: null, error: error.message }
 
-  const map: Record<string, { winnerId: string; isConfidence: boolean }> = {}
+  const map: Record<string, { winnerId: string; isConfidence: boolean; method: string | null; round: number | null }> = {}
   ;(data ?? []).forEach((p: any) => {
-    map[p.fight_id] = { winnerId: p.predicted_winner_id, isConfidence: p.is_confidence ?? false }
+    map[p.fight_id] = {
+      winnerId:    p.predicted_winner_id,
+      isConfidence: p.is_confidence ?? false,
+      method:      p.predicted_method ?? null,
+      round:       p.predicted_round  ?? null,
+    }
   })
   return { data: map }
 }
