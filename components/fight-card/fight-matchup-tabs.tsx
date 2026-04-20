@@ -31,13 +31,13 @@ function impliedProb(o: number): number {
 
 function FormDot({ r }: { r: string }) {
   if (r === 'W') return (
-    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">W</span>
+    <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">W</span>
   )
   if (r === 'L') return (
-    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black bg-red-500/20 text-red-400 border border-red-500/30">L</span>
+    <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-black bg-red-500/20 text-red-400 border border-red-500/30">L</span>
   )
   if (r === 'D' || r === 'N') return (
-    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black bg-zinc-600/30 text-zinc-400 border border-zinc-600/40">D</span>
+    <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-black bg-zinc-600/30 text-zinc-400 border border-zinc-600/40">D</span>
   )
   return null
 }
@@ -46,7 +46,7 @@ function FormPills({ form }: { form: string | null | undefined }) {
   const letters = formLetters(form)
   if (letters.length === 0) return <span className="text-zinc-500 text-sm">—</span>
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-0.5 sm:gap-1">
       {letters.map((r, i) => <FormDot key={i} r={r} />)}
     </div>
   )
