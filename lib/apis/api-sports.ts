@@ -399,6 +399,15 @@ export async function getFightsByDate(
 }
 
 /**
+ * Get all upcoming (not-started) UFC fights in a single call.
+ * Returns fights with status NS (Not Started). Use to discover upcoming event dates
+ * without needing to scan individual dates.
+ */
+export async function getUpcomingUFCFights(): Promise<ApiSportsFight[]> {
+  return apiGet<ApiSportsFight>('/fights', { league: UFC_LEAGUE_ID, status: 'NS' })
+}
+
+/**
  * Get a specific fighter's full details (including career stats).
  */
 export async function getFighterById(id: number): Promise<ApiSportsFighterDetail | null> {
