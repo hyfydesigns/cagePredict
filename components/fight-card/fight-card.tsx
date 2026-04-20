@@ -10,7 +10,7 @@ import { CountdownTimer } from './countdown-timer'
 import { FightStatusBadge } from './fight-status-badge'
 import { FightComments } from './fight-comments'
 import { PickDistribution } from './pick-distribution'
-import { FighterComparisonSlider } from './fighter-comparison-slider'
+import { FightMatchupTabs } from './fight-matchup-tabs'
 import { cn, isFightLocked } from '@/lib/utils'
 import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 
@@ -289,20 +289,15 @@ export function FightCard({
                 h2h={(fight as any)._h2h ?? null}
               />
 
-              {/* Fighter comparison slider */}
-              <FighterComparisonSlider
+              {/* Tabbed matchup stats — Matchup | Win By | Striking | Grappling | Odds */}
+              <FightMatchupTabs
                 fighter1={fight.fighter1}
                 fighter2={fight.fighter2}
+                odds1={fight.odds_f1}
+                odds2={fight.odds_f2}
+                odds1Open={fight.odds_f1_open}
+                odds2Open={fight.odds_f2_open}
               />
-
-              {/* Fighting style row (text-only stat, not in slider) */}
-              {(fight.fighter1.fighting_style || fight.fighter2.fighting_style) && (
-                <div className="grid grid-cols-[1fr,60px,1fr] text-xs items-center">
-                  <span className="text-zinc-200 font-semibold">{fight.fighter1.fighting_style ?? '?'}</span>
-                  <span className="text-zinc-400 text-center text-[10px] uppercase tracking-wider">Style</span>
-                  <span className="text-zinc-200 font-semibold text-right">{fight.fighter2.fighting_style ?? '?'}</span>
-                </div>
-              )}
 
               {/* Analysis */}
               {(fight.analysis_f1 || fight.analysis_f2) && (
