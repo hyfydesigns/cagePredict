@@ -97,7 +97,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       try {
         const res  = await fetch('/api/admin/auto-import', { method: 'POST' })
         const data = await res.json()
-        setAutoImportLog(data.log ?? [data.message ?? 'Done'])
+        const diagLines: string[] = data.diag ? ['── Diagnostics ──', ...data.diag, '── Import log ──'] : []
+        setAutoImportLog([...diagLines, ...(data.log ?? [data.message ?? 'Done'])])
         toast({
           title: data.error ? 'Auto-import failed' : (data.message ?? 'Auto-import complete'),
           description: data.error,
