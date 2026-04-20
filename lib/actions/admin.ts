@@ -11,6 +11,7 @@ import { getUFCStatsData, calcWinBreakdown } from '@/lib/apis/ufc-stats'
 import {
   isConfigured as isApiSportsConfigured,
   getFightsByDate,
+  getUpcomingUFCFights,
   getFighterById,
   apiSportsIdToUuid,
   normaliseFighter,
@@ -234,6 +235,7 @@ export async function autoImportUpcomingEvents(): Promise<{
   const supabase = createServiceClient()
   const log: string[] = []
 
+  // ── 1. How many upcoming events do we already have? ──────────────────────
   const { data: upcomingEvents, error: upErr } = await supabase
     .from('events')
     .select('id, name, date')
@@ -254,7 +256,7 @@ export async function autoImportUpcomingEvents(): Promise<{
 
   log.push(`Found ${currentCount} upcoming event(s) — need ${TARGET - currentCount} more.`)
 
-  // Build covered date window (±3 days around each existing event)
+  // ── 2. Build covered date window (±3 days around each existing event) ────
   const coveredDates = new Set<string>()
   for (const ev of upcomingEvents ?? []) {
     const d = new Date(ev.date)
@@ -265,49 +267,68 @@ export async function autoImportUpcomingEvents(): Promise<{
     }
   }
 
-  // Generate next 16 Saturdays not already covered
-  const candidates: Date[] = []
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
-  const firstSat = new Date(today)
-  const dow = firstSat.getUTCDay()
-  firstSat.setUTCDate(firstSat.getUTCDate() + (dow === 6 ? 7 : (6 - dow + 7) % 7 || 7))
+  // ── 3. Discover upcoming UFC event dates in ONE API call ─────────────────
+  // Instead of blindly scanning 16 Saturdays (15+ fetch calls), fetch all
+  // not-started UFC fights at once and extract their unique event dates.
+  let candidateDates: string[] = []
 
-  for (let week = 0; week < 16; week++) {
-    const sat = new Date(firstSat)
-    sat.setUTCDate(firstSat.getUTCDate() + week * 7)
-    const dateStr = sat.toISOString().slice(0, 10)
-    if (!coveredDates.has(dateStr)) candidates.push(sat)
+  if (isApiSportsConfigured()) {
+    log.push('Fetching upcoming UFC schedule from api-sports…')
+    try {
+      const upcomingFights = await getUpcomingUFCFights()
+      const dateSet = new Set<string>()
+      for (const fight of upcomingFights) {
+        const d = fight.event?.date?.slice(0, 10)  // "YYYY-MM-DD"
+        if (d && !coveredDates.has(d)) dateSet.add(d)
+      }
+      candidateDates = [...dateSet].sort()
+      log.push(`  Found ${candidateDates.length} uncovered event date(s): ${candidateDates.join(', ') || 'none'}`)
+    } catch (e: any) {
+      log.push(`  Discovery call failed: ${e.message} — falling back to Saturday scan`)
+    }
   }
 
-  log.push(`Scanning ${candidates.length} candidate Saturday(s)…`)
+  // ── 4. Fallback: scan next 16 Saturdays if discovery failed / no api-sports ──
+  if (candidateDates.length === 0) {
+    log.push('Falling back to Saturday scan…')
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    const firstSat = new Date(today)
+    const dow = firstSat.getUTCDay()
+    firstSat.setUTCDate(firstSat.getUTCDate() + (dow === 6 ? 7 : (6 - dow + 7) % 7 || 7))
+    for (let week = 0; week < 16; week++) {
+      const sat = new Date(firstSat)
+      sat.setUTCDate(firstSat.getUTCDate() + week * 7)
+      const dateStr = sat.toISOString().slice(0, 10)
+      if (!coveredDates.has(dateStr)) candidateDates.push(dateStr)
+    }
+  }
 
+  // ── 5. Import each candidate date until we hit the target ────────────────
   let imported = 0
   const needed = TARGET - currentCount
 
-  for (const date of candidates) {
+  for (const dateStr of candidateDates) {
     if (imported >= needed) break
-    const day   = date.getUTCDate()
-    const month = date.getUTCMonth() + 1
-    const year  = date.getUTCFullYear()
-    const label = date.toISOString().slice(0, 10)
-    log.push(`Trying ${label}…`)
+    const [year, month, day] = dateStr.split('-').map(Number)
+    log.push(`Importing ${dateStr}…`)
     try {
       const result = await importEventByDateInternal(day, month, year)
       if (result.error) {
-        log.push(`  ✗ ${label}: ${result.error.includes('No') || result.error.includes('no') ? 'no UFC event' : result.error}`)
+        const quiet = result.error.toLowerCase().includes('no ')
+        log.push(`  ${quiet ? '—' : '✗'} ${dateStr}: ${quiet ? 'no UFC event' : result.error}`)
       } else {
-        log.push(`  ✓ ${label}: ${result.message}`)
+        log.push(`  ✓ ${dateStr}: ${result.message}`)
         imported++
       }
     } catch (e: any) {
-      log.push(`  ✗ ${label}: ${e.message}`)
+      log.push(`  ✗ ${dateStr}: ${e.message}`)
     }
   }
 
   const message = imported > 0
     ? `Imported ${imported} new event(s).`
-    : 'No new events found in the next 16 weeks.'
+    : 'No new events found to import.'
 
   return { message, log }
 }
