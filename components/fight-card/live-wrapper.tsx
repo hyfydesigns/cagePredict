@@ -302,6 +302,9 @@ function EventSectionClient({
   const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
 
   const fightIds    = event.fights.map((f) => f.id)
+  // Scope the lock to this event only — a confidence pick on another event's
+  // fight should not block the lock button here
+  const eventLockedFightId = lockedFightId && fightIds.includes(lockedFightId) ? lockedFightId : null
   const totalFights = fightIds.length
   const pickedCount = fightIds.filter((id) => picks[id]?.winnerId).length
 
@@ -440,7 +443,7 @@ function EventSectionClient({
         predict={predict}
         toggleLock={toggleLock}
         isPending={isPending}
-        lockedFightId={lockedFightId}
+        lockedFightId={eventLockedFightId}
         userId={userId}
         commentsByFight={commentsByFight}
       />
