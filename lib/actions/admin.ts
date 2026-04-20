@@ -7,7 +7,7 @@ import { SEED_EVENTS, SEED_FIGHTERS } from '@/seeds/seed-data'
 import { sendCardLiveEmails } from '@/lib/actions/emails'
 import { isAdmin } from '@/lib/auth/is-admin'
 import { runSyncResults } from '@/lib/sync-results'
-import { getUFCStatsData } from '@/lib/apis/ufc-stats'
+import { getUFCStatsData, calcWinBreakdown } from '@/lib/apis/ufc-stats'
 import {
   isConfigured as isApiSportsConfigured,
   getFightsByDate,
@@ -281,6 +281,8 @@ async function fetchEventByDateApiSports(
         // (full history available via getFighterFights but costs an extra API call)
         const last_5_form: string | null = null
 
+        const winBreakdown = calcWinBreakdown(ufcStats.fights)
+
         fighterMap.set(fId, {
           ...base,
           height_cm: ufcStatsHeight,
@@ -293,6 +295,7 @@ async function fetchEventByDateApiSports(
           age,
           fighting_style,
           last_5_form,
+          ...winBreakdown,
         })
       }))
     }
@@ -326,6 +329,9 @@ async function fetchEventByDateApiSports(
         sig_str_landed:    fighter.sig_str_landed,
         td_avg:            fighter.td_avg,
         sub_avg:           fighter.sub_avg,
+        ko_tko_wins:      (fighter as any).ko_tko_wins ?? null,
+        sub_wins:         (fighter as any).sub_wins    ?? null,
+        dec_wins:         (fighter as any).dec_wins    ?? null,
         analysis:          null,
       }
 
@@ -542,6 +548,8 @@ async function fetchEventByDateRapidApi(
           }
         } catch { /* skip */ }
 
+        const { ko_tko_wins, sub_wins, dec_wins } = calcWinBreakdown(ufc.fights)
+
         const fighter = {
           id: apiIdToUuid(team.id, 'fighter'), name: team.name as string,
           nickname: detail?.nickname?.trim() || null, nationality,
@@ -553,6 +561,9 @@ async function fetchEventByDateRapidApi(
           sig_str_landed:    ufc.slpm,
           td_avg:            ufc.td_avg,
           sub_avg:           ufc.sub_avg,
+          ko_tko_wins,
+          sub_wins,
+          dec_wins,
           analysis: null,
         }
 
@@ -688,6 +699,54 @@ export async function forceSyncResults(): Promise<ActionResult & { log?: string[
     log:     [...result.log, ...result.errors],
     skipped: result.skipped,
   }
+}
+
+// ─── Backfill win breakdown ───────────────────────────────────────────────────
+
+/**
+ * Loops through all fighters that are missing ko_tko_wins/sub_wins/dec_wins,
+ * fetches their UFCStats fight history, calculates the breakdown, and updates
+ * the fighters table. Safe to run multiple times (only touches null rows).
+ */
+export async function backfillWinBreakdown(): Promise<{ updated: number; errors: number }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdmin(user)) return { updated: 0, errors: 0 }
+
+  // Fetch fighters that still have null breakdown columns
+  const { data: fighters, error } = await supabase
+    .from('fighters')
+    .select('id, name')
+    .is('ko_tko_wins', null)
+    .order('name')
+
+  if (error || !fighters?.length) return { updated: 0, errors: 0 }
+
+  let updated = 0
+  let errors  = 0
+
+  for (const fighter of fighters) {
+    try {
+      const ufc = await getUFCStatsData(fighter.name)
+      const breakdown = calcWinBreakdown(ufc.fights)
+
+      // Only update if we actually got fight history
+      if (ufc.fights.length === 0) continue
+
+      const { error: upErr } = await supabase
+        .from('fighters')
+        .update(breakdown)
+        .eq('id', fighter.id)
+
+      if (upErr) { errors++; console.error(`backfill error (${fighter.name}):`, upErr.message) }
+      else updated++
+    } catch (e) {
+      errors++
+      console.error(`backfill exception (${fighter.name}):`, e)
+    }
+  }
+
+  return { updated, errors }
 }
 
 // ─── Complete fight ──────────────────────────────────────────────────────────
