@@ -4,12 +4,12 @@ import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, CheckCircle, Trophy, Users, Swords,
-  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search, Zap
+  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search, Zap, Calendar
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, autoImportUpcomingEvents } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -68,6 +68,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [syncLog, setSyncLog]                          = useState<string[] | null>(null)
   const [isBackfillPending, startBackfillTransition]   = useTransition()
   const [backfillResult, setBackfillResult]            = useState<{ updated: number; errors: number } | null>(null)
+  const [isAutoImportPending, startAutoImportTransition] = useTransition()
+  const [autoImportLog, setAutoImportLog]                = useState<string[] | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
@@ -86,6 +88,19 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       } else {
         toast({ title: 'Data cleared', description: result.message })
       }
+    })
+  }
+
+  function handleAutoImport() {
+    setAutoImportLog(null)
+    startAutoImportTransition(async () => {
+      const result = await autoImportUpcomingEvents()
+      setAutoImportLog(result.log)
+      toast({
+        title: result.error ? 'Auto-import failed' : result.message,
+        description: result.error,
+        variant: result.error ? 'destructive' : 'default',
+      })
     })
   }
 
@@ -272,6 +287,39 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             Click &quot;Confirm Delete&quot; again to permanently erase all data. This cannot be undone.
           </p>
         )}
+      </div>
+
+      {/* Auto-import upcoming events */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-white flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-blue-400" /> Auto-Import Upcoming Events
+          </h2>
+          <p className="text-zinc-500 text-sm mt-1">
+            Scans the next 16 Saturdays and imports any UFC events until there are at least 2 upcoming cards. Runs automatically every Monday — click to trigger manually.
+          </p>
+        </div>
+        <Button onClick={handleAutoImport} disabled={isAutoImportPending} variant="outline" className="border-zinc-700">
+          {isAutoImportPending
+            ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Scanning…</>
+            : <><Calendar className="h-4 w-4 mr-1.5 text-blue-400" />Run Auto-Import</>
+          }
+        </Button>
+        {autoImportLog && (
+          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-3 max-h-48 overflow-y-auto">
+            {autoImportLog.map((line, i) => (
+              <p key={i} className={`text-xs font-mono leading-relaxed ${
+                line.startsWith('  ✓') ? 'text-green-400' :
+                line.startsWith('  ✗') ? 'text-zinc-500' :
+                line.startsWith('Found') || line.startsWith('Scanning') ? 'text-zinc-300' :
+                'text-zinc-400'
+              }`}>{line}</p>
+            ))}
+          </div>
+        )}
+        <p className="text-zinc-600 text-xs">
+          Also runs automatically every Monday at 08:00 UTC via <code className="bg-zinc-800 px-1 rounded">/api/cron/import-events</code>.
+        </p>
       </div>
 
       {/* Fetch from RapidAPI */}

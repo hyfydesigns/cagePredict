@@ -208,6 +208,110 @@ export async function fetchEventByDate(
     : fetchEventByDateRapidApi(day, month, year)
 }
 
+/**
+ * Internal version of fetchEventByDate for cron use — bypasses admin auth.
+ * Auth is handled at the cron route level via CRON_SECRET.
+ */
+export async function importEventByDateInternal(
+  day: number,
+  month: number,
+  year: number,
+): Promise<ActionResult> {
+  return isApiSportsConfigured()
+    ? fetchEventByDateApiSports(day, month, year)
+    : fetchEventByDateRapidApi(day, month, year)
+}
+
+/**
+ * Scans the next 16 Saturdays and imports any UFC events found until the DB
+ * has at least 2 upcoming events. Used by both the weekly cron and the admin panel.
+ */
+export async function autoImportUpcomingEvents(): Promise<{
+  message: string
+  log: string[]
+  error?: string
+}> {
+  const supabase = createServiceClient()
+  const log: string[] = []
+
+  const { data: upcomingEvents, error: upErr } = await supabase
+    .from('events')
+    .select('id, name, date')
+    .in('status', ['upcoming', 'live'])
+    .order('date', { ascending: true })
+
+  if (upErr) return { message: 'DB error', log, error: upErr.message }
+
+  const currentCount = upcomingEvents?.length ?? 0
+  const TARGET = 2
+
+  if (currentCount >= TARGET) {
+    return {
+      message: `Already have ${currentCount} upcoming event(s) — nothing to import.`,
+      log,
+    }
+  }
+
+  log.push(`Found ${currentCount} upcoming event(s) — need ${TARGET - currentCount} more.`)
+
+  // Build covered date window (±3 days around each existing event)
+  const coveredDates = new Set<string>()
+  for (const ev of upcomingEvents ?? []) {
+    const d = new Date(ev.date)
+    for (let offset = -3; offset <= 3; offset++) {
+      const c = new Date(d)
+      c.setUTCDate(d.getUTCDate() + offset)
+      coveredDates.add(c.toISOString().slice(0, 10))
+    }
+  }
+
+  // Generate next 16 Saturdays not already covered
+  const candidates: Date[] = []
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  const firstSat = new Date(today)
+  const dow = firstSat.getUTCDay()
+  firstSat.setUTCDate(firstSat.getUTCDate() + (dow === 6 ? 7 : (6 - dow + 7) % 7 || 7))
+
+  for (let week = 0; week < 16; week++) {
+    const sat = new Date(firstSat)
+    sat.setUTCDate(firstSat.getUTCDate() + week * 7)
+    const dateStr = sat.toISOString().slice(0, 10)
+    if (!coveredDates.has(dateStr)) candidates.push(sat)
+  }
+
+  log.push(`Scanning ${candidates.length} candidate Saturday(s)…`)
+
+  let imported = 0
+  const needed = TARGET - currentCount
+
+  for (const date of candidates) {
+    if (imported >= needed) break
+    const day   = date.getUTCDate()
+    const month = date.getUTCMonth() + 1
+    const year  = date.getUTCFullYear()
+    const label = date.toISOString().slice(0, 10)
+    log.push(`Trying ${label}…`)
+    try {
+      const result = await importEventByDateInternal(day, month, year)
+      if (result.error) {
+        log.push(`  ✗ ${label}: ${result.error.includes('No') || result.error.includes('no') ? 'no UFC event' : result.error}`)
+      } else {
+        log.push(`  ✓ ${label}: ${result.message}`)
+        imported++
+      }
+    } catch (e: any) {
+      log.push(`  ✗ ${label}: ${e.message}`)
+    }
+  }
+
+  const message = imported > 0
+    ? `Imported ${imported} new event(s).`
+    : 'No new events found in the next 16 weeks.'
+
+  return { message, log }
+}
+
 // ─── api-sports.io import ─────────────────────────────────────────────────────
 
 async function fetchEventByDateApiSports(
