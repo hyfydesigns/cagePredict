@@ -42,7 +42,7 @@ export async function POST() {
   // 3. Direct api-sports probe
   if (apisportsKey) {
     try {
-      const r = await fetch('https://api.mma.api-sports.io/status', {
+      const r = await fetch('https://v1.mma.api-sports.io/status', {
         headers: { 'x-apisports-key': apisportsKey },
         cache: 'no-store',
       })
