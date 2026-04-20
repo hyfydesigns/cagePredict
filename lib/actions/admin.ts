@@ -212,15 +212,24 @@ export async function fetchEventByDate(
 /**
  * Internal version of fetchEventByDate for cron use — bypasses admin auth.
  * Auth is handled at the cron route level via CRON_SECRET.
+ *
+ * Tries api-sports first (if configured). If the free plan blocks the date
+ * ("Free plans do not have access to this date"), falls back to RapidAPI.
  */
 export async function importEventByDateInternal(
   day: number,
   month: number,
   year: number,
 ): Promise<ActionResult> {
-  return isApiSportsConfigured()
-    ? fetchEventByDateApiSports(day, month, year)
-    : fetchEventByDateRapidApi(day, month, year)
+  if (isApiSportsConfigured()) {
+    const result = await fetchEventByDateApiSports(day, month, year)
+    // Free plan restriction → try RapidAPI instead
+    if (result.error?.toLowerCase().includes('plan')) {
+      return fetchEventByDateRapidApi(day, month, year)
+    }
+    return result
+  }
+  return fetchEventByDateRapidApi(day, month, year)
 }
 
 /**

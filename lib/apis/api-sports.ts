@@ -398,12 +398,16 @@ export async function getFightsByDate(
 }
 
 /**
- * Get all upcoming (not-started) UFC fights in a single call.
- * Returns fights with status NS (Not Started). Use to discover upcoming event dates
- * without needing to scan individual dates.
+ * Get UFC fights for today's date (within free-plan date window).
+ * The free plan does not support the `league` filter or future dates, so we
+ * query today only and filter client-side by league name / known UFC league ID.
  */
 export async function getUpcomingUFCFights(): Promise<ApiSportsFight[]> {
-  return apiGet<ApiSportsFight>('/fights', { league: UFC_LEAGUE_ID, status: 'NS' })
+  const today = new Date().toISOString().slice(0, 10)
+  const all = await apiGet<ApiSportsFight>('/fights', { date: today })
+  return all.filter(
+    (f) => f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
+  )
 }
 
 /**
