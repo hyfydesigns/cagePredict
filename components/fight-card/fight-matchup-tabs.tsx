@@ -101,7 +101,7 @@ function CompBar({
           {f2 !== null ? `${v2}${suffix}` : '—'}
         </span>
       </div>
-      <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
+      <div className="flex h-3 rounded-full overflow-hidden gap-px">
         <div
           className={cn('h-full rounded-l-full transition-all', f1Wins ? 'bg-red-500' : 'bg-zinc-700')}
           style={{ width: `${f1Pct}%` }}
@@ -149,7 +149,7 @@ function WinRateBar({
         <span className={cn('font-bold', color)}>{name}</span>
         <span className="text-zinc-400">{w}W · {l}L{d > 0 ? ` · ${d}D` : ''}</span>
       </div>
-      <div className="flex h-2 rounded-full overflow-hidden gap-px">
+      <div className="flex h-3 rounded-full overflow-hidden gap-px">
         <div className="h-full bg-emerald-500 transition-all" style={{ width: `${wPct}%` }} title={`${wPct}% wins`} />
         {dPct > 0 && (
           <div className="h-full bg-zinc-600 transition-all" style={{ width: `${dPct}%` }} title={`${dPct}% draws`} />
@@ -349,7 +349,7 @@ export function FightMatchupTabs({
                         <span className={cn('font-bold', color)}>{fighter.name}</span>
                         <span className="text-zinc-500 text-[10px]">{total} wins</span>
                       </div>
-                      <div className="flex h-2 rounded-full overflow-hidden gap-px">
+                      <div className="flex h-3 rounded-full overflow-hidden gap-px">
                         {koPct  > 0 && <div className="h-full bg-red-500"    style={{ width: `${koPct}%`  }} title={`KO/TKO ${koPct}%`} />}
                         {subPct > 0 && <div className="h-full bg-amber-500"  style={{ width: `${subPct}%` }} title={`Sub ${subPct}%`} />}
                         {decPct > 0 && <div className="h-full bg-blue-500"   style={{ width: `${decPct}%` }} title={`Dec ${decPct}%`} />}
@@ -513,7 +513,7 @@ export function FightMatchupTabs({
                 const p2 = impliedProb(odds2)
                 return (
                   <div className="pt-4">
-                    <div className="flex h-2 rounded-full overflow-hidden gap-px">
+                    <div className="flex h-3 rounded-full overflow-hidden gap-px">
                       <div className="h-full bg-red-500 transition-all" style={{ width: `${p1}%` }} />
                       <div className="h-full bg-blue-500 transition-all" style={{ width: `${p2}%` }} />
                     </div>
