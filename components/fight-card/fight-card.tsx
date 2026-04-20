@@ -218,14 +218,15 @@ export function FightCard({
       </div>
 
       {/* Expand toggles */}
-      <div className="grid grid-cols-2 border-t border-zinc-800/40">
+      <div className="border-t border-zinc-800/40">
         <button
           onClick={() => { setExpanded(!expanded); setShowComments(false) }}
-          className="flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-400 hover:text-zinc-300 transition-colors border-r border-zinc-800/40"
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-400 hover:text-zinc-300 transition-colors"
         >
           {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           Stats & Analysis
         </button>
+        {/* Chat button hidden — re-enable when chat is ready
         <button
           onClick={() => { setShowComments(!showComments); setExpanded(false) }}
           className="flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-400 hover:text-zinc-300 transition-colors"
@@ -233,6 +234,7 @@ export function FightCard({
           <MessageSquare className="h-3.5 w-3.5" />
           {showComments ? 'Hide' : `Chat${initialComments.length > 0 ? ` (${initialComments.length})` : ''}`}
         </button>
+        */}
       </div>
 
       {/* Expandable stats + analysis */}
@@ -332,7 +334,7 @@ export function FightCard({
         )}
       </AnimatePresence>
 
-      {/* Comments section */}
+      {/* Comments section — hidden until chat is re-enabled
       <AnimatePresence initial={false}>
         {showComments && (
           <motion.div
@@ -353,6 +355,7 @@ export function FightCard({
           </motion.div>
         )}
       </AnimatePresence>
+      */}
 
       {/* Cancelled banner */}
       {isCancelled && (
