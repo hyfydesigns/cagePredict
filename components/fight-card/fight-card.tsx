@@ -407,6 +407,7 @@ export function FightCard({
           lockTaken={lockTaken}
           isLocked={isLocked}
           isPending={isPending}
+          maxRounds={(fight.is_main_event || fight.is_title_fight) ? 5 : 3}
           userId={userId}
           onPick={handlePredict}
           onToggleLock={(conf) => onToggleLock(fight.id, conf)}

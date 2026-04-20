@@ -18,6 +18,7 @@ interface PredictionPickerProps {
   lockTaken:  boolean   // another fight already has the lock
   isLocked:   boolean   // picks closed (fight starting soon)
   isPending:  boolean
+  maxRounds:  3 | 5    // 5 for main events / title fights, 3 otherwise
   userId?: string
   onPick:       (winnerId: string, method?: string | null, round?: number | null) => Promise<void>
   onToggleLock: (isConfidence: boolean) => Promise<void>
@@ -126,7 +127,7 @@ export function PredictionPicker({
   fighter1, fighter2,
   currentPick, currentMethod, currentRound,
   isConfidence, lockTaken, isLocked, isPending,
-  userId, onPick, onToggleLock,
+  maxRounds, userId, onPick, onToggleLock,
 }: PredictionPickerProps) {
 
   // ── Not signed in ──
@@ -265,7 +266,7 @@ export function PredictionPicker({
                     className="overflow-hidden"
                   >
                     <div className="flex gap-1.5 pt-0.5">
-                      {[1, 2, 3, 4, 5].map((r) => (
+                      {Array.from({ length: maxRounds }, (_, i) => i + 1).map((r) => (
                         <RoundButton
                           key={r}
                           r={r}
