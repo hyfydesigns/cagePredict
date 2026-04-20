@@ -14,9 +14,9 @@ function cmToFtIn(cm: number): string {
 function cmToIn(cm: number): string {
   return `${Math.round(cm / 2.54)}"`
 }
-function lastResult(form: string | null | undefined): string {
-  if (!form) return '—'
-  return form.replace(/[^WLDwld]/g, '').toUpperCase()[0] ?? '—'
+function formLetters(form: string | null | undefined): string[] {
+  if (!form) return []
+  return form.replace(/[^WLDNwldn]/g, '').toUpperCase().slice(0, 5).split('')
 }
 function formatOdds(o: number): string {
   return o > 0 ? `+${o}` : `${o}`
@@ -29,11 +29,27 @@ function impliedProb(o: number): number {
 
 // ── Sub-components ─────────────────────────────────────────────
 
-function ResultPill({ r }: { r: string }) {
-  if (r === 'W') return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-emerald-500/20 text-emerald-400">Win</span>
-  if (r === 'L') return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-red-500/20 text-red-400">Loss</span>
-  if (r === 'D') return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-zinc-600/40 text-zinc-400">Draw</span>
-  return <span className="text-zinc-500 text-sm">—</span>
+function FormDot({ r }: { r: string }) {
+  if (r === 'W') return (
+    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">W</span>
+  )
+  if (r === 'L') return (
+    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black bg-red-500/20 text-red-400 border border-red-500/30">L</span>
+  )
+  if (r === 'D' || r === 'N') return (
+    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black bg-zinc-600/30 text-zinc-400 border border-zinc-600/40">D</span>
+  )
+  return null
+}
+
+function FormPills({ form }: { form: string | null | undefined }) {
+  const letters = formLetters(form)
+  if (letters.length === 0) return <span className="text-zinc-500 text-sm">—</span>
+  return (
+    <div className="flex gap-1">
+      {letters.map((r, i) => <FormDot key={i} r={r} />)}
+    </div>
+  )
 }
 
 /** A single horizontal stat row: [f1 value] [LABEL] [f2 value] */
@@ -184,8 +200,8 @@ export function FightMatchupTabs({
   odds1Open,
   odds2Open,
 }: FightMatchupTabsProps) {
-  const f1Last = lastResult(fighter1.last_5_form)
-  const f2Last = lastResult(fighter2.last_5_form)
+  const f1Form = fighter1.last_5_form
+  const f2Form = fighter2.last_5_form
   const f1LastName = fighter1.name.split(' ').pop() ?? fighter1.name
   const f2LastName = fighter2.name.split(' ').pop() ?? fighter2.name
 
@@ -224,9 +240,9 @@ export function FightMatchupTabs({
           />
 
           <StatRow
-            f1={<ResultPill r={f1Last} />}
-            label="Last Fight"
-            f2={<ResultPill r={f2Last} />}
+            f1={<FormPills form={f1Form} />}
+            label="Form"
+            f2={<div className="flex justify-end"><FormPills form={f2Form} /></div>}
           />
 
           {(fighter1.nationality || fighter2.nationality) && (
