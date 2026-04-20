@@ -1,20 +1,66 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useTransition, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { updatePassword } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm]   = useState(false)
   const [isPending, startTransition]    = useTransition()
+  const [verifying, setVerifying]       = useState(false)
+  const [verifyError, setVerifyError]   = useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // If the link came from requestPasswordReset it carries ?token_hash=…
+  // Verify it client-side so Supabase establishes a recovery session.
+  useEffect(() => {
+    const tokenHash = searchParams.get('token_hash')
+    if (!tokenHash) return
+
+    setVerifying(true)
+    const supabase = createClient()
+    supabase.auth
+      .verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+      .then(({ error }) => {
+        if (error) {
+          console.error('[ResetPassword] verifyOtp error:', error.message)
+          setVerifyError('This reset link is invalid or has expired. Please request a new one.')
+        } else {
+          // Clean the token out of the URL bar
+          window.history.replaceState(null, '', '/reset-password')
+        }
+        setVerifying(false)
+      })
+  }, [searchParams])
+
+  if (verifying) {
+    return (
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur flex items-center justify-center gap-3 text-zinc-400">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Verifying link…
+      </div>
+    )
+  }
+
+  if (verifyError) {
+    return (
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur text-center space-y-4">
+        <p className="text-red-400 text-sm">{verifyError}</p>
+        <Button variant="outline" onClick={() => router.replace('/forgot-password')}>
+          Request a new link
+        </Button>
+      </div>
+    )
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()

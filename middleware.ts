@@ -65,7 +65,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // Onboarding gate — force /onboarding if profile not complete
-  const skipOnboardingCheck = ['/onboarding', '/api', '/invite'].some((p) => pathname.startsWith(p))
+  // /reset-password must be reachable during a recovery session even if
+  // onboarding isn't complete (e.g. a user who signed up but never finished).
+  const skipOnboardingCheck = ['/onboarding', '/api', '/invite', '/reset-password', '/forgot-password'].some((p) => pathname.startsWith(p))
   if (user && !skipOnboardingCheck) {
     const { data: profile } = await supabase
       .from('profiles')
