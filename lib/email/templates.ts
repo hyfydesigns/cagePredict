@@ -19,13 +19,19 @@ function layout(body: string): string {
           <!-- Logo -->
           <tr>
             <td style="padding-bottom:28px;text-align:center;">
-              <a href="${BASE_URL}" style="text-decoration:none;">
-                <span style="display:inline-flex;align-items:center;gap:8px;">
-                  <span style="display:inline-block;width:32px;height:32px;background:#ef4444;border-radius:8px;text-align:center;line-height:32px;font-size:16px;">🛡</span>
-                  <span style="font-size:20px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">
-                    Cage<span style="color:#ef4444;">Predict</span>
-                  </span>
-                </span>
+              <a href="${BASE_URL}" style="text-decoration:none;display:inline-block;">
+                <table cellpadding="0" cellspacing="0" style="display:inline-table;">
+                  <tr>
+                    <td style="vertical-align:middle;padding-right:10px;">
+                      <img src="https://cagepredict.com/logo.svg" width="36" height="36" alt="CagePredict" style="display:block;border-radius:8px;" />
+                    </td>
+                    <td style="vertical-align:middle;">
+                      <span style="font-size:20px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">
+                        Cage<span style="color:#ef4444;">Predict</span>
+                      </span>
+                    </td>
+                  </tr>
+                </table>
               </a>
             </td>
           </tr>
@@ -109,7 +115,9 @@ export function welcomeTemplate(data: WelcomeData): { subject: string; html: str
   const html = layout(`
     <!-- Hero -->
     <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:40px;margin-bottom:12px;">🛡️</div>
+      <div style="margin-bottom:12px;">
+        <img src="https://cagepredict.com/logo.svg" width="72" height="72" alt="CagePredict" style="display:inline-block;border-radius:16px;" />
+      </div>
       <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;color:#ffffff;line-height:1.2;">
         Welcome to CagePredict!
       </h1>
