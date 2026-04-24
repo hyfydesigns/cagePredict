@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 
-// Picks lock 2 hours before fight time (matches isFightLocked in lib/utils.ts)
-const PICK_LOCK_MS = 2 * 60 * 60 * 1_000
+// Picks lock 10 minutes before fight time (matches isFightLocked in lib/utils.ts)
+const PICK_LOCK_MS = 10 * 60 * 1_000
 
 interface CountdownResult {
   days: number
