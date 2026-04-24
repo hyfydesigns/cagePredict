@@ -131,7 +131,7 @@ Implemented entirely in the `complete_fight(fight_id, winner_id)` Postgres RPC (
 
 ### Prediction Locking
 
-Picks lock **2 hours before `fight_time`**. `isFightLocked()` in `lib/utils.ts` is the source of truth — used in `upsertPrediction()` on the server and `useCountdown()` on the client.
+Picks lock **10 minutes before `fight_time`**. `isFightLocked()` in `lib/utils.ts` is the source of truth — used in `upsertPrediction()` on the server and `useCountdown()` on the client.
 
 ### Fighter Profile UUIDs
 

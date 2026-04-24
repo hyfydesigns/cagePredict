@@ -67,7 +67,7 @@ export function isFightLocked(fightTime: string | null, eventDate?: string | nul
     : eventDate
     ? new Date(eventDate).getTime()
     : Infinity
-  return ms - Date.now() <= 2 * 60 * 60 * 1000
+  return ms - Date.now() <= 10 * 60 * 1000
 }
 
 /** Generate a share URL for a crew invite */

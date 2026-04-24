@@ -217,7 +217,7 @@ export function lastChanceTemplate(data: LastChanceData): { subject: string; htm
       Last chance to pick ${data.eventName}
     </h1>
     <p style="margin:0 0 24px;text-align:center;color:#71717a;font-size:14px;">
-      ${data.eventDate} · Picks lock 2 hours before fight time
+      ${data.eventDate} · Picks lock 10 minutes before fight time
     </p>
 
     <!-- Main event -->
