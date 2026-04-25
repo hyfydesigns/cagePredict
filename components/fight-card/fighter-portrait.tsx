@@ -47,11 +47,11 @@ export function FighterPortrait({
           Spacer shown for the loser side so both columns stay the same height. */}
       {isWinner ? (
         <div className={cn(
-          'flex items-center gap-1 bg-amber-500/20 border border-amber-500/40 rounded-full px-2 py-0.5 mb-2',
+          'flex items-center gap-1 bg-amber-500/20 border border-amber-600 dark:border-amber-500/40 rounded-full px-2 py-0.5 mb-2',
           isLeft ? 'self-start' : 'self-end'
         )}>
-          <Crown className="h-3 w-3 text-amber-400" />
-          <span className="text-[10px] font-bold text-amber-400">WINNER</span>
+          <Crown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">WINNER</span>
         </div>
       ) : isLoser ? (
         <div className="h-[22px] mb-2" />

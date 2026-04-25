@@ -48,7 +48,7 @@ function formPillClass(letter: 'W' | 'L' | 'D'): string {
 }
 
 function rankBadgeClass(rank: number): string {
-  if (rank === 1)  return 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+  if (rank === 1)  return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-600 dark:border-amber-500/30'
   if (rank <= 3)   return 'bg-surface-3/60 text-foreground border-border/40'
   return 'bg-transparent text-foreground-secondary border-border/50'
 }

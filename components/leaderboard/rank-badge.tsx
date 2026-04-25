@@ -15,7 +15,7 @@ export function RankBadge({ rank, showLabel = false, className }: RankBadgeProps
         rank === 1 ? 'h-8 w-8 text-base' : 'h-7 w-7',
         rankColor(rank)
       )}>
-        {rank === 1 ? <Crown className="h-3.5 w-3.5 text-amber-400" /> : rank}
+        {rank === 1 ? <Crown className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /> : rank}
       </div>
       {showLabel && (
         <span className={cn('text-xs font-semibold', rankColor(rank).split(' ')[0])}>

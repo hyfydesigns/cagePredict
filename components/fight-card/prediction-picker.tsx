@@ -96,7 +96,7 @@ function MethodButton({
       className={cn(
         'flex-1 flex flex-col items-center gap-0.5 rounded-lg border py-2 text-[11px] font-bold transition-all duration-150',
         selected
-          ? 'border-amber-500/60 bg-amber-500/10 text-amber-400'
+          ? 'border-amber-600 dark:border-amber-500/60 bg-amber-500/10 text-amber-600 dark:text-amber-400'
           : 'border-border bg-surface-2/40 text-foreground-muted hover:border-border hover:text-foreground-secondary',
       )}
     >
@@ -113,7 +113,7 @@ function RoundButton({ r, selected, onClick }: { r: number; selected: boolean; o
       className={cn(
         'flex-1 rounded-lg border py-1.5 text-xs font-black uppercase tracking-wide transition-all duration-150',
         selected
-          ? 'border-amber-500/60 bg-amber-500/10 text-amber-400'
+          ? 'border-amber-600 dark:border-amber-500/60 bg-amber-500/10 text-amber-600 dark:text-amber-400'
           : 'border-border bg-surface-2/40 text-foreground-muted hover:border-border hover:text-foreground-secondary',
       )}
     >
@@ -165,7 +165,7 @@ export function PredictionPicker({
           <span className="text-[11px] text-foreground-muted bg-surface-2 rounded px-1.5 py-0.5">{ml}</span>
         )}
         {isConfidence && (
-          <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5">
+          <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5">
             🔒 2× pts
           </span>
         )}
@@ -306,7 +306,7 @@ export function PredictionPicker({
                 <button
                   onClick={() => onToggleLock(false)}
                   disabled={isPending}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-amber-500/60 bg-amber-500/10 py-2 text-sm font-bold text-amber-400 hover:bg-amber-500/20 transition-all"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-amber-600 dark:border-amber-500/60 bg-amber-500/10 py-2 text-sm font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all"
                 >
                   <Lock className="h-4 w-4" />
                   Your Lock — 2× base pts
@@ -321,7 +321,7 @@ export function PredictionPicker({
                 <button
                   onClick={() => onToggleLock(true)}
                   disabled={isPending}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-2/50 py-2 text-sm font-semibold text-foreground-secondary hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400 transition-all group"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-2/50 py-2 text-sm font-semibold text-foreground-secondary hover:border-amber-600 dark:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-600 dark:text-amber-400 transition-all group"
                 >
                   <LockOpen className="h-4 w-4 group-hover:hidden" />
                   <Lock className="h-4 w-4 hidden group-hover:block" />

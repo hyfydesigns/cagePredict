@@ -14,6 +14,7 @@
     --foreground:          240 10% 4%;     /* #09090b */
     --foreground-secondary: 240 4% 32%;   /* #4e4e55 */
     --foreground-muted:    240 4% 48%;     /* #737380 */
+    --accent-gold:         38 92% 40%;     /* #c47f07 — darker amber for light bg */
     --font-geist-sans: 'Inter', system-ui, -apple-system, sans-serif;
     --font-geist-mono: 'JetBrains Mono', 'Fira Code', monospace;
   }
@@ -29,6 +30,7 @@
     --foreground:          0 0% 98%;       /* #fafafa */
     --foreground-secondary: 240 5% 65%;   /* #a1a1aa */
     --foreground-muted:    240 4% 46%;     /* #71717a */
+    --accent-gold:         38 92% 50%;     /* #f59e0b — standard amber for dark bg */
   }
 
   * {

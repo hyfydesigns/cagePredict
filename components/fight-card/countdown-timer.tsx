@@ -17,13 +17,13 @@ export function CountdownTimer({ fightTime, compact = false }: CountdownTimerPro
   // Colour palette keyed by urgency
   const urgencyText = {
     normal: 'text-foreground-muted',
-    soon:   'text-amber-400',
+    soon:   'text-amber-600 dark:text-amber-400',
     urgent: 'text-red-400',
   }[lockUrgency]
 
   const urgencyBg = {
     normal: 'bg-surface-2/60 border-border/60',
-    soon:   'bg-amber-500/10 border-amber-500/30',
+    soon:   'bg-amber-500/10 border-amber-600 dark:border-amber-500/30',
     urgent: 'bg-red-500/10 border-red-500/30',
   }[lockUrgency]
 

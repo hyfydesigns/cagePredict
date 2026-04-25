@@ -523,7 +523,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
         <div>
           <h2 className="font-bold text-foreground flex items-center gap-2">
-            <Zap className="h-4 w-4 text-amber-400" /> Force Resync Results
+            <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400" /> Force Resync Results
           </h2>
           <p className="text-foreground-muted text-sm mt-1">
             Manually trigger the sync-results cron. Uses api-sports.io if <code className="text-xs bg-surface-2 px-1 rounded">APISPORTS_KEY</code> is set, otherwise RapidAPI.
@@ -532,7 +532,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
         <Button onClick={handleForceSync} disabled={isSyncPending} variant="outline" className="border-border">
           {isSyncPending
             ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Syncing…</>
-            : <><Zap className="h-4 w-4 mr-1.5 text-amber-400" />Run Sync Now</>
+            : <><Zap className="h-4 w-4 mr-1.5 text-amber-600 dark:text-amber-400" />Run Sync Now</>
           }
         </Button>
         {syncLog && (
@@ -542,7 +542,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                 line.startsWith('✓') ? 'text-green-400' :
                 line.startsWith('✗') ? 'text-red-400' :
                 line.startsWith('🤝') ? 'text-blue-400' :
-                line.startsWith('⚠') || line.startsWith('ERROR') ? 'text-amber-400' :
+                line.startsWith('⚠') || line.startsWith('ERROR') ? 'text-amber-600 dark:text-amber-400' :
                 line.startsWith('—') ? 'text-foreground-muted mt-2 font-semibold' :
                 line.startsWith('No DB match') ? 'text-orange-400' :
                 'text-foreground-muted'
@@ -556,7 +556,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       <div className="rounded-2xl border border-border bg-surface overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-bold text-foreground flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-amber-400" />
+            <Trophy className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             Set Fight Results
           </h2>
           <p className="text-foreground-muted text-sm mt-0.5">

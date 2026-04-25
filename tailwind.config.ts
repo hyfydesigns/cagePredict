@@ -30,7 +30,7 @@ const config: Config = {
         },
         accent: {
           DEFAULT:        '#f97316',
-          gold:           '#f59e0b',
+          gold:           'hsl(var(--accent-gold))',
         },
         muted: {
           DEFAULT:        'hsl(var(--surface-2))',

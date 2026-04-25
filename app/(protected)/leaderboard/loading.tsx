@@ -7,7 +7,7 @@ export default function LeaderboardLoading() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-1">
-          <Trophy className="h-6 w-6 text-amber-400" />
+          <Trophy className="h-6 w-6 text-amber-600 dark:text-amber-400" />
           <h1 className="text-3xl font-black text-foreground">Leaderboard</h1>
         </div>
         <Skeleton className="h-4 w-36 ml-9" />
