@@ -5,6 +5,7 @@ import {
   getFightsByDate,
   apiSportsIdToUuid,
   uuidToApiSportsId,
+  UFC_LEAGUE_ID,
 } from '@/lib/apis/api-sports'
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -74,8 +75,18 @@ async function syncViaApiSports(
 
     let apiFights: Awaited<ReturnType<typeof getFightsByDate>>
     try {
-      apiFights = await getFightsByDate(dateStr, true)
-      log.push(`  API returned ${apiFights.length} fight(s)`)
+      // Fetch all fights for the date, then filter to UFC client-side
+      const allFights = await getFightsByDate(dateStr, false)
+      const ufcFights = allFights.filter(
+        (f: any) => f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
+      )
+      log.push(`  API returned ${allFights.length} total fight(s), ${ufcFights.length} UFC fight(s)`)
+      if (allFights.length > 0 && ufcFights.length === 0) {
+        // Log the league names present so we can debug the filter
+        const leagues = [...new Set(allFights.map((f: any) => `${f.league?.id}:${f.league?.name}`))].join(', ')
+        log.push(`  Leagues in response: ${leagues}`)
+      }
+      apiFights = ufcFights
     } catch (e: any) {
       errors.push(`Fetch failed for ${event.name}: ${e.message}`)
       continue
