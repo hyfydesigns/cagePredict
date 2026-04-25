@@ -370,6 +370,7 @@ async function fetchEventByDateApiSports(
   day: number,
   month: number,
   year: number,
+  opts: { skipAI?: boolean; skipUFCStats?: boolean } = {},
 ): Promise<ActionResult> {
   const supabase = createServiceClient()
 
@@ -413,7 +414,7 @@ async function fetchEventByDateApiSports(
       const batch = uniqueFighterIds.slice(i, i + 5)
       await Promise.all(batch.map(async (fId) => {
         const basic = fights.flatMap((f) => [f.fighters.first, f.fighters.second]).find((f) => f.id === fId)!
-        const detail = await getFighterById(fId).catch(() => null)
+        const detail = opts.skipUFCStats ? null : await getFighterById(fId).catch(() => null)
         const base = normaliseFighter(detail ?? basic)
 
         // Age from birth_date
@@ -421,41 +422,46 @@ async function fetchEventByDateApiSports(
         const bd = (detail ?? basic).birth_date
         if (bd) age = Math.floor((Date.now() - new Date(bd).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
 
-        // fighting_style not in api-sports → UFCStats fallback
         let fighting_style: string | null = null
         let ufcStatsHeight = base.height_cm
         let ufcStatsReach  = base.reach_cm
+        let last_5_form: string | null = null
+        let winBreakdown = { ko_tko_wins: null as number|null, sub_wins: null as number|null, dec_wins: null as number|null }
 
-        // UFCStats for physical + combat stats (striking accuracy, stance, etc.)
-        const ufcStats = await getUFCStatsData(base.name)
-        if (!ufcStatsHeight) ufcStatsHeight = ufcStats.height_cm
-        if (!ufcStatsReach)  ufcStatsReach  = ufcStats.reach_cm
-        if (!age)            age             = ufcStats.age
-        if (!fighting_style) fighting_style  = ufcStats.fighting_style
+        if (!opts.skipUFCStats) {
+          // UFCStats for physical + combat stats (striking accuracy, stance, etc.)
+          const ufcStats = await getUFCStatsData(base.name)
+          if (!ufcStatsHeight) ufcStatsHeight = ufcStats.height_cm
+          if (!ufcStatsReach)  ufcStatsReach  = ufcStats.reach_cm
+          if (!age)            age             = ufcStats.age
+          if (!fighting_style) fighting_style  = ufcStats.fighting_style
 
-        // Derive last-5 form from UFCStats fight history (newest first)
-        const last_5_form: string | null = ufcStats.fights.length > 0
-          ? ufcStats.fights.slice(0, 5).map((f) =>
-              f.result === 'W' ? 'W' : f.result === 'L' ? 'L' : f.result === 'D' ? 'D' : 'N'
-            ).join('')
-          : null
+          last_5_form = ufcStats.fights.length > 0
+            ? ufcStats.fights.slice(0, 5).map((f) =>
+                f.result === 'W' ? 'W' : f.result === 'L' ? 'L' : f.result === 'D' ? 'D' : 'N'
+              ).join('')
+            : null
 
-        const winBreakdown = calcWinBreakdown(ufcStats.fights)
+          winBreakdown = calcWinBreakdown(ufcStats.fights)
 
-        fighterMap.set(fId, {
-          ...base,
-          height_cm: ufcStatsHeight,
-          reach_cm:  ufcStatsReach,
-          // Combat stats: prefer api-sports career data, fall back to UFCStats
-          striking_accuracy: base.striking_accuracy ?? ufcStats.str_acc,
-          sig_str_landed:    base.sig_str_landed    ?? ufcStats.slpm,
-          td_avg:            base.td_avg            ?? ufcStats.td_avg,
-          sub_avg:           base.sub_avg           ?? ufcStats.sub_avg,
-          age,
-          fighting_style,
-          last_5_form,
-          ...winBreakdown,
-        })
+          fighterMap.set(fId, {
+            ...base,
+            height_cm: ufcStatsHeight,
+            reach_cm:  ufcStatsReach,
+            striking_accuracy: base.striking_accuracy ?? ufcStats.str_acc,
+            sig_str_landed:    base.sig_str_landed    ?? ufcStats.slpm,
+            td_avg:            base.td_avg            ?? ufcStats.td_avg,
+            sub_avg:           base.sub_avg           ?? ufcStats.sub_avg,
+            age, fighting_style, last_5_form, ...winBreakdown,
+          })
+        } else {
+          fighterMap.set(fId, {
+            ...base,
+            height_cm: ufcStatsHeight,
+            reach_cm:  ufcStatsReach,
+            age, fighting_style, last_5_form, ...winBreakdown,
+          })
+        }
       }))
     }
 
@@ -535,7 +541,7 @@ async function fetchEventByDateApiSports(
         age: f2data.age, fighting_style: f2data.fighting_style,
       } : null
 
-      const aiResult = (aiInput1 && aiInput2)
+      const aiResult = (!opts.skipAI && aiInput1 && aiInput2)
         ? await generateAIAnalysis(aiInput1, aiInput2, normFight.weight_class ?? 'Catchweight')
         : { analysis_f1: null, analysis_f2: null }
       if (aiResult.debugError && !firstAiError) firstAiError = aiResult.debugError
@@ -963,9 +969,11 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
   const month = d.getUTCMonth() + 1
   const year  = d.getUTCFullYear()
 
-  // Re-run the import for this date — upserts won't break existing picks
+  // Re-run a lightweight import that only adds missing fight rows.
+  // We skip AI analysis and UFCStats enrichment here (those are slow and the
+  // fighters were already enriched during the original import).
   const result = isApiSportsConfigured()
-    ? await fetchEventByDateApiSports(day, month, year)
+    ? await fetchEventByDateApiSports(day, month, year, { skipAI: true, skipUFCStats: true })
     : await fetchEventByDateRapidApi(day, month, year)
 
   if (result.error) return { error: result.error }

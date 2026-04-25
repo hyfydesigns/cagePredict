@@ -71,6 +71,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [isAutoImportPending, startAutoImportTransition] = useTransition()
   const [autoImportLog, setAutoImportLog]                = useState<string[] | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
+  const [refreshingEventId, setRefreshingEventId] = useState<string | null>(null)
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
   const [fetchDate, setFetchDate] = useState(() => {
@@ -608,16 +609,25 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                     </button>
                   )}
                   <button
-                    className="flex items-center gap-1 text-[10px] font-bold text-blue-500 border border-blue-500/40 rounded px-1.5 py-0.5 hover:bg-blue-500/10 transition-colors"
+                    className="flex items-center gap-1 text-[10px] font-bold text-blue-500 border border-blue-500/40 rounded px-1.5 py-0.5 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
                     title="Re-fetch fights from API and add any missing ones"
+                    disabled={refreshingEventId === event.id}
                     onClick={() => {
+                      setRefreshingEventId(event.id)
                       refreshEventFights(event.id).then(r => {
-                        toast({ title: r.error ? 'Failed' : 'Fights refreshed', description: r.error ?? r.message, variant: r.error ? 'destructive' : 'default' })
+                        setRefreshingEventId(null)
+                        toast({ title: r.error ? 'Refresh failed' : 'Fights refreshed', description: r.error ?? r.message, variant: r.error ? 'destructive' : 'default' })
+                      }).catch(e => {
+                        setRefreshingEventId(null)
+                        toast({ title: 'Refresh failed', description: String(e), variant: 'destructive' })
                       })
                     }}
                   >
-                    <RefreshCw className="h-2.5 w-2.5" />
-                    Refresh Fights
+                    {refreshingEventId === event.id
+                      ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      : <RefreshCw className="h-2.5 w-2.5" />
+                    }
+                    {refreshingEventId === event.id ? 'Refreshing…' : 'Refresh Fights'}
                   </button>
                   {expandedEvent === event.id
                     ? <ChevronUp className="h-4 w-4 text-foreground-muted" />
