@@ -372,6 +372,7 @@ async function fetchEventByDateApiSports(
   year: number,
   opts: { skipAI?: boolean; skipUFCStats?: boolean } = {},
 ): Promise<ActionResult> {
+  try {
   const supabase = createServiceClient()
 
   const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
@@ -505,10 +506,18 @@ async function fetchEventByDateApiSports(
       else insertedFighters++
     }
 
-    // 3. Upsert event
+    // 3. Upsert event — never downgrade status (e.g. don't overwrite 'live' → 'upcoming')
     const { event: normEvent } = normaliseFight(fights[0], apiFights)
-    // Use earliest fight date as event date
     const earliestDate = fights.reduce((min, f) => f.date < min ? f.date : min, fights[0].date)
+
+    // Fetch existing event status so we don't clobber a manually-set 'live'/'completed'
+    const { data: existingEvent } = await supabase
+      .from('events').select('status').eq('id', normEvent.uuid).maybeSingle()
+    const statusPriority: Record<string, number> = { upcoming: 0, live: 1, completed: 2 }
+    const existingPriority = statusPriority[existingEvent?.status ?? 'upcoming'] ?? 0
+    const newPriority      = statusPriority[normEvent.status] ?? 0
+    const resolvedStatus   = newPriority >= existingPriority ? normEvent.status : (existingEvent?.status ?? normEvent.status)
+
     const eventRow = {
       id:        normEvent.uuid,
       name:      normEvent.name,
@@ -516,7 +525,7 @@ async function fetchEventByDateApiSports(
       location:  normEvent.location,
       venue:     normEvent.venue,
       image_url: null,
-      status:    normEvent.status,
+      status:    resolvedStatus,
     }
 
     const { error: evErr } = await supabase.from('events').upsert(eventRow as any, { onConflict: 'id', ignoreDuplicates: false })
@@ -584,6 +593,10 @@ async function fetchEventByDateApiSports(
   return {
     success: true,
     message: `[api-sports.io] Imported ${insertedFighters} fighters, ${insertedEvents} event(s), ${insertedFights} fights${aiNote}.`,
+  }
+  } catch (e: any) {
+    console.error('[fetchEventByDateApiSports] uncaught error:', e)
+    return { error: `Import failed: ${e?.message ?? String(e)}` }
   }
 }
 
@@ -950,6 +963,7 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
  * only missing fights get added.
  */
 export async function refreshEventFights(eventId: string): Promise<ActionResult> {
+  try {
   const auth = await requireAdmin()
   if ('error' in auth) return { error: auth.error }
 
@@ -981,6 +995,10 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
   revalidatePath('/', 'layout')
   revalidatePath('/admin')
   return { success: true, message: result.message ?? 'Fights refreshed.' }
+  } catch (e: any) {
+    console.error('[refreshEventFights] uncaught error:', e)
+    return { error: `Unexpected error: ${e?.message ?? String(e)}` }
+  }
 }
 
 // ─── Complete fight ──────────────────────────────────────────────────────────
