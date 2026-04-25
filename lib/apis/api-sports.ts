@@ -385,15 +385,17 @@ async function apiGet<T>(
 }
 
 /** Returns true if a fight belongs to the UFC, checking multiple possible field locations
- *  because api-sports doesn't always populate the `league` field on fight objects. */
+ *  because api-sports doesn't always populate the `league` field on fight objects.
+ *  Falls back to including the fight if none of the discriminating fields are present
+ *  (safe since callers already filter by specific event date). */
 function isUfcFight(f: ApiSportsFight | any): boolean {
-  return (
-    f.league?.id === UFC_LEAGUE_ID ||
-    f.league?.name?.toLowerCase().includes('ufc') ||
-    f.event?.name?.toLowerCase().includes('ufc') ||
-    f.competition?.name?.toLowerCase().includes('ufc') ||
-    f.tournament?.name?.toLowerCase().includes('ufc')
-  )
+  // If any known field is present, use it to decide
+  if (f.league != null)      return f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
+  if (f.event != null)       return f.event?.name?.toLowerCase().includes('ufc') ?? false
+  if (f.competition != null) return f.competition?.name?.toLowerCase().includes('ufc') ?? false
+  if (f.tournament != null)  return f.tournament?.name?.toLowerCase().includes('ufc') ?? false
+  // No discriminating field — include by default (caller is filtering by date already)
+  return true
 }
 
 /**

@@ -936,6 +936,45 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
   return { updated, errors }
 }
 
+// ─── Refresh missing fights for an existing event ────────────────────────────
+
+/**
+ * Re-fetches all fights for an existing event from the API and upserts them.
+ * Safe to run on a live event — existing fights (and their picks) are untouched;
+ * only missing fights get added.
+ */
+export async function refreshEventFights(eventId: string): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+
+  // Get the event date from DB
+  const { data: event, error: evErr } = await supabase
+    .from('events')
+    .select('id, name, date')
+    .eq('id', eventId)
+    .single()
+
+  if (evErr || !event) return { error: 'Event not found' }
+
+  const d     = new Date(event.date)
+  const day   = d.getUTCDate()
+  const month = d.getUTCMonth() + 1
+  const year  = d.getUTCFullYear()
+
+  // Re-run the import for this date — upserts won't break existing picks
+  const result = isApiSportsConfigured()
+    ? await fetchEventByDateApiSports(day, month, year)
+    : await fetchEventByDateRapidApi(day, month, year)
+
+  if (result.error) return { error: result.error }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  return { success: true, message: result.message ?? 'Fights refreshed.' }
+}
+
 // ─── Complete fight ──────────────────────────────────────────────────────────
 
 export async function completeFight(

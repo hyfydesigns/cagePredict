@@ -9,7 +9,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -607,6 +607,18 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                       Revert
                     </button>
                   )}
+                  <button
+                    className="flex items-center gap-1 text-[10px] font-bold text-blue-500 border border-blue-500/40 rounded px-1.5 py-0.5 hover:bg-blue-500/10 transition-colors"
+                    title="Re-fetch fights from API and add any missing ones"
+                    onClick={() => {
+                      refreshEventFights(event.id).then(r => {
+                        toast({ title: r.error ? 'Failed' : 'Fights refreshed', description: r.error ?? r.message, variant: r.error ? 'destructive' : 'default' })
+                      })
+                    }}
+                  >
+                    <RefreshCw className="h-2.5 w-2.5" />
+                    Refresh Fights
+                  </button>
                   {expandedEvent === event.id
                     ? <ChevronUp className="h-4 w-4 text-foreground-muted" />
                     : <ChevronDown className="h-4 w-4 text-foreground-muted" />
