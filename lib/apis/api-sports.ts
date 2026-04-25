@@ -384,6 +384,18 @@ async function apiGet<T>(
   return data.response ?? []
 }
 
+/** Returns true if a fight belongs to the UFC, checking multiple possible field locations
+ *  because api-sports doesn't always populate the `league` field on fight objects. */
+function isUfcFight(f: ApiSportsFight | any): boolean {
+  return (
+    f.league?.id === UFC_LEAGUE_ID ||
+    f.league?.name?.toLowerCase().includes('ufc') ||
+    f.event?.name?.toLowerCase().includes('ufc') ||
+    f.competition?.name?.toLowerCase().includes('ufc') ||
+    f.tournament?.name?.toLowerCase().includes('ufc')
+  )
+}
+
 /**
  * Get all MMA fights for a date (YYYY-MM-DD).
  * Optionally filtered to UFC only (client-side, since the free plan
@@ -395,9 +407,7 @@ export async function getFightsByDate(
 ): Promise<ApiSportsFight[]> {
   const all = await apiGet<ApiSportsFight>('/fights', { date })
   if (!ufcOnly) return all
-  return all.filter(
-    (f) => f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
-  )
+  return all.filter(isUfcFight)
 }
 
 /**
@@ -408,9 +418,7 @@ export async function getFightsByDate(
 export async function getUpcomingUFCFights(): Promise<ApiSportsFight[]> {
   const today = new Date().toISOString().slice(0, 10)
   const all = await apiGet<ApiSportsFight>('/fights', { date: today })
-  return all.filter(
-    (f) => f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
-  )
+  return all.filter(isUfcFight)
 }
 
 /**

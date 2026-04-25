@@ -90,12 +90,21 @@ async function syncViaApiSports(
       for (const tryDate of datesToTry) {
         const allFights = await getFightsByDate(tryDate, false)
         const ufcFights = allFights.filter(
-          (f: any) => f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
+          (f: any) =>
+            f.league?.id === UFC_LEAGUE_ID ||
+            f.league?.name?.toLowerCase().includes('ufc') ||
+            f.event?.name?.toLowerCase().includes('ufc') ||
+            f.competition?.name?.toLowerCase().includes('ufc') ||
+            f.tournament?.name?.toLowerCase().includes('ufc') ||
+            // Last resort: if no league/event/competition info at all, include everything
+            // (we already filtered to the UFC event date, false positives are unlikely)
+            (!f.league && !f.event)
         )
         log.push(`  [${tryDate}] ${allFights.length} total, ${ufcFights.length} UFC`)
         if (allFights.length > 0 && ufcFights.length === 0) {
-          const leagues = [...new Set(allFights.map((f: any) => `${f.league?.id}:${f.league?.name}`))].join(', ')
-          log.push(`  Leagues: ${leagues}`)
+          const sample = allFights[0]
+          log.push(`  Sample fight keys: ${Object.keys(sample).join(', ')}`)
+          log.push(`  Sample event: ${JSON.stringify((sample as any).event ?? (sample as any).competition ?? (sample as any).tournament ?? 'none')}`)
         }
         if (ufcFights.length > 0) {
           foundFights = ufcFights
