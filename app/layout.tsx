@@ -84,7 +84,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} font-sans min-h-screen bg-[#080808]`}>
+      <body className={`${inter.variable} font-sans min-h-screen bg-background`}>
         <SupabaseProvider>
           <StagingBanner />
           <Navbar profile={profile} isAuthenticated={!!user} />
