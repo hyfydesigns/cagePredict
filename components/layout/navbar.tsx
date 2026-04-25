@@ -85,9 +85,9 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
           {isAuthenticated && profile ? (
             <>
               {/* Points badge */}
-              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1">
-                <Trophy className="h-3.5 w-3.5 text-amber-400" />
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-300">{profile.total_points} pts</span>
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-amber-600 dark:border-amber-500/30 bg-amber-500/10 px-3 py-1">
+                <Trophy className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-500 dark:text-amber-300">{profile.total_points} pts</span>
               </div>
 
               {/* Profile link */}

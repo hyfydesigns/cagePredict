@@ -76,7 +76,7 @@ export default async function LeaderboardPage() {
     <div className="container mx-auto py-8 max-w-2xl space-y-6">
       <div>
         <div className="flex items-center gap-3 mb-1">
-          <Trophy className="h-6 w-6 text-amber-400" />
+          <Trophy className="h-6 w-6 text-amber-600 dark:text-amber-400" />
           <h1 className="text-3xl font-black text-foreground">Leaderboard</h1>
         </div>
         <p className="text-foreground-secondary text-sm pl-9">

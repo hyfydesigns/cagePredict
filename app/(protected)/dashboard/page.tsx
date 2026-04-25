@@ -154,7 +154,7 @@ export default async function DashboardPage() {
           href="/leaderboard"
           className="group rounded-xl border border-border bg-surface p-4 hover:border-border hover:bg-surface-2/60 transition-all text-center"
         >
-          <Trophy className="h-5 w-5 mx-auto mb-2 text-amber-400" />
+          <Trophy className="h-5 w-5 mx-auto mb-2 text-amber-600 dark:text-amber-400" />
           <p className="text-xs font-semibold text-foreground">Leaderboard</p>
           <p className="text-[11px] text-foreground-secondary mt-0.5">Rank #{rank}</p>
         </Link>
@@ -170,9 +170,9 @@ export default async function DashboardPage() {
 
       {/* Friend requests */}
       {pendingRequests.length > 0 && (
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+        <div className="rounded-2xl border border-amber-600 dark:border-amber-500/20 bg-amber-500/5 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Bell className="h-4 w-4 text-amber-400" />
+            <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <h3 className="font-semibold text-foreground text-sm">
               Friend Requests ({pendingRequests.length})
             </h3>

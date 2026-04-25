@@ -81,7 +81,7 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
           <div className="rounded-xl bg-surface-2/60 border border-border/40 p-3 text-center">
-            <Trophy className="h-4 w-4 mx-auto mb-1 text-amber-400" />
+            <Trophy className="h-4 w-4 mx-auto mb-1 text-amber-600 dark:text-amber-400" />
             <p className="text-foreground font-black text-lg leading-none">{profile.total_points}</p>
             <p className="text-foreground-secondary text-[11px] mt-1">Points</p>
           </div>

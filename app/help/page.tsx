@@ -61,7 +61,7 @@ export default function HelpPage() {
             On the home Fight Card, tap or click the fighter you think will win each bout. You can change your pick right up until it locks.
           </Step>
           <Step n={3} title="Set your Confidence Pick">
-            Once per event you can mark one pick as your <strong className="text-amber-400">🔒 Confidence Pick</strong> — this doubles your points to 20 if correct. Choose wisely.
+            Once per event you can mark one pick as your <strong className="text-amber-600 dark:text-amber-400">🔒 Confidence Pick</strong> — this doubles your points to 20 if correct. Choose wisely.
           </Step>
           <Step n={4} title="Picks lock before each fight">
             Picks lock <strong className="text-foreground">2 hours before the scheduled fight time</strong>. You&apos;ll see a live countdown on each fight card showing when your window closes.
@@ -80,7 +80,7 @@ export default function HelpPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { label: 'Correct pick', pts: '+10 pts', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
-            { label: 'Confidence pick (correct)', pts: '+20 pts', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+            { label: 'Confidence pick (correct)', pts: '+20 pts', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-600 dark:border-amber-500/20' },
             { label: 'Wrong pick', pts: '0 pts', color: 'text-foreground-muted', bg: 'bg-surface-2/60 border-border/40' },
             { label: 'Confidence pick (wrong)', pts: '0 pts', color: 'text-foreground-muted', bg: 'bg-surface-2/60 border-border/40' },
           ].map(({ label, pts, color, bg }) => (
@@ -98,7 +98,7 @@ export default function HelpPage() {
             {[
               { streak: '3–4 in a row', bonus: '+5 pts', color: 'text-blue-400' },
               { streak: '5–9 in a row', bonus: '+10 pts', color: 'text-purple-400' },
-              { streak: '10+ in a row', bonus: '+20 pts', color: 'text-amber-400' },
+              { streak: '10+ in a row', bonus: '+20 pts', color: 'text-amber-600 dark:text-amber-400' },
             ].map(({ streak, bonus, color }) => (
               <div key={streak} className="rounded-lg bg-surface-2/60 p-2">
                 <p className={`font-black ${color}`}>{bonus}</p>

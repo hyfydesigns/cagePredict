@@ -247,8 +247,8 @@ function PicksProgressBadge({ total, picked }: { total: number; picked: number }
   const circumference = 2 * Math.PI * r
 
   const strokeColor = allDone ? '#22c55e' : hasNone ? '#71717a' : '#f59e0b'
-  const textColor   = allDone ? 'text-green-400' : hasNone ? 'text-foreground-muted' : 'text-amber-400'
-  const bgColor     = allDone ? 'bg-green-500/10 border-green-500/30' : hasNone ? 'bg-surface-2/80 border-border/60' : 'bg-amber-500/10 border-amber-500/30'
+  const textColor   = allDone ? 'text-green-400' : hasNone ? 'text-foreground-muted' : 'text-amber-600 dark:text-amber-400'
+  const bgColor     = allDone ? 'bg-green-500/10 border-green-500/30' : hasNone ? 'bg-surface-2/80 border-border/60' : 'bg-amber-500/10 border-amber-600 dark:border-amber-500/30'
 
   return (
     <div className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 backdrop-blur-sm ${bgColor}`}>
@@ -382,7 +382,7 @@ function EventSectionClient({
                 <span className={streakPts > 0 ? 'text-orange-400 font-bold' : 'text-foreground-muted font-bold'}>{streakPts}</span>
                 <span className="text-foreground-muted">streak</span>
                 <span className="text-foreground-muted">=</span>
-                <span className="text-amber-400 font-black">{totalPts}</span>
+                <span className="text-amber-600 dark:text-amber-400 font-black">{totalPts}</span>
                 <span className="text-foreground-muted">total</span>
               </div>
 
@@ -423,7 +423,7 @@ function EventSectionClient({
                       className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border ${
                         won
                           ? pick.isConfidence
-                            ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                            ? 'bg-amber-500/20 border-amber-600 dark:border-amber-500/50 text-amber-600 dark:text-amber-400'
                             : 'bg-green-500/20 border-green-500/50 text-green-400'
                           : 'bg-red-500/10 border-red-500/30 text-red-400'
                       }`}

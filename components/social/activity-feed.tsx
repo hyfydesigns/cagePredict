@@ -55,7 +55,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
               {' '}to beat{' '}
               <span className="text-foreground-muted">{item.opponentName}</span>
               {item.isConfidence && (
-                <span className="inline-flex items-center gap-0.5 ml-1 text-amber-400 text-xs font-bold">
+                <span className="inline-flex items-center gap-0.5 ml-1 text-amber-600 dark:text-amber-400 text-xs font-bold">
                   <Lock className="h-2.5 w-2.5" />Lock
                 </span>
               )}

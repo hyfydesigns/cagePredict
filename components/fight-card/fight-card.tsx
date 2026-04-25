@@ -168,7 +168,7 @@ export function FightCard({
         </div>
         <div className="flex items-center gap-2">
           {isConfidence && !isCompleted && (
-            <Badge className="gap-1 text-[11px] bg-amber-500/20 text-amber-400 border-amber-500/40">
+            <Badge className="gap-1 text-[11px] bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-600 dark:border-amber-500/40">
               🔒 2× pts
             </Badge>
           )}
@@ -271,7 +271,7 @@ export function FightCard({
                     <p className="text-[10px] text-foreground-secondary font-semibold">
                       {fight.fighter1.name.split(' ').pop()}
                       {(fight as any)._f1Rank && (
-                        <span className="ml-1.5 text-amber-400">#{(fight as any)._f1Rank}</span>
+                        <span className="ml-1.5 text-amber-600 dark:text-amber-400">#{(fight as any)._f1Rank}</span>
                       )}
                     </p>
                     <FormPills form={fight.fighter1.last_5_form} />
@@ -280,7 +280,7 @@ export function FightCard({
                   <div className="space-y-1 text-right">
                     <p className="text-[10px] text-foreground-secondary font-semibold">
                       {(fight as any)._f2Rank && (
-                        <span className="mr-1.5 text-amber-400">#{(fight as any)._f2Rank}</span>
+                        <span className="mr-1.5 text-amber-600 dark:text-amber-400">#{(fight as any)._f2Rank}</span>
                       )}
                       {fight.fighter2.name.split(' ').pop()}
                     </p>
@@ -368,7 +368,7 @@ export function FightCard({
       {/* Result banner */}
       {isCompleted && fight.winner_id && (
         <div className="px-4 py-2.5 bg-surface-2/30 border-t border-border/40 flex items-center justify-center gap-2">
-          <Trophy className="h-3.5 w-3.5 text-amber-400" />
+          <Trophy className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
           <span className="text-sm text-foreground-secondary">
             <span className="font-bold text-foreground">
               {fight.winner_id === fight.fighter1.id ? fight.fighter1.name : fight.fighter2.name}

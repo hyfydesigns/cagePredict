@@ -46,7 +46,7 @@ export function CrewEventScores({ members, eventName, currentUserId }: CrewEvent
           >
             {/* Rank */}
             <span className={`text-sm font-black w-5 text-center ${
-              i === 0 ? 'text-amber-400' : i === 1 ? 'text-foreground-muted' : i === 2 ? 'text-amber-700' : 'text-foreground-muted'
+              i === 0 ? 'text-amber-600 dark:text-amber-400' : i === 1 ? 'text-foreground-muted' : i === 2 ? 'text-amber-700' : 'text-foreground-muted'
             }`}>
               {i + 1}
             </span>
@@ -73,7 +73,7 @@ export function CrewEventScores({ members, eventName, currentUserId }: CrewEvent
                   <Clock className="h-3 w-3" />{member.pending}
                 </span>
                 {member.lockCorrect > 0 && (
-                  <span className="flex items-center gap-0.5 text-[11px] text-amber-400">
+                  <span className="flex items-center gap-0.5 text-[11px] text-amber-600 dark:text-amber-400">
                     <Lock className="h-3 w-3" />{member.lockCorrect}
                   </span>
                 )}
