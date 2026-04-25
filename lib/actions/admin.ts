@@ -165,6 +165,28 @@ function countryToFlag(alpha2: string): string | null {
 // fetchStatsFromWikipedia and fetchStatsFromUFCStats replaced by
 // lib/apis/ufc-stats.ts (getUFCStatsData) — verified against live HTML April 2026
 
+// ─── Force event status ───────────────────────────────────────────────────────
+
+export async function forceSetEventStatus(
+  eventId: string,
+  status: 'upcoming' | 'live' | 'completed',
+): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('events')
+    .update({ status })
+    .eq('id', eventId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  return { success: true, message: `Event status set to "${status}"` }
+}
+
 // ─── Clear all data ──────────────────────────────────────────────────────────
 
 export async function clearAllData(): Promise<ActionResult> {
