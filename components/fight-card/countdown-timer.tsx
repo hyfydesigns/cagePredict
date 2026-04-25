@@ -16,13 +16,13 @@ export function CountdownTimer({ fightTime, compact = false }: CountdownTimerPro
 
   // Colour palette keyed by urgency
   const urgencyText = {
-    normal: 'text-zinc-400',
+    normal: 'text-foreground-muted',
     soon:   'text-amber-400',
     urgent: 'text-red-400',
   }[lockUrgency]
 
   const urgencyBg = {
-    normal: 'bg-zinc-800/60 border-zinc-700/60',
+    normal: 'bg-surface-2/60 border-border/60',
     soon:   'bg-amber-500/10 border-amber-500/30',
     urgent: 'bg-red-500/10 border-red-500/30',
   }[lockUrgency]
@@ -51,7 +51,7 @@ export function CountdownTimer({ fightTime, compact = false }: CountdownTimerPro
 
       {/* Fight start time (secondary, shown only when picks are still open) */}
       {!isPicksLocked && (
-        <div className="flex items-center gap-1 text-zinc-600">
+        <div className="flex items-center gap-1 text-foreground-muted">
           <Clock className="h-2.5 w-2.5" />
           <span className="text-[9px] tabular-nums leading-none">Starts {formatted}</span>
         </div>

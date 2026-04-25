@@ -70,27 +70,27 @@ export function EventCountdownBanner({ eventName, fightTime }: EventCountdownBan
         'relative z-30 w-full border-b px-4 py-2 text-center text-xs font-semibold transition-colors',
         isImminent
           ? 'bg-primary/10 border-primary/30 text-primary'
-          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+          : 'bg-surface border-border text-foreground-secondary'
       )}
     >
       <div className="flex items-center justify-center gap-2">
         <Clock className={cn('h-3.5 w-3.5 shrink-0', isImminent && 'animate-pulse')} />
         <span>
-          <span className="text-zinc-300 font-normal">
+          <span className="text-foreground-secondary font-normal">
             {isImminent ? '🥊 Starting soon — ' : `${eventName} · `}
           </span>
-          <span className={cn('tabular-nums', isImminent ? 'text-primary font-black' : 'text-white font-bold')}>
+          <span className={cn('tabular-nums', isImminent ? 'text-primary font-black' : 'text-foreground font-bold')}>
             {countdownStr}
           </span>
           {!isImminent && (
-            <span className="text-zinc-300 font-normal"> until main card</span>
+            <span className="text-foreground-secondary font-normal"> until main card</span>
           )}
         </span>
       </div>
       <button
         onClick={dismiss}
         aria-label="Dismiss banner"
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-400 transition-colors"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground-muted transition-colors"
       >
         <X className="h-3.5 w-3.5" />
       </button>

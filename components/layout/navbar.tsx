@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { signOut } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils'
 import type { ProfileRow } from '@/types/database'
@@ -30,7 +31,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/60 bg-background/90 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/90 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group">
@@ -39,7 +40,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
             alt="CagePredict"
             className="h-8 w-8 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]"
           />
-          <span className="text-lg font-black tracking-tight text-white">
+          <span className="text-lg font-black tracking-tight text-foreground">
             Cage<span className="text-primary">Predict</span>
           </span>
         </Link>
@@ -53,8 +54,8 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
               className={cn(
                 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 pathname === href
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                  ? 'bg-surface-2 text-foreground'
+                  : 'text-foreground-secondary hover:text-foreground hover:bg-surface-2'
               )}
             >
               <Icon className="h-4 w-4" />
@@ -69,8 +70,8 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
           className={cn(
             'hidden md:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
             pathname === '/help'
-              ? 'text-zinc-300'
-              : 'text-zinc-500 hover:text-zinc-300'
+              ? 'text-foreground-secondary'
+              : 'text-foreground-muted hover:text-foreground-secondary'
           )}
         >
           <HelpCircle className="h-3.5 w-3.5" />
@@ -78,34 +79,36 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
         </Link>
 
         {/* Right side */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+
           {isAuthenticated && profile ? (
             <>
               {/* Points badge */}
               <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1">
                 <Trophy className="h-3.5 w-3.5 text-amber-400" />
-                <span className="text-xs font-bold text-amber-300">{profile.total_points} pts</span>
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-300">{profile.total_points} pts</span>
               </div>
 
               {/* Profile link */}
               <Link
                 href={`/profile/${profile.username}`}
-                className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-zinc-800/60 transition-colors"
+                className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-surface-2 transition-colors"
               >
-                <Avatar className="h-8 w-8 border border-zinc-700">
+                <Avatar className="h-8 w-8 border border-border">
                   <AvatarImage src={profile.avatar_url ?? undefined} />
-                  <AvatarFallback className="bg-zinc-800 text-lg">
+                  <AvatarFallback className="bg-surface-2 text-lg">
                     {profile.avatar_emoji}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:block text-sm font-medium text-zinc-200">
+                <span className="hidden sm:block text-sm font-medium text-foreground-secondary">
                   {profile.username}
                 </span>
               </Link>
 
               <form action={signOut}>
                 <Button variant="ghost" size="icon" type="submit" title="Sign out">
-                  <LogOut className="h-4 w-4 text-zinc-300" />
+                  <LogOut className="h-4 w-4 text-foreground-muted" />
                 </Button>
               </form>
             </>
@@ -122,7 +125,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
 
           {/* Mobile menu toggle */}
           <button
-            className="md:hidden text-zinc-300 hover:text-white"
+            className="md:hidden text-foreground-secondary hover:text-foreground"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -132,7 +135,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
 
       {/* Mobile Nav */}
       {mobileOpen && (
-        <nav className="md:hidden border-t border-zinc-800 bg-background px-4 py-3 space-y-1">
+        <nav className="md:hidden border-t border-border bg-background px-4 py-3 space-y-1">
           {NAV_LINKS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
@@ -141,23 +144,23 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 pathname === href
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                  ? 'bg-surface-2 text-foreground'
+                  : 'text-foreground-secondary hover:text-foreground hover:bg-surface-2'
               )}
             >
               <Icon className="h-4 w-4" />
               {label}
             </Link>
           ))}
-          <div className="pt-2 border-t border-zinc-800">
+          <div className="pt-2 border-t border-border">
             <Link
               href="/help"
               onClick={() => setMobileOpen(false)}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 pathname === '/help'
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                  ? 'bg-surface-2 text-foreground'
+                  : 'text-foreground-muted hover:text-foreground hover:bg-surface-2'
               )}
             >
               <HelpCircle className="h-4 w-4" />
@@ -166,7 +169,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
           </div>
           {isAuthenticated && (
             <form action={signOut}>
-              <button className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-300 hover:text-white w-full">
+              <button className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground-secondary hover:text-foreground w-full">
                 <LogOut className="h-4 w-4" />
                 Sign Out
               </button>

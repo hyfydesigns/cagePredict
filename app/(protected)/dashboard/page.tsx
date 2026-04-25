@@ -144,27 +144,27 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-3 gap-3">
         <Link
           href="/"
-          className="group rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all text-center"
+          className="group rounded-xl border border-border bg-surface p-4 hover:border-border hover:bg-surface-2/60 transition-all text-center"
         >
           <Swords className="h-5 w-5 mx-auto mb-2 text-primary" />
-          <p className="text-xs font-semibold text-white">Fight Card</p>
-          <p className="text-[11px] text-zinc-300 mt-0.5">Make picks</p>
+          <p className="text-xs font-semibold text-foreground">Fight Card</p>
+          <p className="text-[11px] text-foreground-secondary mt-0.5">Make picks</p>
         </Link>
         <Link
           href="/leaderboard"
-          className="group rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all text-center"
+          className="group rounded-xl border border-border bg-surface p-4 hover:border-border hover:bg-surface-2/60 transition-all text-center"
         >
           <Trophy className="h-5 w-5 mx-auto mb-2 text-amber-400" />
-          <p className="text-xs font-semibold text-white">Leaderboard</p>
-          <p className="text-[11px] text-zinc-300 mt-0.5">Rank #{rank}</p>
+          <p className="text-xs font-semibold text-foreground">Leaderboard</p>
+          <p className="text-[11px] text-foreground-secondary mt-0.5">Rank #{rank}</p>
         </Link>
         <Link
           href="/crews"
-          className="group rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all text-center"
+          className="group rounded-xl border border-border bg-surface p-4 hover:border-border hover:bg-surface-2/60 transition-all text-center"
         >
-          <Users className="h-5 w-5 mx-auto mb-2 text-zinc-300" />
-          <p className="text-xs font-semibold text-white">Crews</p>
-          <p className="text-[11px] text-zinc-300 mt-0.5">Private leagues</p>
+          <Users className="h-5 w-5 mx-auto mb-2 text-foreground-secondary" />
+          <p className="text-xs font-semibold text-foreground">Crews</p>
+          <p className="text-[11px] text-foreground-secondary mt-0.5">Private leagues</p>
         </Link>
       </div>
 
@@ -173,7 +173,7 @@ export default async function DashboardPage() {
         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
           <div className="flex items-center gap-2 mb-3">
             <Bell className="h-4 w-4 text-amber-400" />
-            <h3 className="font-semibold text-white text-sm">
+            <h3 className="font-semibold text-foreground text-sm">
               Friend Requests ({pendingRequests.length})
             </h3>
           </div>
@@ -189,7 +189,7 @@ export default async function DashboardPage() {
       {upcomingEvents.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-white">Upcoming Events</h2>
+            <h2 className="font-bold text-foreground">Upcoming Events</h2>
             <Link href="/" className="text-xs text-primary hover:underline flex items-center gap-1">
               View all <ChevronRight className="h-3 w-3" />
             </Link>
@@ -199,11 +199,11 @@ export default async function DashboardPage() {
               <Link
                 key={event.id}
                 href="/"
-                className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all"
+                className="flex items-center justify-between rounded-xl border border-border bg-surface/60 px-4 py-3 hover:border-border hover:bg-surface-2/40 transition-all"
               >
                 <div>
-                  <p className="text-sm font-semibold text-white">{event.name}</p>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-zinc-300">
+                  <p className="text-sm font-semibold text-foreground">{event.name}</p>
+                  <div className="flex items-center gap-3 mt-0.5 text-xs text-foreground-secondary">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
                       {format(new Date(event.date), 'MMM d, yyyy')}
@@ -211,7 +211,7 @@ export default async function DashboardPage() {
                     <span>{event.fights?.length ?? 0} fights</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                <ChevronRight className="h-4 w-4 text-foreground-muted" />
               </Link>
             ))}
           </div>
@@ -222,16 +222,16 @@ export default async function DashboardPage() {
       {friendIds.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-white flex items-center gap-2">
-              <Users className="h-4 w-4 text-zinc-300" /> Friends&apos; Picks
+            <h2 className="font-bold text-foreground flex items-center gap-2">
+              <Users className="h-4 w-4 text-foreground-secondary" /> Friends&apos; Picks
             </h2>
           </div>
           {feedItems.length > 0 ? (
             <ActivityFeed items={feedItems} />
           ) : (
-            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 py-8 text-center">
-              <p className="text-zinc-300 text-sm">No picks from friends in the last 7 days.</p>
-              <p className="text-zinc-400 text-xs mt-1">Check back after the next event!</p>
+            <div className="rounded-xl border border-border/60 bg-surface/40 py-8 text-center">
+              <p className="text-foreground-secondary text-sm">No picks from friends in the last 7 days.</p>
+              <p className="text-foreground-muted text-xs mt-1">Check back after the next event!</p>
             </div>
           )}
         </div>
@@ -240,7 +240,7 @@ export default async function DashboardPage() {
       {/* Recent picks */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-bold text-white">Recent Predictions</h2>
+          <h2 className="font-bold text-foreground">Recent Predictions</h2>
           <Link
             href={`/profile/${profile.username}`}
             className="text-xs text-primary hover:underline flex items-center gap-1"
@@ -251,10 +251,10 @@ export default async function DashboardPage() {
         {predictions.length > 0 ? (
           <PredictionHistory predictions={predictions} />
         ) : (
-          <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 py-10 text-center">
-            <SwordsIcon className="h-8 w-8 mx-auto mb-3 text-zinc-300" />
-            <p className="text-zinc-300 text-sm font-semibold">No picks yet</p>
-            <p className="text-zinc-400 text-xs mt-1 mb-4">Head to the fight card and make your first prediction.</p>
+          <div className="rounded-xl border border-border/60 bg-surface/40 py-10 text-center">
+            <SwordsIcon className="h-8 w-8 mx-auto mb-3 text-foreground-secondary" />
+            <p className="text-foreground-secondary text-sm font-semibold">No picks yet</p>
+            <p className="text-foreground-muted text-xs mt-1 mb-4">Head to the fight card and make your first prediction.</p>
             <Link
               href="/"
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-4 py-2 hover:bg-primary/20 transition-colors"
@@ -274,10 +274,10 @@ function FriendRequestRow({ request }: { request: any }) {
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <span className="text-xl">{prof?.avatar_emoji ?? '🥊'}</span>
-        <span className="text-sm text-white font-medium">
+        <span className="text-sm text-foreground font-medium">
           {prof?.display_name ?? prof?.username}
         </span>
-        <span className="text-xs text-zinc-300">@{prof?.username}</span>
+        <span className="text-xs text-foreground-secondary">@{prof?.username}</span>
       </div>
       <form action={async () => { 'use server'; await acceptFriendRequest(request.id) }}>
         <Button type="submit" size="sm" className="h-7 text-xs px-3">Accept</Button>

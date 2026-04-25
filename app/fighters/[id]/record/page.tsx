@@ -226,8 +226,8 @@ function ResultBadge({ result }: { result: 'W' | 'L' | 'D' | 'NC' }) {
   const cls =
     result === 'W'  ? 'bg-green-500/20 border-green-500/40 text-green-400' :
     result === 'L'  ? 'bg-red-500/20 border-red-500/40 text-red-400' :
-    result === 'NC' ? 'bg-zinc-700/40 border-zinc-600 text-zinc-500' :
-                     'bg-zinc-700/40 border-zinc-600 text-zinc-400'
+    result === 'NC' ? 'bg-surface-3/40 border-border text-foreground-muted' :
+                     'bg-surface-3/40 border-border text-foreground-muted'
   return (
     <span className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border ${cls}`}>
       {result}
@@ -238,9 +238,9 @@ function ResultBadge({ result }: { result: 'W' | 'L' | 'D' | 'NC' }) {
 function StatCell({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="text-center">
-      <p className="text-white font-black text-2xl leading-none">{value}</p>
-      {sub && <p className="text-zinc-500 text-[10px] mt-0.5">{sub}</p>}
-      <p className="text-zinc-500 text-[11px] mt-1">{label}</p>
+      <p className="text-foreground font-black text-2xl leading-none">{value}</p>
+      {sub && <p className="text-foreground-muted text-[10px] mt-0.5">{sub}</p>}
+      <p className="text-foreground-muted text-[11px] mt-1">{label}</p>
     </div>
   )
 }
@@ -275,21 +275,21 @@ export default async function FighterRecordPage({ params }: Props) {
 
   if (fights.length === 0) {
     return (
-      <div className="min-h-screen bg-zinc-950 pb-16">
-        <div className="sticky top-0 z-10 bg-zinc-950/90 backdrop-blur border-b border-zinc-800/60">
+      <div className="min-h-screen bg-background pb-16">
+        <div className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border/60">
           <div className="max-w-2xl mx-auto px-4 h-12 flex items-center gap-4">
-            <Link href={`/fighters/${id}`} className="text-sm text-zinc-400 hover:text-white transition-colors">
+            <Link href={`/fighters/${id}`} className="text-sm text-foreground-muted hover:text-foreground transition-colors">
               ← {f.name}
             </Link>
           </div>
         </div>
         <div className="max-w-2xl mx-auto px-4 pt-16 text-center space-y-4">
-          <p className="text-zinc-400 text-sm">No career records found for <span className="text-white font-bold">{f.name}</span>.</p>
+          <p className="text-foreground-muted text-sm">No career records found for <span className="text-foreground font-bold">{f.name}</span>.</p>
           <a
             href={`https://www.sherdog.com/stats/fightfinder?SearchTxt=${encodeURIComponent(f.name)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block text-xs text-zinc-500 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded-lg px-4 py-2 transition-colors"
+            className="inline-block text-xs text-foreground-muted hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
           >
             Search on Sherdog →
           </a>
@@ -316,30 +316,30 @@ export default async function FighterRecordPage({ params }: Props) {
     : source
 
   return (
-    <div className="min-h-screen bg-zinc-950 pb-16">
+    <div className="min-h-screen bg-background pb-16">
       {/* Nav */}
-      <div className="sticky top-0 z-10 bg-zinc-950/90 backdrop-blur border-b border-zinc-800/60">
+      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border/60">
         <div className="max-w-2xl mx-auto px-4 h-12 flex items-center justify-between gap-4">
-          <Link href={`/fighters/${id}`} className="text-sm text-zinc-400 hover:text-white transition-colors shrink-0">
+          <Link href={`/fighters/${id}`} className="text-sm text-foreground-muted hover:text-foreground transition-colors shrink-0">
             ← {f.name}
           </Link>
-          <p className="text-sm font-bold text-white truncate">Full Career Record</p>
-          <span className="text-[10px] text-zinc-600 shrink-0">{fights.length} fights</span>
+          <p className="text-sm font-bold text-foreground truncate">Full Career Record</p>
+          <span className="text-[10px] text-foreground-muted shrink-0">{fights.length} fights</span>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 pt-5 space-y-4">
 
         {/* Hero record */}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="rounded-2xl border border-border bg-surface p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h1 className="text-xl font-black text-white">{f.name}</h1>
-              {f.weight_class && <p className="text-zinc-500 text-xs mt-0.5">{f.weight_class}</p>}
+              <h1 className="text-xl font-black text-foreground">{f.name}</h1>
+              {f.weight_class && <p className="text-foreground-muted text-xs mt-0.5">{f.weight_class}</p>}
             </div>
             <div className="text-right">
-              <p className="text-3xl font-black text-white">{stats.wins}-{stats.losses}-{stats.draws}</p>
-              <p className="text-zinc-500 text-[10px] mt-0.5">W · L · D{stats.nc > 0 ? ` · ${stats.nc} NC` : ''}</p>
+              <p className="text-3xl font-black text-foreground">{stats.wins}-{stats.losses}-{stats.draws}</p>
+              <p className="text-foreground-muted text-[10px] mt-0.5">W · L · D{stats.nc > 0 ? ` · ${stats.nc} NC` : ''}</p>
             </div>
           </div>
 
@@ -348,13 +348,13 @@ export default async function FighterRecordPage({ params }: Props) {
             {/* Wins breakdown */}
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-[11px] text-zinc-500">Wins ({stats.wins})</span>
-                <span className="text-[11px] text-zinc-500">
+                <span className="text-[11px] text-foreground-muted">Wins ({stats.wins})</span>
+                <span className="text-[11px] text-foreground-muted">
                   KO/TKO {stats.winsByKO} · Sub {stats.winsBySub} · Dec {stats.winsByDec}
                 </span>
               </div>
               {stats.wins > 0 && (
-                <div className="flex h-2 rounded-full overflow-hidden bg-zinc-800 gap-px">
+                <div className="flex h-2 rounded-full overflow-hidden bg-surface-2 gap-px">
                   {stats.winsByKO > 0 && (
                     <div className="bg-red-500" style={{ width: pct(stats.winsByKO, stats.wins) }} title={`KO/TKO: ${stats.winsByKO}`} />
                   )}
@@ -367,9 +367,9 @@ export default async function FighterRecordPage({ params }: Props) {
                 </div>
               )}
               <div className="flex gap-3 mt-1">
-                <span className="flex items-center gap-1 text-[10px] text-zinc-600"><span className="w-2 h-2 rounded-sm bg-red-500 shrink-0" />KO/TKO</span>
-                <span className="flex items-center gap-1 text-[10px] text-zinc-600"><span className="w-2 h-2 rounded-sm bg-amber-500 shrink-0" />Sub</span>
-                <span className="flex items-center gap-1 text-[10px] text-zinc-600"><span className="w-2 h-2 rounded-sm bg-blue-500 shrink-0" />Decision</span>
+                <span className="flex items-center gap-1 text-[10px] text-foreground-muted"><span className="w-2 h-2 rounded-sm bg-red-500 shrink-0" />KO/TKO</span>
+                <span className="flex items-center gap-1 text-[10px] text-foreground-muted"><span className="w-2 h-2 rounded-sm bg-amber-500 shrink-0" />Sub</span>
+                <span className="flex items-center gap-1 text-[10px] text-foreground-muted"><span className="w-2 h-2 rounded-sm bg-blue-500 shrink-0" />Decision</span>
               </div>
             </div>
 
@@ -377,12 +377,12 @@ export default async function FighterRecordPage({ params }: Props) {
             {stats.losses > 0 && (
               <div>
                 <div className="flex justify-between mb-1">
-                  <span className="text-[11px] text-zinc-500">Losses ({stats.losses})</span>
-                  <span className="text-[11px] text-zinc-500">
+                  <span className="text-[11px] text-foreground-muted">Losses ({stats.losses})</span>
+                  <span className="text-[11px] text-foreground-muted">
                     KO/TKO {stats.lossByKO} · Sub {stats.lossBySub} · Dec {stats.lossByDec}
                   </span>
                 </div>
-                <div className="flex h-2 rounded-full overflow-hidden bg-zinc-800 gap-px">
+                <div className="flex h-2 rounded-full overflow-hidden bg-surface-2 gap-px">
                   {stats.lossByKO > 0 && (
                     <div className="bg-red-800" style={{ width: pct(stats.lossByKO, stats.losses) }} />
                   )}
@@ -400,44 +400,44 @@ export default async function FighterRecordPage({ params }: Props) {
 
         {/* Quick stat grid */}
         <div className="grid grid-cols-4 gap-3">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 py-4 px-2 text-center">
-            <p className="text-white font-black text-2xl leading-none">{pct(stats.winsByKO + stats.winsBySub, stats.wins)}</p>
-            <p className="text-zinc-500 text-[10px] mt-1.5">Finish<br/>Rate</p>
+          <div className="rounded-2xl border border-border bg-surface py-4 px-2 text-center">
+            <p className="text-foreground font-black text-2xl leading-none">{pct(stats.winsByKO + stats.winsBySub, stats.wins)}</p>
+            <p className="text-foreground-muted text-[10px] mt-1.5">Finish<br/>Rate</p>
           </div>
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 py-4 px-2 text-center">
-            <p className="text-white font-black text-2xl leading-none">{stats.firstRoundFinishes}</p>
-            <p className="text-zinc-500 text-[10px] mt-1.5">Rd 1<br/>Finishes</p>
+          <div className="rounded-2xl border border-border bg-surface py-4 px-2 text-center">
+            <p className="text-foreground font-black text-2xl leading-none">{stats.firstRoundFinishes}</p>
+            <p className="text-foreground-muted text-[10px] mt-1.5">Rd 1<br/>Finishes</p>
           </div>
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 py-4 px-2 text-center">
-            <p className="text-white font-black text-2xl leading-none">{stats.longestWinStreak}</p>
-            <p className="text-zinc-500 text-[10px] mt-1.5">Best<br/>Streak</p>
+          <div className="rounded-2xl border border-border bg-surface py-4 px-2 text-center">
+            <p className="text-foreground font-black text-2xl leading-none">{stats.longestWinStreak}</p>
+            <p className="text-foreground-muted text-[10px] mt-1.5">Best<br/>Streak</p>
           </div>
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 py-4 px-2 text-center">
-            <p className={`font-black text-2xl leading-none ${stats.currentStreak > 0 ? 'text-green-400' : stats.currentStreak < 0 ? 'text-red-400' : 'text-zinc-400'}`}>
+          <div className="rounded-2xl border border-border bg-surface py-4 px-2 text-center">
+            <p className={`font-black text-2xl leading-none ${stats.currentStreak > 0 ? 'text-green-400' : stats.currentStreak < 0 ? 'text-red-400' : 'text-foreground-muted'}`}>
               {stats.currentStreak > 0 ? `+${stats.currentStreak}` : stats.currentStreak < 0 ? stats.currentStreak : '—'}
             </p>
-            <p className="text-zinc-500 text-[10px] mt-1.5">Current<br/>Streak</p>
+            <p className="text-foreground-muted text-[10px] mt-1.5">Current<br/>Streak</p>
           </div>
         </div>
 
         {/* Promotion breakdown */}
         {ufcFights.length > 0 && otherFights.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-center">
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">UFC Career</p>
-              <p className="text-white font-black text-xl">
+            <div className="rounded-2xl border border-border bg-surface p-4 text-center">
+              <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-2">UFC Career</p>
+              <p className="text-foreground font-black text-xl">
                 {ufcFights.filter(f => f.result === 'W').length}–{ufcFights.filter(f => f.result === 'L').length}
                 {ufcFights.filter(f => f.result === 'D').length > 0 ? `–${ufcFights.filter(f => f.result === 'D').length}` : ''}
               </p>
-              <p className="text-zinc-600 text-[10px] mt-0.5">{ufcFights.length} fights</p>
+              <p className="text-foreground-muted text-[10px] mt-0.5">{ufcFights.length} fights</p>
             </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-center">
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Other Orgs</p>
-              <p className="text-white font-black text-xl">
+            <div className="rounded-2xl border border-border bg-surface p-4 text-center">
+              <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-2">Other Orgs</p>
+              <p className="text-foreground font-black text-xl">
                 {otherFights.filter(f => f.result === 'W').length}–{otherFights.filter(f => f.result === 'L').length}
                 {otherFights.filter(f => f.result === 'D').length > 0 ? `–${otherFights.filter(f => f.result === 'D').length}` : ''}
               </p>
-              <p className="text-zinc-600 text-[10px] mt-0.5">{otherFights.length} fights</p>
+              <p className="text-foreground-muted text-[10px] mt-0.5">{otherFights.length} fights</p>
             </div>
           </div>
         )}
@@ -448,12 +448,12 @@ export default async function FighterRecordPage({ params }: Props) {
           const yearW = yearFights.filter(f => f.result === 'W').length
           const yearL = yearFights.filter(f => f.result === 'L').length
           return (
-            <div key={year} className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+            <div key={year} className="rounded-2xl border border-border bg-surface overflow-hidden">
               {/* Year header */}
-              <div className="px-5 py-3 bg-zinc-800/50 border-b border-zinc-800 flex items-center justify-between">
-                <p className="text-sm font-black text-white">{year}</p>
+              <div className="px-5 py-3 bg-surface-2/50 border-b border-border flex items-center justify-between">
+                <p className="text-sm font-black text-foreground">{year}</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-zinc-500">{yearFights.length} fight{yearFights.length !== 1 ? 's' : ''}</span>
+                  <span className="text-[11px] text-foreground-muted">{yearFights.length} fight{yearFights.length !== 1 ? 's' : ''}</span>
                   <span className="text-[11px] text-green-400 font-bold">{yearW}W</span>
                   {yearL > 0 && <span className="text-[11px] text-red-400 font-bold">{yearL}L</span>}
                 </div>
@@ -466,43 +466,43 @@ export default async function FighterRecordPage({ params }: Props) {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-zinc-500 text-xs">vs</span>
+                        <span className="text-foreground-muted text-xs">vs</span>
                         {fight.opponentHref ? (
                           <a
                             href={fight.opponentHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-white text-sm font-bold hover:text-primary transition-colors"
+                            className="text-foreground text-sm font-bold hover:text-primary transition-colors"
                           >
                             {fight.opponent}
                           </a>
                         ) : (
-                          <span className="text-white text-sm font-bold">{fight.opponent}</span>
+                          <span className="text-foreground text-sm font-bold">{fight.opponent}</span>
                         )}
                         {fight.isUFC && (
-                          <span className="text-[9px] font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded-full">UFC</span>
+                          <span className="text-[9px] font-bold text-foreground-muted bg-surface-2 border border-border px-1.5 py-0.5 rounded-full">UFC</span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {fight.eventName && (
-                          <span className="text-zinc-500 text-[11px] truncate max-w-[200px]">{fight.eventName}</span>
+                          <span className="text-foreground-muted text-[11px] truncate max-w-[200px]">{fight.eventName}</span>
                         )}
                         {fight.eventName && fight.date && (
-                          <span className="text-zinc-700 text-[11px]">·</span>
+                          <span className="text-foreground-muted text-[11px]">·</span>
                         )}
                         {fight.date && (
-                          <span className="text-zinc-600 text-[11px]">{formatDate(fight.date)}</span>
+                          <span className="text-foreground-muted text-[11px]">{formatDate(fight.date)}</span>
                         )}
                       </div>
                     </div>
 
                     <div className="shrink-0 text-right min-w-[80px]">
                       {fight.method && (
-                        <p className="text-zinc-300 text-xs font-semibold leading-tight">{fight.method}</p>
+                        <p className="text-foreground-secondary text-xs font-semibold leading-tight">{fight.method}</p>
                       )}
                       {fight.round && (
-                        <p className="text-zinc-600 text-[11px] mt-0.5">
+                        <p className="text-foreground-muted text-[11px] mt-0.5">
                           R{fight.round}{fight.time ? ` · ${fight.time}` : ''}
                         </p>
                       )}
@@ -516,10 +516,10 @@ export default async function FighterRecordPage({ params }: Props) {
 
         {/* Source attribution */}
         {sourceLabel && (
-          <p className="text-center text-zinc-700 text-[11px] pt-2">
+          <p className="text-center text-foreground-muted text-[11px] pt-2">
             Records sourced from{' '}
             {source?.startsWith('http') ? (
-              <a href={source} target="_blank" rel="noopener noreferrer" className="hover:text-zinc-500 underline underline-offset-2 transition-colors">
+              <a href={source} target="_blank" rel="noopener noreferrer" className="hover:text-foreground-muted underline underline-offset-2 transition-colors">
                 {sourceLabel}
               </a>
             ) : (

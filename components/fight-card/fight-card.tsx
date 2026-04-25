@@ -27,10 +27,10 @@ function cmToIn(cm: number): string {
 
 // ── Form pills ────────────────────────────────────────────────
 function FormPills({ form }: { form: string | null | undefined }) {
-  if (!form) return <span className="text-[10px] text-zinc-300">—</span>
+  if (!form) return <span className="text-[10px] text-foreground-secondary">—</span>
   // e.g. "WLWWW" or "W,L,W,W,W"
   const results = form.replace(/[^WLDwld]/g, '').toUpperCase().split('').slice(-5)
-  if (!results.length) return <span className="text-[10px] text-zinc-300">—</span>
+  if (!results.length) return <span className="text-[10px] text-foreground-secondary">—</span>
   return (
     <div className="flex gap-0.5">
       {results.map((r, i) => (
@@ -40,7 +40,7 @@ function FormPills({ form }: { form: string | null | undefined }) {
             'inline-flex items-center justify-center rounded text-[9px] font-black w-4 h-4',
             r === 'W' && 'bg-emerald-500/20 text-emerald-400',
             r === 'L' && 'bg-red-500/20 text-red-400',
-            r === 'D' && 'bg-zinc-600/40 text-zinc-400',
+            r === 'D' && 'bg-surface-3/40 text-foreground-muted',
           )}
         >
           {r}
@@ -59,17 +59,17 @@ function H2HDisplay({
   const hasH2H = h2h && (h2h.f1Wins + h2h.f2Wins > 0)
   return (
     <div>
-      <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">
+      <h4 className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest mb-2">
         Head to Head
       </h4>
       {hasH2H ? (
         <div className="flex items-center gap-2 text-xs">
-          <span className="font-bold text-zinc-200">{f1Last}</span>
-          <span className="text-zinc-300">{h2h!.f1Wins}–{h2h!.f2Wins}</span>
-          <span className="font-bold text-zinc-200">{f2Last}</span>
+          <span className="font-bold text-foreground">{f1Last}</span>
+          <span className="text-foreground-secondary">{h2h!.f1Wins}–{h2h!.f2Wins}</span>
+          <span className="font-bold text-foreground">{f2Last}</span>
         </div>
       ) : (
-        <p className="text-[11px] text-zinc-400">First meeting</p>
+        <p className="text-[11px] text-foreground-muted">First meeting</p>
       )}
     </div>
   )
@@ -143,16 +143,16 @@ export function FightCard({
         'rounded-2xl overflow-hidden border transition-all duration-300',
         fight.is_main_event
           ? 'border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.08)]'
-          : 'border-zinc-800/60',
+          : 'border-border/60',
         isLive && 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.18)] animate-pulse-red',
         isCompleted && pickCorrect  && 'border-emerald-500/40',
         isCompleted && pickIncorrect && 'border-red-500/20',
-        !pickCorrect && !pickIncorrect && isCompleted && 'border-zinc-800/30 opacity-90',
-        'bg-gradient-to-b from-zinc-900 to-[#0d0d0d]'
+        !pickCorrect && !pickIncorrect && isCompleted && 'border-border/30 opacity-90',
+        'bg-gradient-to-b from-surface to-background'
       )}
     >
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/50">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50">
         <div className="flex items-center gap-2 flex-wrap">
           {fight.is_title_fight && (
             <Badge variant="warning" className="gap-1 text-[11px]">
@@ -162,7 +162,7 @@ export function FightCard({
           {fight.is_main_event && (
             <Badge variant="destructive" className="text-[11px]">Main Event</Badge>
           )}
-          <span className="text-zinc-300 text-[11px] font-semibold uppercase tracking-widest">
+          <span className="text-foreground-secondary text-[11px] font-semibold uppercase tracking-widest">
             {fight.weight_class}
           </span>
         </div>
@@ -200,7 +200,7 @@ export function FightCard({
 
         {/* Center column — VS + countdown only */}
         <div className="flex flex-col items-center justify-center py-4 gap-2">
-          <div className="text-zinc-400 font-black text-xl">VS</div>
+          <div className="text-foreground-muted font-black text-xl">VS</div>
           {!isCompleted && !isLive && !isCancelled && (
             <CountdownTimer fightTime={fight.fight_time} />
           )}
@@ -218,10 +218,10 @@ export function FightCard({
       </div>
 
       {/* Expand toggles */}
-      <div className="border-t border-zinc-800/40">
+      <div className="border-t border-border/40">
         <button
           onClick={() => { setExpanded(!expanded); setShowComments(false) }}
-          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-400 hover:text-zinc-300 transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-foreground-muted hover:text-foreground-secondary transition-colors"
         >
           {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           Stats & Analysis
@@ -229,7 +229,7 @@ export function FightCard({
         {/* Chat button hidden — re-enable when chat is ready
         <button
           onClick={() => { setShowComments(!showComments); setExpanded(false) }}
-          className="flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-400 hover:text-zinc-300 transition-colors"
+          className="flex items-center justify-center gap-1.5 py-2 text-xs text-foreground-muted hover:text-foreground-secondary transition-colors"
         >
           <MessageSquare className="h-3.5 w-3.5" />
           {showComments ? 'Hide' : `Chat${initialComments.length > 0 ? ` (${initialComments.length})` : ''}`}
@@ -248,7 +248,7 @@ export function FightCard({
             transition={{ duration: 0.25 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 space-y-4 border-t border-zinc-800/40 pt-4">
+            <div className="px-4 pb-4 space-y-4 border-t border-border/40 pt-4">
               {/* Pick distribution — show after voting or when fight is completed */}
               {(localPick || isCompleted) && (
                 <PickDistribution
@@ -262,13 +262,13 @@ export function FightCard({
 
               {/* Fighter form + division rank */}
               <div>
-                <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">
+                <h4 className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest mb-2">
                   Recent Form
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
                   {/* Fighter 1 */}
                   <div className="space-y-1">
-                    <p className="text-[10px] text-zinc-300 font-semibold">
+                    <p className="text-[10px] text-foreground-secondary font-semibold">
                       {fight.fighter1.name.split(' ').pop()}
                       {(fight as any)._f1Rank && (
                         <span className="ml-1.5 text-amber-400">#{(fight as any)._f1Rank}</span>
@@ -278,7 +278,7 @@ export function FightCard({
                   </div>
                   {/* Fighter 2 */}
                   <div className="space-y-1 text-right">
-                    <p className="text-[10px] text-zinc-300 font-semibold">
+                    <p className="text-[10px] text-foreground-secondary font-semibold">
                       {(fight as any)._f2Rank && (
                         <span className="mr-1.5 text-amber-400">#{(fight as any)._f2Rank}</span>
                       )}
@@ -312,19 +312,19 @@ export function FightCard({
               {(fight.analysis_f1 || fight.analysis_f2) && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {fight.analysis_f1 && (
-                    <div className="rounded-lg bg-zinc-800/50 p-3">
+                    <div className="rounded-lg bg-surface-2/50 p-3">
                       <p className="text-[10px] font-bold text-primary mb-1.5 uppercase tracking-wider">
                         {fight.fighter1.name.split(' ').pop()}
                       </p>
-                      <p className="text-[11px] text-zinc-400 leading-relaxed">{fight.analysis_f1}</p>
+                      <p className="text-[11px] text-foreground-muted leading-relaxed">{fight.analysis_f1}</p>
                     </div>
                   )}
                   {fight.analysis_f2 && (
-                    <div className="rounded-lg bg-zinc-800/50 p-3">
+                    <div className="rounded-lg bg-surface-2/50 p-3">
                       <p className="text-[10px] font-bold text-primary mb-1.5 uppercase tracking-wider">
                         {fight.fighter2.name.split(' ').pop()}
                       </p>
-                      <p className="text-[11px] text-zinc-400 leading-relaxed">{fight.analysis_f2}</p>
+                      <p className="text-[11px] text-foreground-muted leading-relaxed">{fight.analysis_f2}</p>
                     </div>
                   )}
                 </div>
@@ -345,7 +345,7 @@ export function FightCard({
             transition={{ duration: 0.25 }}
             className="overflow-hidden"
           >
-            <div className="px-4 py-4 border-t border-zinc-800/40">
+            <div className="px-4 py-4 border-t border-border/40">
               <FightComments
                 fightId={fight.id}
                 initialComments={initialComments}
@@ -359,22 +359,22 @@ export function FightCard({
 
       {/* Cancelled banner */}
       {isCancelled && (
-        <div className="px-4 py-2.5 bg-zinc-800/40 border-t border-zinc-700/40 flex items-center justify-center gap-2">
-          <XCircle className="h-3.5 w-3.5 text-zinc-500" />
-          <span className="text-sm text-zinc-500 font-semibold">Fight Cancelled — picks voided, no points awarded</span>
+        <div className="px-4 py-2.5 bg-surface-2/40 border-t border-border/40 flex items-center justify-center gap-2">
+          <XCircle className="h-3.5 w-3.5 text-foreground-muted" />
+          <span className="text-sm text-foreground-muted font-semibold">Fight Cancelled — picks voided, no points awarded</span>
         </div>
       )}
 
       {/* Result banner */}
       {isCompleted && fight.winner_id && (
-        <div className="px-4 py-2.5 bg-zinc-800/30 border-t border-zinc-800/40 flex items-center justify-center gap-2">
+        <div className="px-4 py-2.5 bg-surface-2/30 border-t border-border/40 flex items-center justify-center gap-2">
           <Trophy className="h-3.5 w-3.5 text-amber-400" />
-          <span className="text-sm text-zinc-300">
-            <span className="font-bold text-white">
+          <span className="text-sm text-foreground-secondary">
+            <span className="font-bold text-foreground">
               {fight.winner_id === fight.fighter1.id ? fight.fighter1.name : fight.fighter2.name}
             </span>
             {fight.method && (
-              <span className="text-zinc-300 ml-1 text-xs">
+              <span className="text-foreground-secondary ml-1 text-xs">
                 via {fight.method}
                 {fight.round && ` (R${fight.round}`}
                 {fight.time_of_finish && ` ${fight.time_of_finish})`}
@@ -386,15 +386,15 @@ export function FightCard({
 
       {/* Draw banner */}
       {isCompleted && !fight.winner_id && (
-        <div className="px-4 py-2.5 bg-zinc-800/30 border-t border-zinc-800/40 flex items-center justify-center gap-2">
+        <div className="px-4 py-2.5 bg-surface-2/30 border-t border-border/40 flex items-center justify-center gap-2">
           <span className="text-base">🤝</span>
-          <span className="text-sm font-bold text-zinc-300">
+          <span className="text-sm font-bold text-foreground-secondary">
             Draw
             {fight.method && (
-              <span className="font-normal text-zinc-400 ml-1 text-xs">— {fight.method}</span>
+              <span className="font-normal text-foreground-muted ml-1 text-xs">— {fight.method}</span>
             )}
           </span>
-          <span className="text-[10px] text-zinc-500 ml-1">picks voided, no points awarded</span>
+          <span className="text-[10px] text-foreground-muted ml-1">picks voided, no points awarded</span>
         </div>
       )}
 

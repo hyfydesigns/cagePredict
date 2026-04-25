@@ -69,15 +69,15 @@ export default function OnboardingPage() {
       {isWelcome && (
         <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5 text-center">
           <div className="text-3xl mb-2">🎉</div>
-          <h2 className="text-lg font-black text-white mb-1">Email verified — you're in!</h2>
-          <p className="text-sm text-zinc-400 mb-4">
+          <h2 className="text-lg font-black text-foreground mb-1">Email verified — you're in!</h2>
+          <p className="text-sm text-foreground-muted mb-4">
             Welcome to CagePredict. Set up your profile below to start predicting UFC fights, earning points, and climbing the leaderboard.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
             {FEATURES.map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 px-3 py-2">
+              <div key={text} className="flex items-center gap-2.5 rounded-lg bg-surface/60 border border-border px-3 py-2">
                 <Icon className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-xs text-zinc-300">{text}</span>
+                <span className="text-xs text-foreground-secondary">{text}</span>
               </div>
             ))}
           </div>
@@ -85,15 +85,15 @@ export default function OnboardingPage() {
       )}
 
       {/* Profile setup card */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur">
+      <div className="rounded-2xl border border-border bg-surface/80 p-8 shadow-2xl backdrop-blur">
         <div className="text-center mb-6">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 border border-primary/30 mb-3 text-4xl">
             {avatarEmoji}
           </div>
-          <h1 className="text-2xl font-black text-white">
+          <h1 className="text-2xl font-black text-foreground">
             {isWelcome ? 'Set up your fighter profile' : 'Set up your profile'}
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">Choose your fighter name and avatar to get started</p>
+          <p className="text-foreground-muted text-sm mt-1">Choose your fighter name and avatar to get started</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -104,11 +104,11 @@ export default function OnboardingPage() {
 
           {/* Username — hidden if already provided during sign-up */}
           {user?.user_metadata?.username ? (
-            <div className="flex items-center gap-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50 px-4 py-3">
+            <div className="flex items-center gap-3 rounded-xl bg-surface-2/50 border border-border/50 px-4 py-3">
               <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
               <div>
-                <p className="text-xs text-zinc-500">Username</p>
-                <p className="text-sm font-semibold text-white">@{username}</p>
+                <p className="text-xs text-foreground-muted">Username</p>
+                <p className="text-sm font-semibold text-foreground">@{username}</p>
               </div>
             </div>
           ) : (
@@ -124,7 +124,7 @@ export default function OnboardingPage() {
                 maxLength={20}
                 pattern="[a-zA-Z0-9_]+"
               />
-              <p className="text-xs text-zinc-600">Letters, numbers and underscores only</p>
+              <p className="text-xs text-foreground-muted">Letters, numbers and underscores only</p>
             </div>
           )}
 

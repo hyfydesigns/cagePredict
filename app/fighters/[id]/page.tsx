@@ -390,13 +390,13 @@ function StatBar({
   return (
     <div>
       <div className="flex justify-between mb-1">
-        <span className="text-xs text-zinc-500">{label}</span>
-        <span className="text-xs font-bold text-white">
+        <span className="text-xs text-foreground-muted">{label}</span>
+        <span className="text-xs font-bold text-foreground">
           {value}
           {unit ?? ''}
         </span>
       </div>
-      <div className="bg-zinc-800 rounded-full h-1.5">
+      <div className="bg-surface-2 rounded-full h-1.5">
         <div
           className="bg-primary rounded-full h-1.5 transition-all"
           style={{ width: `${pct}%` }}
@@ -421,7 +421,7 @@ function FormPills({ form }: { form: string | null }) {
                 ? 'bg-green-500/20 text-green-400 border border-green-500/40'
                 : char === 'L'
                 ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-                : 'bg-zinc-700 text-zinc-400 border border-zinc-600'
+                : 'bg-surface-3 text-foreground-muted border border-border'
             }`}
           >
             {char}
@@ -451,8 +451,8 @@ function FightHistoryRow({
   const badgeClass =
     result === 'W'  ? 'bg-green-500/15 border-green-500/40 text-green-400' :
     result === 'L'  ? 'bg-red-500/15 border-red-500/40 text-red-400' :
-    result === 'NC' ? 'bg-zinc-700/40 border-zinc-600 text-zinc-500' :
-                      'bg-zinc-700/40 border-zinc-600 text-zinc-400'
+    result === 'NC' ? 'bg-surface-3/40 border-border text-foreground-muted' :
+                      'bg-surface-3/40 border-border text-foreground-muted'
 
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
@@ -464,23 +464,23 @@ function FightHistoryRow({
       {/* Main info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-zinc-500 text-xs">vs</span>
+          <span className="text-foreground-muted text-xs">vs</span>
           {opponentHref ? (
-            <Link href={opponentHref} className="text-white text-sm font-bold hover:text-primary transition-colors">
+            <Link href={opponentHref} className="text-foreground text-sm font-bold hover:text-primary transition-colors">
               {opponentName}
             </Link>
           ) : (
-            <span className="text-white text-sm font-bold">{opponentName}</span>
+            <span className="text-foreground text-sm font-bold">{opponentName}</span>
           )}
           {isTitle && (
             <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-full">TITLE</span>
           )}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          {eventName && <span className="text-zinc-500 text-[11px]">{eventName}</span>}
-          {eventName && date && <span className="text-zinc-700 text-[11px]">·</span>}
+          {eventName && <span className="text-foreground-muted text-[11px]">{eventName}</span>}
+          {eventName && date && <span className="text-foreground-muted text-[11px]">·</span>}
           {date && (
-            <span className="text-zinc-500 text-[11px]">
+            <span className="text-foreground-muted text-[11px]">
               {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           )}
@@ -489,9 +489,9 @@ function FightHistoryRow({
 
       {/* Method + round */}
       <div className="shrink-0 text-right">
-        {method && <p className="text-zinc-300 text-xs font-semibold leading-tight">{method}</p>}
+        {method && <p className="text-foreground-secondary text-xs font-semibold leading-tight">{method}</p>}
         {round   && (
-          <p className="text-zinc-500 text-[11px] mt-0.5">
+          <p className="text-foreground-muted text-[11px] mt-0.5">
             R{round}{time ? ` · ${time}` : ''}
           </p>
         )}
@@ -620,22 +620,22 @@ export default async function FighterProfilePage({ params }: Props) {
       />
     <div className="min-h-screen bg-background pb-16">
       {/* Top nav */}
-      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-zinc-800/60">
+      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border/60">
         <div className="max-w-2xl mx-auto px-4 h-12 flex items-center justify-between gap-4">
           <Link
             href="/"
-            className="text-sm text-zinc-400 hover:text-white transition-colors shrink-0"
+            className="text-sm text-foreground-muted hover:text-foreground transition-colors shrink-0"
           >
             ← Back to fights
           </Link>
-          <p className="text-sm font-bold text-white truncate">{f.name}</p>
-          <span className="text-xs text-zinc-500 shrink-0">{f.weight_class}</span>
+          <p className="text-sm font-bold text-foreground truncate">{f.name}</p>
+          <span className="text-xs text-foreground-muted shrink-0">{f.weight_class}</span>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 pt-5 space-y-4">
         {/* HERO */}
-        <div className="relative h-48 sm:h-64 bg-zinc-900 rounded-2xl overflow-hidden">
+        <div className="relative h-48 sm:h-64 bg-surface rounded-2xl overflow-hidden">
           {f.image_url ? (
             <Image
               src={f.image_url}
@@ -651,31 +651,31 @@ export default async function FighterProfilePage({ params }: Props) {
             </div>
           )}
           {/* Gradient overlay — pointer-events-none so links underneath stay clickable */}
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent pointer-events-none" />
 
           {/* Name + badges */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <div className="flex items-end justify-between gap-2">
               <div>
                 {f.nickname && (
-                  <p className="text-zinc-400 text-xs italic mb-0.5">"{f.nickname}"</p>
+                  <p className="text-foreground-muted text-xs italic mb-0.5">"{f.nickname}"</p>
                 )}
-                <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                <h1 className="text-2xl sm:text-3xl font-black text-foreground leading-tight">
                   {f.name}
                 </h1>
                 <div className="flex items-center gap-2 mt-1">
                   {f.flag_emoji && <span className="text-lg">{f.flag_emoji}</span>}
-                  <span className="text-zinc-300 text-sm font-medium">{f.nationality}</span>
+                  <span className="text-foreground-secondary text-sm font-medium">{f.nationality}</span>
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <Link
                   href={`/fighters/${id}/record`}
-                  className="inline-block bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-500 rounded-xl px-3 py-1.5 text-white font-black text-lg transition-colors"
+                  className="inline-block bg-surface-2 hover:bg-surface-3 border border-border hover:border-border rounded-xl px-3 py-1.5 text-foreground font-black text-lg transition-colors"
                 >
                   {f.record}
                 </Link>
-                <p className="text-zinc-500 text-[10px] mt-1">W-L-D · tap for full record</p>
+                <p className="text-foreground-muted text-[10px] mt-1">W-L-D · tap for full record</p>
               </div>
             </div>
           </div>
@@ -684,40 +684,40 @@ export default async function FighterProfilePage({ params }: Props) {
         {/* Stats + Social */}
         <div className="grid grid-cols-2 gap-4">
           {/* Stats */}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-3">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">
+          <div className="rounded-2xl border border-border bg-surface p-5 space-y-3">
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-3">
               Stats
             </p>
             {f.age && (
               <div className="flex justify-between">
-                <span className="text-zinc-500 text-xs">Age</span>
-                <span className="text-white font-bold text-xs">{f.age}</span>
+                <span className="text-foreground-muted text-xs">Age</span>
+                <span className="text-foreground font-bold text-xs">{f.age}</span>
               </div>
             )}
             {f.height_cm && (
               <div className="flex justify-between">
-                <span className="text-zinc-500 text-xs">Height</span>
-                <span className="text-white font-bold text-xs">{cmToFtIn(f.height_cm)}</span>
+                <span className="text-foreground-muted text-xs">Height</span>
+                <span className="text-foreground font-bold text-xs">{cmToFtIn(f.height_cm)}</span>
               </div>
             )}
             {f.reach_cm && (
               <div className="flex justify-between">
-                <span className="text-zinc-500 text-xs">Reach</span>
-                <span className="text-white font-bold text-xs">{cmToIn(f.reach_cm)}</span>
+                <span className="text-foreground-muted text-xs">Reach</span>
+                <span className="text-foreground font-bold text-xs">{cmToIn(f.reach_cm)}</span>
               </div>
             )}
             {f.fighting_style && (
               <div className="flex justify-between">
-                <span className="text-zinc-500 text-xs">Style</span>
-                <span className="text-white font-bold text-xs text-right max-w-[100px] leading-tight">
+                <span className="text-foreground-muted text-xs">Style</span>
+                <span className="text-foreground font-bold text-xs text-right max-w-[100px] leading-tight">
                   {f.fighting_style}
                 </span>
               </div>
             )}
             {f.wins !== undefined && (
               <div className="flex justify-between">
-                <span className="text-zinc-500 text-xs">Record</span>
-                <span className="text-white font-bold text-xs">
+                <span className="text-foreground-muted text-xs">Record</span>
+                <span className="text-foreground font-bold text-xs">
                   {f.wins}W {f.losses}L {f.draws}D
                 </span>
               </div>
@@ -725,8 +725,8 @@ export default async function FighterProfilePage({ params }: Props) {
           </div>
 
           {/* Social / Links */}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-3">
               Links
             </p>
             <div className="space-y-3">
@@ -735,7 +735,7 @@ export default async function FighterProfilePage({ params }: Props) {
                   href={`https://x.com/${(f as any).x_handle}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-zinc-300 hover:text-white transition-colors"
+                  className="flex items-center gap-2 text-sm text-foreground-secondary hover:text-foreground transition-colors"
                 >
                   <span className="font-black text-base">𝕏</span>
                   <span className="text-xs">@{(f as any).x_handle}</span>
@@ -746,7 +746,7 @@ export default async function FighterProfilePage({ params }: Props) {
                   href={`https://instagram.com/${(f as any).instagram_handle}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-zinc-300 hover:text-white transition-colors"
+                  className="flex items-center gap-2 text-sm text-foreground-secondary hover:text-foreground transition-colors"
                 >
                   <span className="text-base">📸</span>
                   <span className="text-xs">@{(f as any).instagram_handle}</span>
@@ -757,14 +757,14 @@ export default async function FighterProfilePage({ params }: Props) {
                   href={(f as any).ufc_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-zinc-300 hover:text-white transition-colors"
+                  className="flex items-center gap-2 text-sm text-foreground-secondary hover:text-foreground transition-colors"
                 >
                   <span className="text-base">🔗</span>
                   <span className="text-xs">UFC Profile</span>
                 </a>
               )}
               {!(f as any).x_handle && !(f as any).instagram_handle && !(f as any).ufc_url && (
-                <p className="text-zinc-600 text-xs">No links yet</p>
+                <p className="text-foreground-muted text-xs">No links yet</p>
               )}
             </div>
           </div>
@@ -772,8 +772,8 @@ export default async function FighterProfilePage({ params }: Props) {
 
         {/* Form */}
         {f.last_5_form && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-3">
               Last 5 Form
             </p>
             <FormPills form={f.last_5_form} />
@@ -782,8 +782,8 @@ export default async function FighterProfilePage({ params }: Props) {
 
         {/* Performance stats */}
         {(f.striking_accuracy || f.td_avg || f.sub_avg) && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">
+          <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-3">
               Performance
             </p>
             <StatBar
@@ -799,11 +799,11 @@ export default async function FighterProfilePage({ params }: Props) {
 
         {/* Analysis */}
         {f.analysis && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-3">
               Analysis
             </p>
-            <p className="text-sm text-zinc-300 leading-relaxed">{f.analysis}</p>
+            <p className="text-sm text-foreground-secondary leading-relaxed">{f.analysis}</p>
           </div>
         )}
 
@@ -815,24 +815,24 @@ export default async function FighterProfilePage({ params }: Props) {
             </p>
             <div className="space-y-2">
               {upcomingFight.event && (
-                <p className="text-white font-bold text-sm">{upcomingFight.event.name}</p>
+                <p className="text-foreground font-bold text-sm">{upcomingFight.event.name}</p>
               )}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-zinc-400 text-xs">
+                <span className="text-foreground-muted text-xs">
                   {new Date(upcomingFight.fight_time).toLocaleDateString('en-US', {
                     month: 'short', day: 'numeric', year: 'numeric',
                   })}
                 </span>
                 {upcomingFight.opponent && (
                   <>
-                    <span className="text-zinc-600">vs</span>
+                    <span className="text-foreground-muted">vs</span>
                     <Link href={`/fighters/${upcomingFight.opponent.id}`} className="text-primary text-xs font-bold hover:underline">
                       {upcomingFight.opponent.name}
                     </Link>
                   </>
                 )}
                 {upcomingFight.weight_class && (
-                  <span className="text-zinc-500 text-xs">{upcomingFight.weight_class}</span>
+                  <span className="text-foreground-muted text-xs">{upcomingFight.weight_class}</span>
                 )}
               </div>
               <div className="flex items-center gap-2 flex-wrap mt-1">
@@ -840,10 +840,10 @@ export default async function FighterProfilePage({ params }: Props) {
                   <span className="bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full">TITLE FIGHT</span>
                 )}
                 {upcomingFight.is_main_event && (
-                  <span className="bg-zinc-700 text-zinc-300 text-[10px] font-bold px-2 py-0.5 rounded-full">MAIN EVENT</span>
+                  <span className="bg-surface-3 text-foreground-secondary text-[10px] font-bold px-2 py-0.5 rounded-full">MAIN EVENT</span>
                 )}
                 {myOdds !== null && (
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${myOdds < 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800 border-zinc-700 text-zinc-300'}`}>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${myOdds < 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-surface-2 border-border text-foreground-secondary'}`}>
                     {formatOdds(myOdds)}
                   </span>
                 )}
@@ -858,12 +858,12 @@ export default async function FighterProfilePage({ params }: Props) {
           const useExternal = externalHistory.length > 0
 
           return (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
-                <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+            <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest">
                   Fight History
                 </p>
-                <span className="text-[11px] text-zinc-600">
+                <span className="text-[11px] text-foreground-muted">
                   {useExternal
                     ? `${externalHistory.length} fights · via ${
                         historySource === 'sherdog'    ? 'Sherdog' :
@@ -916,8 +916,8 @@ export default async function FighterProfilePage({ params }: Props) {
 
         {/* YouTube Highlights */}
         {videos.length > 0 && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-4">
               Highlights
             </p>
             <div className="space-y-3">
@@ -930,7 +930,7 @@ export default async function FighterProfilePage({ params }: Props) {
                   className="flex gap-3 group"
                 >
                   {/* Thumbnail */}
-                  <div className="relative w-28 h-16 rounded-lg overflow-hidden shrink-0 bg-zinc-800">
+                  <div className="relative w-28 h-16 rounded-lg overflow-hidden shrink-0 bg-surface-2">
                     <Image
                       src={video.thumbnail}
                       alt={video.title}
@@ -947,10 +947,10 @@ export default async function FighterProfilePage({ params }: Props) {
                   </div>
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-zinc-200 group-hover:text-white font-medium leading-snug line-clamp-2">
+                    <p className="text-sm text-foreground group-hover:text-foreground font-medium leading-snug line-clamp-2">
                       {video.title}
                     </p>
-                    <p className="text-[11px] text-zinc-500 mt-1">
+                    <p className="text-[11px] text-foreground-muted mt-1">
                       {video.channelTitle} · {formatDate(video.publishedAt)}
                     </p>
                   </div>
@@ -962,16 +962,16 @@ export default async function FighterProfilePage({ params }: Props) {
 
         {/* Reddit r/MMA */}
         {redditPosts.length > 0 && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="rounded-2xl border border-border bg-surface p-5">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+              <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest">
                 r/MMA Discussion
               </p>
               <a
                 href={`https://www.reddit.com/r/MMA/search/?q=${encodeURIComponent(f.name)}&restrict_sr=1&sort=new`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="text-[11px] text-foreground-muted hover:text-foreground-secondary transition-colors"
               >
                 View all →
               </a>
@@ -987,17 +987,17 @@ export default async function FighterProfilePage({ params }: Props) {
                 >
                   {/* Score */}
                   <div className="shrink-0 w-10 text-center pt-0.5">
-                    <p className="text-xs font-bold text-zinc-400 group-hover:text-primary transition-colors">
+                    <p className="text-xs font-bold text-foreground-muted group-hover:text-primary transition-colors">
                       {formatScore(post.score)}
                     </p>
-                    <p className="text-[9px] text-zinc-600 leading-none mt-0.5">pts</p>
+                    <p className="text-[9px] text-foreground-muted leading-none mt-0.5">pts</p>
                   </div>
                   {/* Title + meta */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-zinc-200 group-hover:text-white font-medium leading-snug line-clamp-2">
+                    <p className="text-sm text-foreground group-hover:text-foreground font-medium leading-snug line-clamp-2">
                       {post.title}
                     </p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                    <p className="text-[11px] text-foreground-muted mt-0.5">
                       {post.num_comments} comments · {formatDate(new Date(post.created_utc * 1000).toISOString())}
                     </p>
                   </div>
@@ -1009,8 +1009,8 @@ export default async function FighterProfilePage({ params }: Props) {
 
         {/* Recent News */}
         {news.length > 0 && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-3">
               Recent News
             </p>
             <div className="space-y-4">
@@ -1022,10 +1022,10 @@ export default async function FighterProfilePage({ params }: Props) {
                   rel="noopener noreferrer"
                   className="block group"
                 >
-                  <p className="text-sm text-zinc-200 group-hover:text-white font-medium leading-snug line-clamp-2">
+                  <p className="text-sm text-foreground group-hover:text-foreground font-medium leading-snug line-clamp-2">
                     {item.title}
                   </p>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                  <p className="text-[11px] text-foreground-muted mt-0.5">
                     {item.source}
                     {item.pubDate ? ` · ${formatDate(item.pubDate)}` : ''}
                   </p>

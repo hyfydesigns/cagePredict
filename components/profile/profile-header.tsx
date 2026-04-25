@@ -17,7 +17,7 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
   const wr = winRate(profile.correct_picks, profile.total_picks)
 
   return (
-    <div className="relative rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900">
+    <div className="relative rounded-2xl overflow-hidden border border-border/60 bg-surface">
       {/* Background glow */}
       <div className="absolute inset-0 bg-hero-gradient opacity-40" />
 
@@ -25,15 +25,15 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
           {/* Avatar */}
           <div className="relative">
-            <Avatar className="h-20 w-20 border-2 border-zinc-700 shadow-xl">
+            <Avatar className="h-20 w-20 border-2 border-border shadow-xl">
               <AvatarImage src={profile.avatar_url ?? undefined} />
-              <AvatarFallback className="bg-zinc-800 text-4xl">
+              <AvatarFallback className="bg-surface-2 text-4xl">
                 {profile.avatar_emoji}
               </AvatarFallback>
             </Avatar>
             {rank === 1 && (
               <div className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
-                <Trophy className="h-4 w-4 text-white" />
+                <Trophy className="h-4 w-4 text-foreground" />
               </div>
             )}
           </div>
@@ -42,12 +42,12 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h1 className="text-2xl font-black text-white">
+                <h1 className="text-2xl font-black text-foreground">
                   {profile.display_name ?? profile.username}
                 </h1>
-                <p className="text-zinc-300 text-sm">@{profile.username}</p>
+                <p className="text-foreground-secondary text-sm">@{profile.username}</p>
                 {profile.bio && (
-                  <p className="text-zinc-400 text-sm mt-1 max-w-md">{profile.bio}</p>
+                  <p className="text-foreground-muted text-sm mt-1 max-w-md">{profile.bio}</p>
                 )}
               </div>
               {isOwn && (
@@ -70,7 +70,7 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
                 </Badge>
               )}
               {profile.favorite_fighter && (
-                <Badge variant="outline" className="text-zinc-400">
+                <Badge variant="outline" className="text-foreground-muted">
                   Fan of {profile.favorite_fighter}
                 </Badge>
               )}
@@ -80,25 +80,25 @@ export function ProfileHeader({ profile, rank, isOwn }: ProfileHeaderProps) {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
+          <div className="rounded-xl bg-surface-2/60 border border-border/40 p-3 text-center">
             <Trophy className="h-4 w-4 mx-auto mb-1 text-amber-400" />
-            <p className="text-white font-black text-lg leading-none">{profile.total_points}</p>
-            <p className="text-zinc-300 text-[11px] mt-1">Points</p>
+            <p className="text-foreground font-black text-lg leading-none">{profile.total_points}</p>
+            <p className="text-foreground-secondary text-[11px] mt-1">Points</p>
           </div>
-          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
+          <div className="rounded-xl bg-surface-2/60 border border-border/40 p-3 text-center">
             <Target className="h-4 w-4 mx-auto mb-1 text-emerald-400" />
-            <p className="text-white font-black text-lg leading-none">{wr}</p>
-            <p className="text-zinc-300 text-[11px] mt-1">Win Rate</p>
+            <p className="text-foreground font-black text-lg leading-none">{wr}</p>
+            <p className="text-foreground-secondary text-[11px] mt-1">Win Rate</p>
           </div>
-          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
+          <div className="rounded-xl bg-surface-2/60 border border-border/40 p-3 text-center">
             <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary" />
-            <p className="text-white font-black text-lg leading-none">{profile.total_picks}</p>
-            <p className="text-zinc-300 text-[11px] mt-1">Picks</p>
+            <p className="text-foreground font-black text-lg leading-none">{profile.total_picks}</p>
+            <p className="text-foreground-secondary text-[11px] mt-1">Picks</p>
           </div>
-          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/40 p-3 text-center">
+          <div className="rounded-xl bg-surface-2/60 border border-border/40 p-3 text-center">
             <Flame className="h-4 w-4 mx-auto mb-1 text-orange-400" />
-            <p className="text-white font-black text-lg leading-none">{profile.longest_streak}</p>
-            <p className="text-zinc-300 text-[11px] mt-1">Best Streak</p>
+            <p className="text-foreground font-black text-lg leading-none">{profile.longest_streak}</p>
+            <p className="text-foreground-secondary text-[11px] mt-1">Best Streak</p>
           </div>
         </div>
       </div>

@@ -23,7 +23,7 @@ export function PendingInvites({ invites: initialInvites }: PendingInvitesProps)
 
   return (
     <div>
-      <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+      <h2 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-3">
         Pending Invites ({invites.length})
       </h2>
       <div className="space-y-3">
@@ -75,12 +75,12 @@ function InviteCard({ invite, onDone }: InviteCardProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 flex items-center justify-between gap-4">
+    <div className="rounded-2xl border border-border bg-surface px-4 py-3 flex items-center justify-between gap-4">
       <div className="min-w-0">
-        <p className="font-bold text-white truncate">{invite.crew.name}</p>
-        <p className="text-sm text-zinc-500 mt-0.5">
+        <p className="font-bold text-foreground truncate">{invite.crew.name}</p>
+        <p className="text-sm text-foreground-muted mt-0.5">
           Invited by{' '}
-          <span className="text-zinc-400 font-medium">
+          <span className="text-foreground-muted font-medium">
             {invite.inviter.avatar_emoji} @{invite.inviter.username}
           </span>
         </p>

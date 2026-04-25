@@ -41,7 +41,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur">
+    <div className="rounded-2xl border border-border bg-surface/80 p-8 shadow-2xl backdrop-blur">
       <div className="flex justify-center mb-5">
         <img
           src="/logo.svg"
@@ -49,8 +49,8 @@ function LoginForm() {
           className="h-14 w-14 drop-shadow-[0_0_12px_rgba(239,68,68,0.5)]"
         />
       </div>
-      <h1 className="text-2xl font-black text-white mb-1">Welcome back</h1>
-      <p className="text-zinc-500 text-sm mb-6">Sign in to your CagePredict account</p>
+      <h1 className="text-2xl font-black text-foreground mb-1">Welcome back</h1>
+      <p className="text-foreground-muted text-sm mb-6">Sign in to your CagePredict account</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
@@ -62,7 +62,7 @@ function LoginForm() {
             <Label htmlFor="password">Password</Label>
             <Link
               href="/forgot-password"
-              className="text-xs text-zinc-500 hover:text-primary transition-colors"
+              className="text-xs text-foreground-muted hover:text-primary transition-colors"
             >
               Forgot password?
             </Link>
@@ -80,7 +80,7 @@ function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground-secondary"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -92,7 +92,7 @@ function LoginForm() {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-zinc-500 mt-5">
+      <p className="text-center text-sm text-foreground-muted mt-5">
         No account?{' '}
         <Link
           href={inviteCode ? `/signup?invite=${inviteCode}` : '/signup'}

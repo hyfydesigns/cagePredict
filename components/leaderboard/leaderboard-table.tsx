@@ -37,16 +37,16 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
               className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all duration-200 group
                 ${isMe
                   ? 'bg-primary/10 border-primary/30 shadow-[0_0_12px_rgba(239,68,68,0.15)]'
-                  : 'bg-zinc-900/60 border-zinc-800/40 hover:bg-zinc-800/60 hover:border-zinc-700/60'
+                  : 'bg-surface/60 border-border/40 hover:bg-surface-2/60 hover:border-border/60'
                 }`}
             >
               {/* Rank */}
               <RankBadge rank={entry.rank} />
 
               {/* Avatar */}
-              <Avatar className="h-9 w-9 shrink-0 border border-zinc-700">
+              <Avatar className="h-9 w-9 shrink-0 border border-border">
                 <AvatarImage src={entry.avatar_url ?? undefined} />
-                <AvatarFallback className="bg-zinc-800 text-base">
+                <AvatarFallback className="bg-surface-2 text-base">
                   {entry.avatar_emoji}
                 </AvatarFallback>
               </Avatar>
@@ -54,9 +54,9 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
               {/* Name + badges */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`font-bold text-sm truncate ${isMe ? 'text-primary' : 'text-white'}`}>
+                  <span className={`font-bold text-sm truncate ${isMe ? 'text-primary' : 'text-foreground'}`}>
                     {entry.display_name ?? entry.username}
-                    {isMe && <span className="text-zinc-300 font-normal ml-1">(you)</span>}
+                    {isMe && <span className="text-foreground-secondary font-normal ml-1">(you)</span>}
                   </span>
                   {entry.rank <= 3 && (
                     <Badge variant="warning" className="text-[10px] px-1.5">
@@ -70,7 +70,7 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-[11px] text-zinc-300">
+                  <span className="text-[11px] text-foreground-secondary">
                     <Target className="h-3 w-3 inline mr-0.5" />
                     {entry.win_rate}% accuracy
                   </span>
@@ -85,8 +85,8 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
 
               {/* Points */}
               <div className="text-right shrink-0">
-                <p className="text-white font-black text-base">{entry.total_points}</p>
-                <p className="text-zinc-400 text-[11px]">pts</p>
+                <p className="text-foreground font-black text-base">{entry.total_points}</p>
+                <p className="text-foreground-muted text-[11px]">pts</p>
               </div>
             </Link>
           </motion.div>
@@ -94,7 +94,7 @@ export function LeaderboardTable({ entries, currentUserId, highlightedIds }: Lea
       })}
 
       {live.length === 0 && (
-        <div className="text-center py-12 text-zinc-400">
+        <div className="text-center py-12 text-foreground-muted">
           <p className="text-sm">No rankings yet — be the first!</p>
         </div>
       )}

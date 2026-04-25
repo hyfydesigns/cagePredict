@@ -13,12 +13,12 @@ export function CrewCard({ crew, isOwner, isMember }: CrewCardProps) {
   return (
     <Link
       href={`/crews/${crew.id}`}
-      className="block rounded-2xl border border-zinc-800/60 bg-zinc-900/60 p-5 hover:border-zinc-700 hover:bg-zinc-800/60 transition-all duration-200 group"
+      className="block rounded-2xl border border-border/60 bg-surface/60 p-5 hover:border-border hover:bg-surface-2/60 transition-all duration-200 group"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-bold text-white group-hover:text-primary transition-colors">
+            <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">
               {crew.name}
             </h3>
             {isOwner && (
@@ -31,19 +31,19 @@ export function CrewCard({ crew, isOwner, isMember }: CrewCardProps) {
             )}
           </div>
           {crew.description && (
-            <p className="text-zinc-500 text-sm mt-1 line-clamp-2">{crew.description}</p>
+            <p className="text-foreground-muted text-sm mt-1 line-clamp-2">{crew.description}</p>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-4 mt-4 text-sm text-zinc-500">
+      <div className="flex items-center gap-4 mt-4 text-sm text-foreground-muted">
         <span className="flex items-center gap-1.5">
           <Users className="h-3.5 w-3.5" />
           {crew.member_count} / {crew.max_members} members
         </span>
         <span className="flex items-center gap-1.5">
           <Trophy className="h-3.5 w-3.5" />
-          Invite: <span className="font-mono text-zinc-400">{crew.invite_code}</span>
+          Invite: <span className="font-mono text-foreground-muted">{crew.invite_code}</span>
         </span>
       </div>
     </Link>

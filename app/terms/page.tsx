@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold text-white">{title}</h2>
-      <div className="text-zinc-400 text-sm leading-relaxed space-y-2">{children}</div>
+      <h2 className="text-lg font-bold text-foreground">{title}</h2>
+      <div className="text-foreground-muted text-sm leading-relaxed space-y-2">{children}</div>
     </section>
   )
 }
@@ -21,9 +21,9 @@ export default function TermsPage() {
   return (
     <div className="container mx-auto py-12 max-w-2xl px-4">
       <div className="mb-8">
-        <p className="text-xs text-zinc-500 uppercase tracking-widest mb-2">Legal</p>
-        <h1 className="text-3xl font-black text-white">Terms of Service</h1>
-        <p className="text-zinc-500 text-sm mt-2">Last updated: {updated}</p>
+        <p className="text-xs text-foreground-muted uppercase tracking-widest mb-2">Legal</p>
+        <h1 className="text-3xl font-black text-foreground">Terms of Service</h1>
+        <p className="text-foreground-muted text-sm mt-2">Last updated: {updated}</p>
       </div>
 
       <div className="space-y-8">
@@ -38,7 +38,7 @@ export default function TermsPage() {
 
         <Section title="What CagePredict is">
           <p>
-            CagePredict is a <strong className="text-zinc-300">free-to-play entertainment game</strong>.
+            CagePredict is a <strong className="text-foreground-secondary">free-to-play entertainment game</strong>.
             Players predict the outcomes of UFC fights and earn points on a virtual leaderboard.
           </p>
           <ul className="list-disc list-inside space-y-1 pl-2">
@@ -75,7 +75,7 @@ export default function TermsPage() {
             right to correct it.
           </p>
           <p>
-            Picks lock <strong className="text-zinc-300">2 hours before each scheduled fight time</strong>.
+            Picks lock <strong className="text-foreground-secondary">2 hours before each scheduled fight time</strong>.
             Late picks are not accepted. We are not responsible for picks not submitted before the cutoff.
           </p>
         </Section>
@@ -153,10 +153,10 @@ export default function TermsPage() {
           </p>
         </Section>
 
-        <div className="pt-4 border-t border-zinc-800 flex gap-4 text-xs text-zinc-500">
-          <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy Policy</Link>
-          <Link href="/help" className="hover:text-zinc-300 transition-colors">Help</Link>
-          <Link href="/" className="hover:text-zinc-300 transition-colors">Back to Fight Card</Link>
+        <div className="pt-4 border-t border-border flex gap-4 text-xs text-foreground-muted">
+          <Link href="/privacy" className="hover:text-foreground-secondary transition-colors">Privacy Policy</Link>
+          <Link href="/help" className="hover:text-foreground-secondary transition-colors">Help</Link>
+          <Link href="/" className="hover:text-foreground-secondary transition-colors">Back to Fight Card</Link>
         </div>
       </div>
     </div>

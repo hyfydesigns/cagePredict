@@ -80,10 +80,10 @@ export function FighterComparisonSlider({ fighter1, fighter2 }: FighterCompariso
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+        <h4 className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">
           Fighter Comparison
         </h4>
-        <span className="text-[10px] text-zinc-300">drag to spotlight</span>
+        <span className="text-[10px] text-foreground-secondary">drag to spotlight</span>
       </div>
 
       {/* Slider */}
@@ -94,7 +94,7 @@ export function FighterComparisonSlider({ fighter1, fighter2 }: FighterCompariso
           max={100}
           value={sliderVal}
           onChange={(e) => setSliderVal(Number(e.target.value))}
-          className="w-full h-1.5 appearance-none cursor-pointer rounded-full bg-zinc-800 outline-none
+          className="w-full h-1.5 appearance-none cursor-pointer rounded-full bg-surface-2 outline-none
             [&::-webkit-slider-thumb]:appearance-none
             [&::-webkit-slider-thumb]:h-4
             [&::-webkit-slider-thumb]:w-4
@@ -131,17 +131,17 @@ export function FighterComparisonSlider({ fighter1, fighter2 }: FighterCompariso
 
           return (
             <div key={stat.label}>
-              <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-0.5">
+              <div className="flex items-center justify-between text-[10px] text-foreground-muted mb-0.5">
                 <span
                   style={{ opacity: sliderVal < 50 ? 1 : 0.45 }}
-                  className={cn('font-bold transition-opacity duration-150', f1Wins && 'text-zinc-300')}
+                  className={cn('font-bold transition-opacity duration-150', f1Wins && 'text-foreground-secondary')}
                 >
                   {displayF1}
                 </span>
                 <span className="uppercase tracking-wider">{stat.label}</span>
                 <span
                   style={{ opacity: sliderVal > 50 ? 1 : 0.45 }}
-                  className={cn('font-bold transition-opacity duration-150', f2Wins && 'text-zinc-300')}
+                  className={cn('font-bold transition-opacity duration-150', f2Wins && 'text-foreground-secondary')}
                 >
                   {displayF2}
                 </span>
@@ -151,7 +151,7 @@ export function FighterComparisonSlider({ fighter1, fighter2 }: FighterCompariso
                 <div
                   className={cn(
                     'h-full rounded-l-full transition-all duration-150',
-                    f1Wins ? 'bg-primary' : 'bg-zinc-700'
+                    f1Wins ? 'bg-primary' : 'bg-surface-3'
                   )}
                   style={{
                     width: `${f1Pct}%`,
@@ -161,7 +161,7 @@ export function FighterComparisonSlider({ fighter1, fighter2 }: FighterCompariso
                 <div
                   className={cn(
                     'h-full rounded-r-full transition-all duration-150',
-                    f2Wins ? 'bg-primary' : 'bg-zinc-700'
+                    f2Wins ? 'bg-primary' : 'bg-surface-3'
                   )}
                   style={{
                     width: `${f2Pct}%`,

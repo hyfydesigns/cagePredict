@@ -23,20 +23,20 @@ export function PickDistribution({ f1Name, f2Name, f1Id, f2Id, pickCounts }: Pic
 
   return (
     <div className="space-y-1">
-      <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+      <h4 className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">
         Community Picks · {total} vote{total !== 1 ? 's' : ''}
       </h4>
       <div className="flex items-center gap-2 text-xs">
-        <span className="w-12 text-right font-bold text-zinc-200">{f1Pct}%</span>
-        <div className="flex-1 flex h-2 rounded-full overflow-hidden bg-zinc-800">
+        <span className="w-12 text-right font-bold text-foreground">{f1Pct}%</span>
+        <div className="flex-1 flex h-2 rounded-full overflow-hidden bg-surface-2">
           <div
             className="h-full bg-primary transition-all duration-500"
             style={{ width: `${f1Pct}%` }}
           />
         </div>
-        <span className="w-12 font-bold text-zinc-200">{f2Pct}%</span>
+        <span className="w-12 font-bold text-foreground">{f2Pct}%</span>
       </div>
-      <div className="flex items-center gap-2 text-[10px] text-zinc-400">
+      <div className="flex items-center gap-2 text-[10px] text-foreground-muted">
         <span className="w-12 text-right">{f1Last}</span>
         <div className="flex-1" />
         <span className="w-12">{f2Last}</span>

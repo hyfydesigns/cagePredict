@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-black text-white border-b border-zinc-800 pb-2">{title}</h2>
+      <h2 className="text-xl font-black text-foreground border-b border-border pb-2">{title}</h2>
       {children}
     </section>
   )
@@ -18,9 +18,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function FAQ({ q, children }: { q: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-2">
-      <p className="font-semibold text-white text-sm">{q}</p>
-      <div className="text-zinc-400 text-sm leading-relaxed">{children}</div>
+    <div className="rounded-xl border border-border bg-surface/60 p-4 space-y-2">
+      <p className="font-semibold text-foreground text-sm">{q}</p>
+      <div className="text-foreground-muted text-sm leading-relaxed">{children}</div>
     </div>
   )
 }
@@ -32,8 +32,8 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
         {n}
       </div>
       <div className="space-y-1 pt-0.5">
-        <p className="font-semibold text-white text-sm">{title}</p>
-        <p className="text-zinc-400 text-sm leading-relaxed">{children}</p>
+        <p className="font-semibold text-foreground text-sm">{title}</p>
+        <p className="text-foreground-muted text-sm leading-relaxed">{children}</p>
       </div>
     </div>
   )
@@ -44,9 +44,9 @@ export default function HelpPage() {
     <div className="container mx-auto py-12 max-w-2xl px-4 space-y-12">
       {/* Header */}
       <div>
-        <p className="text-xs text-zinc-500 uppercase tracking-widest mb-2">Support</p>
-        <h1 className="text-3xl font-black text-white">Help &amp; FAQ</h1>
-        <p className="text-zinc-400 mt-2 text-sm">
+        <p className="text-xs text-foreground-muted uppercase tracking-widest mb-2">Support</p>
+        <h1 className="text-3xl font-black text-foreground">Help &amp; FAQ</h1>
+        <p className="text-foreground-muted mt-2 text-sm">
           Everything you need to know about playing CagePredict.
         </p>
       </div>
@@ -64,7 +64,7 @@ export default function HelpPage() {
             Once per event you can mark one pick as your <strong className="text-amber-400">🔒 Confidence Pick</strong> — this doubles your points to 20 if correct. Choose wisely.
           </Step>
           <Step n={4} title="Picks lock before each fight">
-            Picks lock <strong className="text-white">2 hours before the scheduled fight time</strong>. You&apos;ll see a live countdown on each fight card showing when your window closes.
+            Picks lock <strong className="text-foreground">2 hours before the scheduled fight time</strong>. You&apos;ll see a live countdown on each fight card showing when your window closes.
           </Step>
           <Step n={5} title="Results update automatically">
             Once a fight finishes, results are pulled in automatically and your score updates instantly. No manual refresh needed.
@@ -81,32 +81,32 @@ export default function HelpPage() {
           {[
             { label: 'Correct pick', pts: '+10 pts', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
             { label: 'Confidence pick (correct)', pts: '+20 pts', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
-            { label: 'Wrong pick', pts: '0 pts', color: 'text-zinc-400', bg: 'bg-zinc-800/60 border-zinc-700/40' },
-            { label: 'Confidence pick (wrong)', pts: '0 pts', color: 'text-zinc-400', bg: 'bg-zinc-800/60 border-zinc-700/40' },
+            { label: 'Wrong pick', pts: '0 pts', color: 'text-foreground-muted', bg: 'bg-surface-2/60 border-border/40' },
+            { label: 'Confidence pick (wrong)', pts: '0 pts', color: 'text-foreground-muted', bg: 'bg-surface-2/60 border-border/40' },
           ].map(({ label, pts, color, bg }) => (
             <div key={label} className={`rounded-xl border p-4 ${bg}`}>
-              <p className="text-zinc-300 text-sm">{label}</p>
+              <p className="text-foreground-secondary text-sm">{label}</p>
               <p className={`text-2xl font-black mt-1 ${color}`}>{pts}</p>
             </div>
           ))}
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 mt-2">
-          <p className="font-semibold text-white text-sm mb-3">Streak bonuses</p>
-          <p className="text-zinc-400 text-xs mb-3">Get on a roll and earn bonus points per correct pick:</p>
+        <div className="rounded-xl border border-border bg-surface/60 p-4 mt-2">
+          <p className="font-semibold text-foreground text-sm mb-3">Streak bonuses</p>
+          <p className="text-foreground-muted text-xs mb-3">Get on a roll and earn bonus points per correct pick:</p>
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
             {[
               { streak: '3–4 in a row', bonus: '+5 pts', color: 'text-blue-400' },
               { streak: '5–9 in a row', bonus: '+10 pts', color: 'text-purple-400' },
               { streak: '10+ in a row', bonus: '+20 pts', color: 'text-amber-400' },
             ].map(({ streak, bonus, color }) => (
-              <div key={streak} className="rounded-lg bg-zinc-800/60 p-2">
+              <div key={streak} className="rounded-lg bg-surface-2/60 p-2">
                 <p className={`font-black ${color}`}>{bonus}</p>
-                <p className="text-zinc-500 text-[10px] mt-0.5">{streak}</p>
+                <p className="text-foreground-muted text-[10px] mt-0.5">{streak}</p>
               </div>
             ))}
           </div>
-          <p className="text-zinc-500 text-xs mt-3">
+          <p className="text-foreground-muted text-xs mt-3">
             Streak resets to 0 on any incorrect pick. Streak is tracked across all events.
           </p>
         </div>
@@ -114,13 +114,13 @@ export default function HelpPage() {
 
       {/* Crews */}
       <Section title="Crews (private leagues)">
-        <div className="space-y-3 text-zinc-400 text-sm leading-relaxed">
+        <div className="space-y-3 text-foreground-muted text-sm leading-relaxed">
           <p>
-            <strong className="text-white">Crews</strong>{' '}are private leagues where you compete against friends.
+            <strong className="text-foreground">Crews</strong>{' '}are private leagues where you compete against friends.
             Each crew has its own mini-leaderboard showing only members&apos; scores.
           </p>
           <ul className="list-disc list-inside space-y-1 pl-2">
-            <li>Go to <strong className="text-white">Crews</strong> in the nav and tap <strong className="text-white">Create Crew</strong>.</li>
+            <li>Go to <strong className="text-foreground">Crews</strong> in the nav and tap <strong className="text-foreground">Create Crew</strong>.</li>
             <li>Share the invite link with friends, or invite by username from the crew page.</li>
             <li>Crew members see each other&apos;s picks and scores for all events.</li>
             <li>Only the crew owner can delete a crew (this is permanent and removes all members).</li>
@@ -180,23 +180,23 @@ export default function HelpPage() {
 
       {/* Contact */}
       <Section title="Still need help?">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 text-center space-y-2">
-          <p className="text-zinc-400 text-sm">
+        <div className="rounded-xl border border-border bg-surface/60 p-5 text-center space-y-2">
+          <p className="text-foreground-muted text-sm">
             Can&apos;t find the answer you&apos;re looking for?
           </p>
           <a
             href="mailto:support@cagepredict.com"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-foreground hover:bg-primary/90 transition-colors"
           >
             Email Support
           </a>
         </div>
       </Section>
 
-      <div className="pt-4 border-t border-zinc-800 flex gap-4 text-xs text-zinc-500">
-        <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy Policy</Link>
-        <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms of Service</Link>
-        <Link href="/" className="hover:text-zinc-300 transition-colors">Back to Fight Card</Link>
+      <div className="pt-4 border-t border-border flex gap-4 text-xs text-foreground-muted">
+        <Link href="/privacy" className="hover:text-foreground-secondary transition-colors">Privacy Policy</Link>
+        <Link href="/terms" className="hover:text-foreground-secondary transition-colors">Terms of Service</Link>
+        <Link href="/" className="hover:text-foreground-secondary transition-colors">Back to Fight Card</Link>
       </div>
     </div>
   )

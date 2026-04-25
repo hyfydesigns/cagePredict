@@ -10,9 +10,9 @@ function SectionDivider({ label, icon }: { label: string; icon: React.ReactNode 
     <div className="flex items-center gap-3 py-1">
       <div className="flex items-center gap-2 shrink-0">
         {icon}
-        <span className="text-xs font-bold uppercase tracking-widest text-zinc-300">{label}</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-foreground-secondary">{label}</span>
       </div>
-      <div className="flex-1 h-px bg-zinc-800" />
+      <div className="flex-1 h-px bg-surface-2" />
     </div>
   )
 }
@@ -55,13 +55,13 @@ export function FightCardSections({
       )}
       {prelims.length > 0 && (
         <>
-          <SectionDivider label="Prelims" icon={<Tv className="h-3.5 w-3.5 text-zinc-300" />} />
+          <SectionDivider label="Prelims" icon={<Tv className="h-3.5 w-3.5 text-foreground-secondary" />} />
           <FightCardList fights={prelims} {...listProps} />
         </>
       )}
       {earlyPrelims.length > 0 && (
         <>
-          <SectionDivider label="Early Prelims" icon={<Radio className="h-3.5 w-3.5 text-zinc-300" />} />
+          <SectionDivider label="Early Prelims" icon={<Radio className="h-3.5 w-3.5 text-foreground-secondary" />} />
           <FightCardList fights={earlyPrelims} {...listProps} />
         </>
       )}

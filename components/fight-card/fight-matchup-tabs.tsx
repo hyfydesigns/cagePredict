@@ -37,14 +37,14 @@ function FormDot({ r }: { r: string }) {
     <span className="inline-flex items-center justify-center w-4 h-4 sm:w-6 sm:h-6 rounded sm:rounded-full text-[9px] sm:text-[10px] font-black bg-red-500/20 text-red-400 sm:border sm:border-red-500/30">L</span>
   )
   if (r === 'D' || r === 'N') return (
-    <span className="inline-flex items-center justify-center w-4 h-4 sm:w-6 sm:h-6 rounded sm:rounded-full text-[9px] sm:text-[10px] font-black bg-zinc-600/30 text-zinc-400 sm:border sm:border-zinc-600/40">D</span>
+    <span className="inline-flex items-center justify-center w-4 h-4 sm:w-6 sm:h-6 rounded sm:rounded-full text-[9px] sm:text-[10px] font-black bg-surface-3/30 text-foreground-muted sm:border sm:border-border/40">D</span>
   )
   return null
 }
 
 function FormPills({ form }: { form: string | null | undefined }) {
   const letters = formLetters(form)
-  if (letters.length === 0) return <span className="text-zinc-500 text-sm">—</span>
+  if (letters.length === 0) return <span className="text-foreground-muted text-sm">—</span>
   return (
     <div className="flex gap-0.5 sm:gap-1">
       {letters.map((r, i) => <FormDot key={i} r={r} />)}
@@ -68,14 +68,14 @@ function StatRow({
   f2Edge?: boolean
 }) {
   return (
-    <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 py-3 border-b border-zinc-800/40 last:border-0">
-      <span className={cn('text-sm font-bold', f1Edge ? 'text-red-400' : 'text-zinc-200')}>
+    <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 py-3 border-b border-border/40 last:border-0">
+      <span className={cn('text-sm font-bold', f1Edge ? 'text-red-400' : 'text-foreground')}>
         {f1}
       </span>
-      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-center">
         {label}
       </span>
-      <span className={cn('text-sm font-bold text-right', f2Edge ? 'text-blue-400' : 'text-zinc-200')}>
+      <span className={cn('text-sm font-bold text-right', f2Edge ? 'text-blue-400' : 'text-foreground')}>
         {f2}
       </span>
     </div>
@@ -110,24 +110,24 @@ function CompBar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-[11px]">
-        <span className={cn('font-bold', f1Wins ? 'text-red-400' : 'text-zinc-400')}>
+        <span className={cn('font-bold', f1Wins ? 'text-red-400' : 'text-foreground-muted')}>
           {f1 !== null ? `${v1}${suffix}` : '—'}
         </span>
-        <span className={cn('font-bold', f2Wins ? 'text-blue-400' : 'text-zinc-400')}>
+        <span className={cn('font-bold', f2Wins ? 'text-blue-400' : 'text-foreground-muted')}>
           {f2 !== null ? `${v2}${suffix}` : '—'}
         </span>
       </div>
       <div className="flex h-3 rounded-full overflow-hidden gap-px">
         <div
-          className={cn('h-full rounded-l-full transition-all', f1Wins ? 'bg-red-500' : 'bg-zinc-700')}
+          className={cn('h-full rounded-l-full transition-all', f1Wins ? 'bg-red-500' : 'bg-surface-3')}
           style={{ width: `${f1Pct}%` }}
         />
         <div
-          className={cn('h-full rounded-r-full transition-all', f2Wins ? 'bg-blue-500' : 'bg-zinc-700')}
+          className={cn('h-full rounded-r-full transition-all', f2Wins ? 'bg-blue-500' : 'bg-surface-3')}
           style={{ width: `${f2Pct}%` }}
         />
       </div>
-      <div className="flex justify-between text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">
+      <div className="flex justify-between text-[10px] text-foreground-muted font-semibold uppercase tracking-wider">
         <span>{f1Label}</span>
         <span>{f2Label}</span>
       </div>
@@ -163,18 +163,18 @@ function WinRateBar({
     <div className="space-y-2">
       <div className="flex items-center justify-between text-[11px]">
         <span className={cn('font-bold', color)}>{name}</span>
-        <span className="text-zinc-400">{w}W · {l}L{d > 0 ? ` · ${d}D` : ''}</span>
+        <span className="text-foreground-muted">{w}W · {l}L{d > 0 ? ` · ${d}D` : ''}</span>
       </div>
       <div className="flex h-3 rounded-full overflow-hidden gap-px">
         <div className="h-full bg-emerald-500 transition-all" style={{ width: `${wPct}%` }} title={`${wPct}% wins`} />
         {dPct > 0 && (
-          <div className="h-full bg-zinc-600 transition-all" style={{ width: `${dPct}%` }} title={`${dPct}% draws`} />
+          <div className="h-full bg-surface-3 transition-all" style={{ width: `${dPct}%` }} title={`${dPct}% draws`} />
         )}
         <div className="h-full bg-red-500/70 transition-all" style={{ width: `${lPct}%` }} title={`${lPct}% losses`} />
       </div>
-      <div className="flex gap-3 text-[10px] text-zinc-500">
+      <div className="flex gap-3 text-[10px] text-foreground-muted">
         <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1 align-middle" />{wPct}% wins</span>
-        {dPct > 0 && <span><span className="inline-block w-2 h-2 rounded-full bg-zinc-600 mr-1 align-middle" />{dPct}% draws</span>}
+        {dPct > 0 && <span><span className="inline-block w-2 h-2 rounded-full bg-surface-3 mr-1 align-middle" />{dPct}% draws</span>}
         <span><span className="inline-block w-2 h-2 rounded-full bg-red-500/70 mr-1 align-middle" />{lPct}% losses</span>
       </div>
     </div>
@@ -225,7 +225,7 @@ export function FightMatchupTabs({
       <TabsContent value="matchup" className="mt-0">
         <div>
           {/* Fighter name header bar */}
-          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-zinc-700/60">
+          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-border/60">
             <span className="text-[11px] font-black text-red-400 uppercase tracking-wide">{f1LastName}</span>
             <span />
             <span className="text-[11px] font-black text-blue-400 uppercase tracking-wide text-right">{f2LastName}</span>
@@ -294,7 +294,7 @@ export function FightMatchupTabs({
       {/* ── WIN BY ──────────────────────────────────────────────── */}
       <TabsContent value="winby" className="mt-0">
         <div>
-          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-zinc-700/60">
+          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-border/60">
             <span className="text-[11px] font-black text-red-400 uppercase tracking-wide">{f1LastName}</span>
             <span />
             <span className="text-[11px] font-black text-blue-400 uppercase tracking-wide text-right">{f2LastName}</span>
@@ -304,7 +304,7 @@ export function FightMatchupTabs({
             <div className="py-2 space-y-5">
               {/* KO / TKO */}
               <div className="space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-center">
                   KO / TKO
                 </p>
                 <CompBar
@@ -318,7 +318,7 @@ export function FightMatchupTabs({
 
               {/* Submission */}
               <div className="space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-center">
                   Submission
                 </p>
                 <CompBar
@@ -332,7 +332,7 @@ export function FightMatchupTabs({
 
               {/* Decision */}
               <div className="space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-center">
                   Decision
                 </p>
                 <CompBar
@@ -345,7 +345,7 @@ export function FightMatchupTabs({
               </div>
 
               {/* Per-fighter method breakdown bars */}
-              <div className="border-t border-zinc-800/40 pt-4 space-y-4">
+              <div className="border-t border-border/40 pt-4 space-y-4">
                 {[
                   { fighter: fighter1, side: 'left'  as const },
                   { fighter: fighter2, side: 'right' as const },
@@ -363,14 +363,14 @@ export function FightMatchupTabs({
                     <div key={fighter.id} className="space-y-1.5">
                       <div className="flex justify-between text-[11px]">
                         <span className={cn('font-bold', color)}>{fighter.name}</span>
-                        <span className="text-zinc-500 text-[10px]">{total} wins</span>
+                        <span className="text-foreground-muted text-[10px]">{total} wins</span>
                       </div>
                       <div className="flex h-3 rounded-full overflow-hidden gap-px">
                         {koPct  > 0 && <div className="h-full bg-red-500"    style={{ width: `${koPct}%`  }} title={`KO/TKO ${koPct}%`} />}
                         {subPct > 0 && <div className="h-full bg-amber-500"  style={{ width: `${subPct}%` }} title={`Sub ${subPct}%`} />}
                         {decPct > 0 && <div className="h-full bg-blue-500"   style={{ width: `${decPct}%` }} title={`Dec ${decPct}%`} />}
                       </div>
-                      <div className="flex gap-3 text-[10px] text-zinc-500">
+                      <div className="flex gap-3 text-[10px] text-foreground-muted">
                         <span><span className="inline-block w-2 h-2 rounded-full bg-red-500   mr-1 align-middle" />{koPct}% KO/TKO</span>
                         <span><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1 align-middle" />{subPct}% Sub</span>
                         <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500  mr-1 align-middle" />{decPct}% Dec</span>
@@ -385,7 +385,7 @@ export function FightMatchupTabs({
             <div className="py-3 space-y-4">
               <WinRateBar wins={fighter1.wins} losses={fighter1.losses} draws={fighter1.draws} side="left"  name={fighter1.name} />
               <WinRateBar wins={fighter2.wins} losses={fighter2.losses} draws={fighter2.draws} side="right" name={fighter2.name} />
-              <p className="text-[10px] text-zinc-600 text-center pt-1">KO/TKO · Sub · Decision detail loading…</p>
+              <p className="text-[10px] text-foreground-muted text-center pt-1">KO/TKO · Sub · Decision detail loading…</p>
             </div>
           )}
         </div>
@@ -394,7 +394,7 @@ export function FightMatchupTabs({
       {/* ── STRIKING ────────────────────────────────────────────── */}
       <TabsContent value="striking" className="mt-0">
         <div>
-          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-zinc-700/60">
+          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-border/60">
             <span className="text-[11px] font-black text-red-400 uppercase tracking-wide">{f1LastName}</span>
             <span />
             <span className="text-[11px] font-black text-blue-400 uppercase tracking-wide text-right">{f2LastName}</span>
@@ -404,7 +404,7 @@ export function FightMatchupTabs({
             <div className="py-2 space-y-5">
               {(fighter1.sig_str_landed != null || fighter2.sig_str_landed != null) && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">Sig. Str. Landed / min</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-center">Sig. Str. Landed / min</p>
                   <CompBar
                     f1={fighter1.sig_str_landed}
                     f2={fighter2.sig_str_landed}
@@ -416,7 +416,7 @@ export function FightMatchupTabs({
 
               {(fighter1.striking_accuracy != null || fighter2.striking_accuracy != null) && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">Striking Accuracy</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-center">Striking Accuracy</p>
                   <CompBar
                     f1={fighter1.striking_accuracy}
                     f2={fighter2.striking_accuracy}
@@ -428,7 +428,7 @@ export function FightMatchupTabs({
               )}
             </div>
           ) : (
-            <p className="text-center text-zinc-600 text-xs py-6">No striking data available</p>
+            <p className="text-center text-foreground-muted text-xs py-6">No striking data available</p>
           )}
         </div>
       </TabsContent>
@@ -436,7 +436,7 @@ export function FightMatchupTabs({
       {/* ── GRAPPLING ───────────────────────────────────────────── */}
       <TabsContent value="grappling" className="mt-0">
         <div>
-          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-zinc-700/60">
+          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-border/60">
             <span className="text-[11px] font-black text-red-400 uppercase tracking-wide">{f1LastName}</span>
             <span />
             <span className="text-[11px] font-black text-blue-400 uppercase tracking-wide text-right">{f2LastName}</span>
@@ -446,7 +446,7 @@ export function FightMatchupTabs({
             <div className="py-2 space-y-5">
               {(fighter1.td_avg != null || fighter2.td_avg != null) && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">Takedown Avg / 15 min</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-center">Takedown Avg / 15 min</p>
                   <CompBar
                     f1={fighter1.td_avg}
                     f2={fighter2.td_avg}
@@ -458,7 +458,7 @@ export function FightMatchupTabs({
 
               {(fighter1.sub_avg != null || fighter2.sub_avg != null) && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 text-center">Submission Avg / 15 min</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted text-center">Submission Avg / 15 min</p>
                   <CompBar
                     f1={fighter1.sub_avg}
                     f2={fighter2.sub_avg}
@@ -469,7 +469,7 @@ export function FightMatchupTabs({
               )}
             </div>
           ) : (
-            <p className="text-center text-zinc-600 text-xs py-6">No grappling data available</p>
+            <p className="text-center text-foreground-muted text-xs py-6">No grappling data available</p>
           )}
         </div>
       </TabsContent>
@@ -477,7 +477,7 @@ export function FightMatchupTabs({
       {/* ── ODDS ────────────────────────────────────────────────── */}
       <TabsContent value="odds" className="mt-0">
         <div>
-          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-zinc-700/60">
+          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-border/60">
             <span className="text-[11px] font-black text-red-400 uppercase tracking-wide">{f1LastName}</span>
             <span />
             <span className="text-[11px] font-black text-blue-400 uppercase tracking-wide text-right">{f2LastName}</span>
@@ -489,7 +489,7 @@ export function FightMatchupTabs({
                 <StatRow
                   f1={
                     odds1 != null ? (
-                      <span className={odds1 < 0 ? 'text-emerald-400' : 'text-zinc-300'}>
+                      <span className={odds1 < 0 ? 'text-emerald-400' : 'text-foreground-secondary'}>
                         {formatOdds(odds1)}
                       </span>
                     ) : '—'
@@ -497,7 +497,7 @@ export function FightMatchupTabs({
                   label="Moneyline"
                   f2={
                     odds2 != null ? (
-                      <span className={odds2 < 0 ? 'text-emerald-400' : 'text-zinc-300'}>
+                      <span className={odds2 < 0 ? 'text-emerald-400' : 'text-foreground-secondary'}>
                         {formatOdds(odds2)}
                       </span>
                     ) : '—'
@@ -533,7 +533,7 @@ export function FightMatchupTabs({
                       <div className="h-full bg-red-500 transition-all" style={{ width: `${p1}%` }} />
                       <div className="h-full bg-blue-500 transition-all" style={{ width: `${p2}%` }} />
                     </div>
-                    <div className="flex justify-between mt-1.5 text-[10px] text-zinc-500">
+                    <div className="flex justify-between mt-1.5 text-[10px] text-foreground-muted">
                       <span>{p1}% {f1LastName}</span>
                       <span>{f2LastName} {p2}%</span>
                     </div>
@@ -542,7 +542,7 @@ export function FightMatchupTabs({
               })()}
             </div>
           ) : (
-            <p className="text-center text-zinc-600 text-xs py-6">No odds available yet</p>
+            <p className="text-center text-foreground-muted text-xs py-6">No odds available yet</p>
           )}
         </div>
       </TabsContent>

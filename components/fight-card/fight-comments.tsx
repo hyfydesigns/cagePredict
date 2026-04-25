@@ -86,7 +86,7 @@ export function FightComments({ fightId, initialComments, currentUserId }: Fight
     <div className="space-y-3">
       {/* Comment list */}
       {comments.length === 0 ? (
-        <p className="text-center text-xs text-zinc-400 py-4">
+        <p className="text-center text-xs text-foreground-muted py-4">
           No trash talk yet — be the first 🗣️
         </p>
       ) : (
@@ -96,7 +96,7 @@ export function FightComments({ fightId, initialComments, currentUserId }: Fight
             return (
               <div key={comment.id} className={cn('flex gap-2', isOwn && 'flex-row-reverse')}>
                 {/* Avatar */}
-                <div className="shrink-0 h-7 w-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm leading-none">
+                <div className="shrink-0 h-7 w-7 rounded-full bg-surface-2 border border-border flex items-center justify-center text-sm leading-none">
                   {comment.profile?.avatar_emoji ?? '🥊'}
                 </div>
                 {/* Bubble */}
@@ -107,24 +107,24 @@ export function FightComments({ fightId, initialComments, currentUserId }: Fight
                   <div className={cn(
                     'rounded-2xl px-3 py-2 text-sm break-words',
                     isOwn
-                      ? 'bg-primary/20 border border-primary/30 text-white rounded-tr-sm'
-                      : 'bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-tl-sm'
+                      ? 'bg-primary/20 border border-primary/30 text-foreground rounded-tr-sm'
+                      : 'bg-surface-2 border border-border text-foreground rounded-tl-sm'
                   )}>
                     {!isOwn && (
-                      <p className="text-[10px] font-bold text-zinc-300 mb-0.5">
+                      <p className="text-[10px] font-bold text-foreground-secondary mb-0.5">
                         {comment.profile?.display_name ?? comment.profile?.username}
                       </p>
                     )}
                     {comment.content}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 px-1">
-                    <span className="text-[10px] text-zinc-400">
+                    <span className="text-[10px] text-foreground-muted">
                       {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                     </span>
                     {isOwn && (
                       <button
                         onClick={() => handleDelete(comment.id)}
-                        className="text-[10px] text-zinc-300 hover:text-red-400 transition-colors"
+                        className="text-[10px] text-foreground-secondary hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -146,18 +146,18 @@ export function FightComments({ fightId, initialComments, currentUserId }: Fight
             onChange={(e) => setText(e.target.value)}
             maxLength={280}
             placeholder="Talk your trash… 🥊"
-            className="flex-1 min-w-0 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-400 focus:outline-none focus:border-primary transition-colors"
+            className="flex-1 min-w-0 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary transition-colors"
           />
           <button
             type="submit"
             disabled={!text.trim() || isPending}
-            className="shrink-0 rounded-xl bg-primary px-3 py-2 text-white disabled:opacity-40 hover:bg-primary/90 transition-colors"
+            className="shrink-0 rounded-xl bg-primary px-3 py-2 text-foreground disabled:opacity-40 hover:bg-primary/90 transition-colors"
           >
             <Send className="h-4 w-4" />
           </button>
         </form>
       ) : (
-        <p className="text-center text-xs text-zinc-400">
+        <p className="text-center text-xs text-foreground-muted">
           <a href="/login" className="text-primary hover:underline">Sign in</a> to join the trash talk
         </p>
       )}
