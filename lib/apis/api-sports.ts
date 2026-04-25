@@ -386,15 +386,18 @@ async function apiGet<T>(
 
 /**
  * Get all MMA fights for a date (YYYY-MM-DD).
- * Optionally filtered to UFC only (leagueId = UFC_LEAGUE_ID).
+ * Optionally filtered to UFC only (client-side, since the free plan
+ * rejects the `league` query parameter with "The League field do not exist.").
  */
 export async function getFightsByDate(
   date: string,   // "YYYY-MM-DD"
   ufcOnly = true,
 ): Promise<ApiSportsFight[]> {
-  const params: Record<string, string | number> = { date }
-  if (ufcOnly) params['league'] = UFC_LEAGUE_ID
-  return apiGet<ApiSportsFight>('/fights', params)
+  const all = await apiGet<ApiSportsFight>('/fights', { date })
+  if (!ufcOnly) return all
+  return all.filter(
+    (f) => f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
+  )
 }
 
 /**

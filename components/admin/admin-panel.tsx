@@ -4,12 +4,12 @@ import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, CheckCircle, Trophy, Users, Swords,
-  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search, Zap, Calendar
+  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search, Zap, Calendar, Radio
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -578,10 +578,35 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                     {format(new Date(event.date), 'MMM d, yyyy')} · {event.fights?.length ?? 0} fights
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                   <Badge variant={event.status === 'completed' ? 'outline' : event.status === 'live' ? 'live' : 'secondary'} className="text-[11px]">
                     {event.status}
                   </Badge>
+                  {event.status !== 'live' && (
+                    <button
+                      className="flex items-center gap-1 text-[10px] font-bold text-red-500 border border-red-500/40 rounded px-1.5 py-0.5 hover:bg-red-500/10 transition-colors"
+                      onClick={() => {
+                        forceSetEventStatus(event.id, 'live').then(r => {
+                          toast({ title: r.error ? 'Failed' : r.message ?? 'Set live', variant: r.error ? 'destructive' : 'default' })
+                        })
+                      }}
+                    >
+                      <Radio className="h-2.5 w-2.5" />
+                      Force Live
+                    </button>
+                  )}
+                  {event.status === 'live' && (
+                    <button
+                      className="flex items-center gap-1 text-[10px] font-bold text-foreground-muted border border-border rounded px-1.5 py-0.5 hover:bg-surface-2 transition-colors"
+                      onClick={() => {
+                        forceSetEventStatus(event.id, 'upcoming').then(r => {
+                          toast({ title: r.error ? 'Failed' : r.message ?? 'Set upcoming', variant: r.error ? 'destructive' : 'default' })
+                        })
+                      }}
+                    >
+                      Revert
+                    </button>
+                  )}
                   {expandedEvent === event.id
                     ? <ChevronUp className="h-4 w-4 text-foreground-muted" />
                     : <ChevronDown className="h-4 w-4 text-foreground-muted" />
