@@ -5,9 +5,17 @@ import {
   getFightsByDate,
   apiSportsIdToUuid,
   uuidToApiSportsId,
+  UFC_LEAGUE_ID,
 } from '@/lib/apis/api-sports'
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
+
+/** Offset a YYYY-MM-DD string by ±N days */
+function offsetDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00Z') // noon UTC avoids DST edge cases
+  d.setUTCDate(d.getUTCDate() + days)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
 
 /** Convert a RapidAPI integer ID to a deterministic UUID (legacy) */
 function rapidApiIdToUuid(id: number, type: 'fighter' | 'event' | 'fight'): string {
@@ -74,8 +82,27 @@ async function syncViaApiSports(
 
     let apiFights: Awaited<ReturnType<typeof getFightsByDate>>
     try {
-      apiFights = await getFightsByDate(dateStr, true)
-      log.push(`  API returned ${apiFights.length} fight(s)`)
+      // Try the stored date first; if it returns nothing, also try ±1 day
+      // (handles timezone offsets introduced during import)
+      const datesToTry = [dateStr, offsetDate(dateStr, -1), offsetDate(dateStr, 1)]
+      let foundFights: typeof apiFights = []
+
+      for (const tryDate of datesToTry) {
+        const allFights = await getFightsByDate(tryDate, false)
+        const ufcFights = allFights.filter(
+          (f: any) => f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
+        )
+        log.push(`  [${tryDate}] ${allFights.length} total, ${ufcFights.length} UFC`)
+        if (allFights.length > 0 && ufcFights.length === 0) {
+          const leagues = [...new Set(allFights.map((f: any) => `${f.league?.id}:${f.league?.name}`))].join(', ')
+          log.push(`  Leagues: ${leagues}`)
+        }
+        if (ufcFights.length > 0) {
+          foundFights = ufcFights
+          break
+        }
+      }
+      apiFights = foundFights
     } catch (e: any) {
       errors.push(`Fetch failed for ${event.name}: ${e.message}`)
       continue
@@ -83,12 +110,30 @@ async function syncViaApiSports(
 
     for (const apiFight of apiFights) {
       const fightUuid = apiSportsIdToUuid(apiFight.id, 'fight')
-      const dbFight   = dbFights.find((f: any) => f.id === fightUuid)
       const f1Name    = apiFight.fighters.first.name
       const f2Name    = apiFight.fighters.second.name
 
+      // Primary match: by UUID (api-sports imported events)
+      let dbFight = dbFights.find((f: any) => f.id === fightUuid)
+
+      // Fallback: match by fighter names (handles RapidAPI-imported events where
+      // UUIDs use a different prefix and will never match directly)
       if (!dbFight) {
-        skipped.push(`No DB match for api-sports fight ${apiFight.id} (${f1Name} vs ${f2Name}) → ${fightUuid}`)
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+        const f1n = norm(f1Name)
+        const f2n = norm(f2Name)
+        dbFight = dbFights.find((f: any) => {
+          const d1 = norm(f.fighter1?.name ?? '')
+          const d2 = norm(f.fighter2?.name ?? '')
+          return (d1 === f1n && d2 === f2n) || (d1 === f2n && d2 === f1n)
+        })
+        if (dbFight) {
+          log.push(`  Name-matched ${f1Name} vs ${f2Name} → DB fight ${dbFight.id}`)
+        }
+      }
+
+      if (!dbFight) {
+        skipped.push(`No DB match for api-sports fight ${apiFight.id} (${f1Name} vs ${f2Name})`)
         continue
       }
 
@@ -100,8 +145,8 @@ async function syncViaApiSports(
       const clockTime  = apiFight.result?.clock ?? null
 
       if (isCancelled && dbFight.status !== 'cancelled') {
-        const { error } = await supabase.from('fights').update({ status: 'cancelled' }).eq('id', fightUuid)
-        if (error) errors.push(`cancel(${fightUuid}): ${error.message}`)
+        const { error } = await supabase.from('fights').update({ status: 'cancelled' }).eq('id', dbFight.id)
+        if (error) errors.push(`cancel(${dbFight.id}): ${error.message}`)
         else log.push(`✗ ${f1Name} vs ${f2Name} → cancelled`)
         continue
       }
@@ -123,12 +168,25 @@ async function syncViaApiSports(
 
       let winnerUuid: string | null = null
       if (!isDraw && apiFight.winner) {
-        const winnerId = apiFight.winner.id
-        winnerUuid = apiSportsIdToUuid(winnerId, 'fighter')
+        const apiWinnerId   = apiFight.winner.id
+        const apiWinnerName = apiFight.winner.name
+        // First try: api-sports UUID (works for api-sports imported fighters)
+        const apiWinnerUuid = apiSportsIdToUuid(apiWinnerId, 'fighter')
+        // Fallback: match winner by name against the two DB fighters
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+        if (dbFight.fighter1?.id && norm(dbFight.fighter1?.name ?? '') === norm(apiWinnerName)) {
+          winnerUuid = dbFight.fighter1.id
+        } else if (dbFight.fighter2?.id && norm(dbFight.fighter2?.name ?? '') === norm(apiWinnerName)) {
+          winnerUuid = dbFight.fighter2.id
+        } else {
+          winnerUuid = apiWinnerUuid // best guess
+        }
       }
 
+      const dbFightId = dbFight.id  // use actual DB fight ID (may differ from fightUuid if name-matched)
+
       const { error: rpcErr } = await supabase.rpc('complete_fight', {
-        p_fight_id:  fightUuid,
+        p_fight_id:  dbFightId,
         p_winner_id: winnerUuid,
         p_method:    isDraw ? (method ?? 'Draw') : method,
         p_round:     round,
@@ -136,7 +194,7 @@ async function syncViaApiSports(
       } as any)
 
       if (rpcErr) {
-        errors.push(`complete_fight(${fightUuid}): ${rpcErr.message}`)
+        errors.push(`complete_fight(${dbFightId}): ${rpcErr.message}`)
       } else {
         synced++
         const winner = isDraw ? 'Draw' : apiFight.winner?.name ?? '?'
