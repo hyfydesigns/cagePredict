@@ -261,10 +261,14 @@ function countryToFlag(nationality: string | null): string | null {
 
 export function normaliseFighter(f: ApiSportsFighterBasic | ApiSportsFighterDetail): NormalisedFighter {
   const detail = 'career' in f ? (f as ApiSportsFighterDetail) : null
+  // Guard against malformed/TBA fighters where record or id may be missing
+  const wins   = (f as any)?.record?.wins   ?? 0
+  const losses = (f as any)?.record?.losses ?? 0
+  const draws  = (f as any)?.record?.draws  ?? 0
   return {
     id: f.id,
     uuid: apiSportsIdToUuid(f.id, 'fighter'),
-    name: f.name,
+    name: f.name ?? 'TBA',
     nickname: f.nickname ?? null,
     image_url: f.image ?? null,
     nationality: f.nationality ?? null,
@@ -273,10 +277,10 @@ export function normaliseFighter(f: ApiSportsFighterBasic | ApiSportsFighterDeta
     height_cm: parseHeight(f.height ?? null),
     reach_cm: parseReach(f.reach ?? null),
     weight_class: null,  // set from fight context
-    wins: f.record.wins,
-    losses: f.record.losses,
-    draws: f.record.draws,
-    record: `${f.record.wins}-${f.record.losses}-${f.record.draws}`,
+    wins,
+    losses,
+    draws,
+    record: `${wins}-${losses}-${draws}`,
     striking_accuracy: detail?.career?.striking_accuracy ?? null,
     sig_str_landed: detail?.career?.significant_strikes_landed ?? null,
     td_avg: detail?.career?.takedown_avg ?? null,
