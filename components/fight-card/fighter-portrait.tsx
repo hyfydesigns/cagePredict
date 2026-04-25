@@ -61,7 +61,7 @@ export function FighterPortrait({
       <Link href={`/fighters/${fighter.id}`} className="block group">
         <div className={cn(
           'relative w-24 h-28 sm:w-28 sm:h-32 rounded-xl overflow-hidden border-2 transition-all duration-300 group-hover:border-primary/60 group-hover:scale-[1.03]',
-          isPicked ? 'border-primary shadow-[0_0_20px_rgba(239,68,68,0.35)]' : 'border-zinc-700',
+          isPicked ? 'border-primary shadow-[0_0_20px_rgba(239,68,68,0.35)]' : 'border-border',
           isWinner ? 'border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.35)]' : '',
         )}>
           {fighter.image_url && !imgError ? (
@@ -74,7 +74,7 @@ export function FighterPortrait({
               onError={() => setImgError(true)}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-b from-zinc-700 to-zinc-900 flex items-center justify-center">
+            <div className="w-full h-full bg-gradient-to-b from-surface-3 to-surface flex items-center justify-center">
               <span className="text-4xl">{fighter.flag_emoji ?? '🥊'}</span>
             </div>
           )}
@@ -97,19 +97,19 @@ export function FighterPortrait({
 
       {/* Fighter info */}
       <div className={cn('mt-2 w-full', isLeft ? 'text-left' : 'text-right')}>
-        <p className="text-white font-black text-sm sm:text-base leading-tight line-clamp-1">
+        <p className="text-foreground font-black text-sm sm:text-base leading-tight line-clamp-1">
           {fighter.name.split(' ').pop()}
         </p>
-        <p className="text-white font-black text-xs leading-tight line-clamp-1 hidden sm:block">
+        <p className="text-foreground font-black text-xs leading-tight line-clamp-1 hidden sm:block">
           {fighter.name.split(' ').slice(0, -1).join(' ')}
         </p>
         {fighter.nickname && (
-          <p className="text-zinc-300 text-[10px] italic mt-0.5 line-clamp-1">
+          <p className="text-foreground-secondary text-[10px] italic mt-0.5 line-clamp-1">
             "{fighter.nickname}"
           </p>
         )}
         <div className={cn('flex items-center gap-1.5 mt-1', isLeft ? '' : 'justify-end')}>
-          <span className="text-zinc-300 text-[11px] font-medium">{fighter.record}</span>
+          <span className="text-foreground-secondary text-[11px] font-medium">{fighter.record}</span>
         </div>
 
         {/* Odds */}
@@ -128,7 +128,7 @@ export function FighterPortrait({
               {arrow}
             </span>
           )}
-          <span className="text-zinc-500 text-[10px] leading-none">{implied}%</span>
+          <span className="text-foreground-muted text-[10px] leading-none">{implied}%</span>
         </div>
 
         {/* Picked indicator */}

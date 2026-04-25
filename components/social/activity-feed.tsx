@@ -24,7 +24,7 @@ interface ActivityFeedProps {
 export function ActivityFeed({ items }: ActivityFeedProps) {
   if (items.length === 0) {
     return (
-      <p className="text-center text-sm text-zinc-600 py-6">
+      <p className="text-center text-sm text-foreground-muted py-6">
         No activity yet — add friends to see their picks here.
       </p>
     )
@@ -37,30 +37,30 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
           'flex items-start gap-3 rounded-xl border px-4 py-3',
           item.isCorrect === true  && 'border-green-500/20 bg-green-500/5',
           item.isCorrect === false && 'border-red-500/20 bg-red-500/5',
-          item.isCorrect === null  && 'border-zinc-800/60 bg-zinc-900/40',
+          item.isCorrect === null  && 'border-border/60 bg-surface/40',
         )}>
           {/* Avatar */}
-          <Link href={`/profile/${item.username}`} className="shrink-0 h-8 w-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-base leading-none hover:border-zinc-500 transition-colors">
+          <Link href={`/profile/${item.username}`} className="shrink-0 h-8 w-8 rounded-full bg-surface-2 border border-border flex items-center justify-center text-base leading-none hover:border-border transition-colors">
             {item.avatarEmoji ?? '🥊'}
           </Link>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-zinc-200 leading-snug">
-              <Link href={`/profile/${item.username}`} className="font-bold text-white hover:text-primary transition-colors">
+            <p className="text-sm text-foreground leading-snug">
+              <Link href={`/profile/${item.username}`} className="font-bold text-foreground hover:text-primary transition-colors">
                 {item.displayName ?? item.username}
               </Link>
               {' '}picked{' '}
-              <span className="font-semibold text-white">{item.pickedFighterName}</span>
+              <span className="font-semibold text-foreground">{item.pickedFighterName}</span>
               {' '}to beat{' '}
-              <span className="text-zinc-400">{item.opponentName}</span>
+              <span className="text-foreground-muted">{item.opponentName}</span>
               {item.isConfidence && (
                 <span className="inline-flex items-center gap-0.5 ml-1 text-amber-400 text-xs font-bold">
                   <Lock className="h-2.5 w-2.5" />Lock
                 </span>
               )}
             </p>
-            <p className="text-[11px] text-zinc-600 mt-0.5">
+            <p className="text-[11px] text-foreground-muted mt-0.5">
               {item.eventName} · {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
             </p>
           </div>
@@ -69,7 +69,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
           <div className="shrink-0">
             {item.isCorrect === true  && <CheckCircle className="h-4 w-4 text-green-400" />}
             {item.isCorrect === false && <XCircle className="h-4 w-4 text-red-400" />}
-            {item.isCorrect === null  && <Clock className="h-4 w-4 text-zinc-700" />}
+            {item.isCorrect === null  && <Clock className="h-4 w-4 text-foreground-muted" />}
           </div>
         </div>
       ))}

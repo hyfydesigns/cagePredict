@@ -30,8 +30,8 @@ export default async function InvitePage({ params }: Props) {
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-4">🔍</div>
-          <h1 className="text-xl font-bold text-white">Invalid invite link</h1>
-          <p className="text-zinc-500 text-sm mt-2 mb-6">
+          <h1 className="text-xl font-bold text-foreground">Invalid invite link</h1>
+          <p className="text-foreground-muted text-sm mt-2 mb-6">
             This crew invite code doesn&apos;t exist or has expired.
           </p>
           <Link href="/"><Button variant="outline">Go Home</Button></Link>
@@ -58,22 +58,22 @@ export default async function InvitePage({ params }: Props) {
       <div className="relative w-full max-w-sm space-y-6 text-center">
         <div className="flex justify-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-[0_0_20px_rgba(239,68,68,0.5)]">
-            <Shield className="h-6 w-6 text-white" />
+            <Shield className="h-6 w-6 text-foreground" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-6">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-zinc-800 border border-zinc-700 text-3xl mb-4 mx-auto">
+        <div className="rounded-2xl border border-border bg-surface/90 p-6">
+          <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-surface-2 border border-border text-3xl mb-4 mx-auto">
             🏆
           </div>
-          <h1 className="text-2xl font-black text-white">You&apos;re invited!</h1>
-          <p className="text-zinc-400 text-sm mt-1 mb-4">
-            Join <span className="text-white font-bold">{crew.name}</span> on CagePredict
+          <h1 className="text-2xl font-black text-foreground">You&apos;re invited!</h1>
+          <p className="text-foreground-muted text-sm mt-1 mb-4">
+            Join <span className="text-foreground font-bold">{crew.name}</span> on CagePredict
           </p>
           {crew.description && (
-            <p className="text-zinc-500 text-sm mb-4">{crew.description}</p>
+            <p className="text-foreground-muted text-sm mb-4">{crew.description}</p>
           )}
-          <div className="flex items-center justify-center gap-1.5 text-zinc-500 text-sm mb-6">
+          <div className="flex items-center justify-center gap-1.5 text-foreground-muted text-sm mb-6">
             <Users className="h-4 w-4" />
             <span>{memberCount} / {crew.max_members} members</span>
           </div>
@@ -91,7 +91,7 @@ export default async function InvitePage({ params }: Props) {
           </div>
         </div>
 
-        <p className="text-zinc-600 text-xs">CagePredict is free to play. No credit card needed.</p>
+        <p className="text-foreground-muted text-xs">CagePredict is free to play. No credit card needed.</p>
       </div>
     </div>
   )

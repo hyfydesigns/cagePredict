@@ -40,8 +40,8 @@ export default function SignUpPage() {
     return (
       <div className="rounded-2xl border border-green-500/30 bg-green-500/5 p-8 text-center">
         <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-3" />
-        <h2 className="text-xl font-bold text-white mb-2">Check your email!</h2>
-        <p className="text-zinc-400 text-sm">
+        <h2 className="text-xl font-bold text-foreground mb-2">Check your email!</h2>
+        <p className="text-foreground-muted text-sm">
           We sent a confirmation link. Click it to activate your account
           {inviteCode ? ' and you\'ll be automatically joined to the crew.' : ' and start predicting.'}
         </p>
@@ -50,7 +50,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur">
+    <div className="rounded-2xl border border-border bg-surface/80 p-8 shadow-2xl backdrop-blur">
       <div className="flex justify-center mb-5">
         <img
           src="/logo.svg"
@@ -58,8 +58,8 @@ export default function SignUpPage() {
           className="h-14 w-14 drop-shadow-[0_0_12px_rgba(239,68,68,0.5)]"
         />
       </div>
-      <h1 className="text-2xl font-black text-white mb-1">Create account</h1>
-      <p className="text-zinc-500 text-sm mb-6">Free forever. No credit card needed.</p>
+      <h1 className="text-2xl font-black text-foreground mb-1">Create account</h1>
+      <p className="text-foreground-muted text-sm mb-6">Free forever. No credit card needed.</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
@@ -82,7 +82,7 @@ export default function SignUpPage() {
               className="pr-10"
             />
             <button type="button" onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground-secondary">
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
@@ -93,13 +93,13 @@ export default function SignUpPage() {
         </Button>
       </form>
 
-      <p className="text-center text-xs text-zinc-600 mt-4">
+      <p className="text-center text-xs text-foreground-muted mt-4">
         By creating an account you agree to our{' '}
-        <Link href="/terms" className="hover:text-zinc-400 underline underline-offset-2">Terms of Service</Link>
+        <Link href="/terms" className="hover:text-foreground-muted underline underline-offset-2">Terms of Service</Link>
         {' '}and{' '}
-        <Link href="/privacy" className="hover:text-zinc-400 underline underline-offset-2">Privacy Policy</Link>.
+        <Link href="/privacy" className="hover:text-foreground-muted underline underline-offset-2">Privacy Policy</Link>.
       </p>
-      <p className="text-center text-sm text-zinc-500 mt-3">
+      <p className="text-center text-sm text-foreground-muted mt-3">
         Already have an account?{' '}
         <Link href="/login" className="text-primary hover:underline font-medium">Sign in</Link>
       </p>

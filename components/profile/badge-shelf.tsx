@@ -19,7 +19,7 @@ export function BadgeShelf({ earned }: BadgeShelfProps) {
 
   return (
     <div>
-      <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-300 mb-3">Achievements</h3>
+      <h3 className="text-xs font-bold uppercase tracking-widest text-foreground-secondary mb-3">Achievements</h3>
       <div className="flex flex-wrap gap-2">
         {ALL_BADGES.map((badge) => {
           const isEarned = earnedIds.has(badge.id)
@@ -30,8 +30,8 @@ export function BadgeShelf({ earned }: BadgeShelfProps) {
               className={`
                 flex items-center gap-2 rounded-xl px-3 py-2 border text-xs font-semibold transition-all
                 ${isEarned
-                  ? 'bg-zinc-800 border-zinc-600 text-white'
-                  : 'bg-zinc-900/40 border-zinc-800/40 text-zinc-400 opacity-40 grayscale'}
+                  ? 'bg-surface-2 border-border text-foreground'
+                  : 'bg-surface/40 border-border/40 text-foreground-muted opacity-40 grayscale'}
               `}
             >
               <span className="text-base leading-none">{badge.icon}</span>

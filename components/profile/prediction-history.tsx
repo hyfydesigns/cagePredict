@@ -11,7 +11,7 @@ interface PredictionHistoryProps {
 export function PredictionHistory({ predictions }: PredictionHistoryProps) {
   if (predictions.length === 0) {
     return (
-      <div className="text-center py-12 text-zinc-400">
+      <div className="text-center py-12 text-foreground-muted">
         <p className="text-sm">No predictions yet — make your first picks!</p>
       </div>
     )
@@ -37,31 +37,31 @@ export function PredictionHistory({ predictions }: PredictionHistoryProps) {
               'flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors',
               pred.is_correct === true && 'border-green-500/20 bg-green-500/5',
               pred.is_correct === false && 'border-red-500/20 bg-red-500/5',
-              pred.is_correct === null && 'border-zinc-800/60 bg-zinc-900/60'
+              pred.is_correct === null && 'border-border/60 bg-surface/60'
             )}
           >
             {/* Status icon */}
             <div className="shrink-0">
               {pred.is_correct === true && <CheckCircle className="h-5 w-5 text-green-400" />}
               {pred.is_correct === false && <XCircle className="h-5 w-5 text-red-400" />}
-              {pred.is_correct === null && <Clock className="h-5 w-5 text-zinc-400" />}
+              {pred.is_correct === null && <Clock className="h-5 w-5 text-foreground-muted" />}
             </div>
 
             {/* Fight info */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-white font-semibold line-clamp-1">
+              <p className="text-sm text-foreground font-semibold line-clamp-1">
                 {pred.fight.event.name}
               </p>
-              <p className="text-xs text-zinc-300 mt-0.5">
-                <span className="text-zinc-300">{pickedFighter.name}</span>
-                <span className="text-zinc-400 mx-1.5">vs</span>
+              <p className="text-xs text-foreground-secondary mt-0.5">
+                <span className="text-foreground-secondary">{pickedFighter.name}</span>
+                <span className="text-foreground-muted mx-1.5">vs</span>
                 {opponent.name}
               </p>
             </div>
 
             {/* Date + result */}
             <div className="text-right shrink-0">
-              <p className="text-[11px] text-zinc-300">
+              <p className="text-[11px] text-foreground-secondary">
                 {format(new Date(pred.fight.fight_time), 'MMM d')}
               </p>
               {isCompleted ? (

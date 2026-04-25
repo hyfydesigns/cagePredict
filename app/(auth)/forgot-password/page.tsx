@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur">
+    <div className="rounded-2xl border border-border bg-surface/80 p-8 shadow-2xl backdrop-blur">
       <div className="flex justify-center mb-5">
         <img
           src="/logo.svg"
@@ -34,22 +34,22 @@ export default function ForgotPasswordPage() {
       {sent ? (
         <div className="text-center space-y-3">
           <div className="text-4xl mb-2">📬</div>
-          <h1 className="text-xl font-black text-white">Check your email</h1>
-          <p className="text-zinc-400 text-sm leading-relaxed">
-            If <span className="text-white font-medium">{email}</span> has an account,
+          <h1 className="text-xl font-black text-foreground">Check your email</h1>
+          <p className="text-foreground-muted text-sm leading-relaxed">
+            If <span className="text-foreground font-medium">{email}</span> has an account,
             you'll receive a password reset link shortly.
           </p>
           <Link
             href="/login"
-            className="inline-block mt-4 text-sm text-zinc-500 hover:text-white transition-colors"
+            className="inline-block mt-4 text-sm text-foreground-muted hover:text-foreground transition-colors"
           >
             ← Back to sign in
           </Link>
         </div>
       ) : (
         <>
-          <h1 className="text-2xl font-black text-white mb-1">Reset password</h1>
-          <p className="text-zinc-500 text-sm mb-6">
+          <h1 className="text-2xl font-black text-foreground mb-1">Reset password</h1>
+          <p className="text-foreground-muted text-sm mb-6">
             Enter your email and we'll send you a reset link.
           </p>
 
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-zinc-500 mt-5">
+          <p className="text-center text-sm text-foreground-muted mt-5">
             Remembered it?{' '}
             <Link href="/login" className="text-primary hover:underline font-medium">
               Sign in

@@ -150,8 +150,8 @@ export default async function EventPage(
       <div className="container mx-auto py-8 max-w-3xl space-y-8">
 
         {/* Event hero banner */}
-        <div className="rounded-2xl overflow-hidden border border-zinc-800/60">
-          <div className="relative h-48 sm:h-64 bg-zinc-900">
+        <div className="rounded-2xl overflow-hidden border border-border/60">
+          <div className="relative h-48 sm:h-64 bg-surface">
             {event.image_url && (
               <Image
                 src={event.image_url}
@@ -162,7 +162,7 @@ export default async function EventPage(
                 sizes="(max-width: 768px) 100vw, 768px"
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {isLive && <Badge variant="live">🔴 LIVE NOW</Badge>}
@@ -172,10 +172,10 @@ export default async function EventPage(
                   <Badge variant="warning"><Trophy className="h-3 w-3 mr-1" />Title Fight</Badge>
                 )}
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight">
+              <h1 className="text-3xl sm:text-4xl font-black text-foreground leading-tight">
                 {event.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-zinc-400">
+              <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-foreground-muted">
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
                   {format(new Date(event.date), 'EEEE, MMMM d, yyyy')}
@@ -199,21 +199,21 @@ export default async function EventPage(
             </p>
             <div className="flex items-center justify-center gap-4 sm:gap-8">
               <div>
-                <p className="text-2xl sm:text-3xl font-black text-white">
+                <p className="text-2xl sm:text-3xl font-black text-foreground">
                   {mainFight.fighter1?.name.split(' ').pop()}
                 </p>
-                <p className="text-sm text-zinc-500">{mainFight.fighter1?.name}</p>
-                <p className="text-xs text-zinc-600 mt-1">
+                <p className="text-sm text-foreground-muted">{mainFight.fighter1?.name}</p>
+                <p className="text-xs text-foreground-muted mt-1">
                   {mainFight.fighter1?.wins ?? 0}–{mainFight.fighter1?.losses ?? 0}
                 </p>
               </div>
-              <span className="text-2xl font-black text-zinc-700">VS</span>
+              <span className="text-2xl font-black text-foreground-muted">VS</span>
               <div>
-                <p className="text-2xl sm:text-3xl font-black text-white">
+                <p className="text-2xl sm:text-3xl font-black text-foreground">
                   {mainFight.fighter2?.name.split(' ').pop()}
                 </p>
-                <p className="text-sm text-zinc-500">{mainFight.fighter2?.name}</p>
-                <p className="text-xs text-zinc-600 mt-1">
+                <p className="text-sm text-foreground-muted">{mainFight.fighter2?.name}</p>
+                <p className="text-xs text-foreground-muted mt-1">
                   {mainFight.fighter2?.wins ?? 0}–{mainFight.fighter2?.losses ?? 0}
                 </p>
               </div>
@@ -223,16 +223,16 @@ export default async function EventPage(
 
         {/* CTA for logged-out users */}
         {!user && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="rounded-2xl border border-border bg-surface/60 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <p className="font-bold text-white">Make your picks for {event.name}</p>
-              <p className="text-sm text-zinc-500 mt-0.5">
+              <p className="font-bold text-foreground">Make your picks for {event.name}</p>
+              <p className="text-sm text-foreground-muted mt-0.5">
                 Free to play · Earn points · Climb the global leaderboard
               </p>
             </div>
             <Link
               href="/signup"
-              className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-bold text-white text-sm hover:bg-primary-hover transition-colors shadow-[0_0_16px_rgba(239,68,68,0.3)]"
+              className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-bold text-foreground text-sm hover:bg-primary-hover transition-colors shadow-[0_0_16px_rgba(239,68,68,0.3)]"
             >
               Join Free <ChevronRight className="h-4 w-4" />
             </Link>
@@ -251,9 +251,9 @@ export default async function EventPage(
 
         {/* Fight card */}
         <div className="space-y-6">
-          <h2 className="text-xl font-black text-white">
+          <h2 className="text-xl font-black text-foreground">
             Full Fight Card
-            <span className="ml-2 text-sm font-normal text-zinc-500">
+            <span className="ml-2 text-sm font-normal text-foreground-muted">
               {fights.length} fights
             </span>
           </h2>
@@ -279,14 +279,14 @@ export default async function EventPage(
         </div>
 
         {/* Bottom CTA */}
-        <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-6 text-center space-y-3">
-          <p className="text-white font-bold">Want to predict these fights?</p>
-          <p className="text-zinc-500 text-sm">
+        <div className="rounded-2xl border border-border/60 bg-surface/40 p-6 text-center space-y-3">
+          <p className="text-foreground font-bold">Want to predict these fights?</p>
+          <p className="text-foreground-muted text-sm">
             Join CagePredict free — pick every fight, earn points, and compete on the global leaderboard.
           </p>
           <Link
             href={user ? '/' : '/signup'}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-bold text-white hover:bg-primary-hover transition-colors shadow-[0_0_16px_rgba(239,68,68,0.3)]"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-bold text-foreground hover:bg-primary-hover transition-colors shadow-[0_0_16px_rgba(239,68,68,0.3)]"
           >
             {user ? 'Make Picks Now' : 'Start Predicting Free'}
             <ChevronRight className="h-4 w-4" />
@@ -303,8 +303,8 @@ function FightSection({ label, fights }: { label: string; fights: any[] }) {
     <div className="space-y-3">
       {label && (
         <div className="flex items-center gap-3">
-          <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">{label}</span>
-          <div className="flex-1 h-px bg-zinc-800" />
+          <span className="text-xs font-bold uppercase tracking-widest text-foreground-muted">{label}</span>
+          <div className="flex-1 h-px bg-surface-2" />
         </div>
       )}
       <div className="space-y-2">
@@ -327,35 +327,35 @@ function FightRow({ fight }: { fight: any }) {
       rounded-xl border px-4 py-3
       ${fight.is_main_event
         ? 'border-primary/20 bg-primary/5'
-        : 'border-zinc-800/60 bg-zinc-900/40'}
+        : 'border-border/60 bg-surface/40'}
     `}>
       <div className="flex items-center justify-between gap-3">
         {/* Fighter 1 */}
         <div className="flex-1 min-w-0">
           <p className={`font-bold text-sm truncate ${
             hasWinner
-              ? fight.winner_id === f1?.id ? 'text-white' : 'text-zinc-500 line-through decoration-zinc-600'
-              : 'text-white'
+              ? fight.winner_id === f1?.id ? 'text-foreground' : 'text-foreground-muted line-through decoration-zinc-600'
+              : 'text-foreground'
           }`}>
             {f1?.name ?? 'TBA'}
           </p>
-          <p className="text-xs text-zinc-600">
+          <p className="text-xs text-foreground-muted">
             {f1?.wins ?? 0}–{f1?.losses ?? 0}
           </p>
         </div>
 
         {/* Center */}
         <div className="text-center shrink-0 px-2">
-          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wider mb-0.5">
+          <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-wider mb-0.5">
             {fight.weight_class}
           </p>
           {hasWinner ? (
-            <p className="text-[10px] font-semibold text-zinc-500">
+            <p className="text-[10px] font-semibold text-foreground-muted">
               {fight.method ?? 'DEC'}
               {fight.round ? ` R${fight.round}` : ''}
             </p>
           ) : (
-            <p className="text-xs font-black text-zinc-700">VS</p>
+            <p className="text-xs font-black text-foreground-muted">VS</p>
           )}
         </div>
 
@@ -363,12 +363,12 @@ function FightRow({ fight }: { fight: any }) {
         <div className="flex-1 min-w-0 text-right">
           <p className={`font-bold text-sm truncate ${
             hasWinner
-              ? fight.winner_id === f2?.id ? 'text-white' : 'text-zinc-500 line-through decoration-zinc-600'
-              : 'text-white'
+              ? fight.winner_id === f2?.id ? 'text-foreground' : 'text-foreground-muted line-through decoration-zinc-600'
+              : 'text-foreground'
           }`}>
             {f2?.name ?? 'TBA'}
           </p>
-          <p className="text-xs text-zinc-600">
+          <p className="text-xs text-foreground-muted">
             {f2?.wins ?? 0}–{f2?.losses ?? 0}
           </p>
         </div>

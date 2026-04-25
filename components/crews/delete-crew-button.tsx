@@ -35,7 +35,7 @@ export function DeleteCrewButton({ crewId }: { crewId: string }) {
       size="sm"
       onClick={handleClick}
       disabled={isPending}
-      className={confirm ? 'text-red-400 border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300' : 'text-zinc-500 hover:text-red-400'}
+      className={confirm ? 'text-red-400 border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300' : 'text-foreground-muted hover:text-red-400'}
     >
       {isPending
         ? <Loader2 className="h-4 w-4 animate-spin" />

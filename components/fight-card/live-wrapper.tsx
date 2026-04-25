@@ -166,7 +166,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         <div className="flex items-center justify-center gap-2 text-xs text-primary font-semibold">
           <Radio className="h-3.5 w-3.5 animate-pulse-red" />
           Live — results update automatically
-          <span className="text-zinc-400 font-normal">
+          <span className="text-foreground-muted font-normal">
             {refreshError
               ? '· sync error'
               : lastRefresh
@@ -183,7 +183,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
             onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
             disabled={!hasPrev}
             aria-label="Previous event"
-            className="shrink-0 h-8 w-8 rounded-lg border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-500 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+            className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -192,20 +192,20 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
             {activeEvent.status === 'live' && (
               <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse-red shrink-0" />
             )}
-            <span className="text-sm font-semibold text-white truncate">
+            <span className="text-sm font-semibold text-foreground truncate">
               {activeEvent.name.split(':')[0].trim()}
             </span>
             <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
               activeEvent.status === 'live'
                 ? 'bg-primary/20 text-primary'
                 : activeEvent.status === 'completed'
-                ? 'bg-zinc-800 text-zinc-500'
-                : 'bg-zinc-800/80 text-zinc-400'
+                ? 'bg-surface-2 text-foreground-muted'
+                : 'bg-surface-2/80 text-foreground-muted'
             }`}>
               {activeEvent.status === 'live' ? 'LIVE' : format(new Date(activeEvent.date), 'MMM d')}
             </span>
             {events.length > 1 && (
-              <span className="shrink-0 text-[10px] text-zinc-600">
+              <span className="shrink-0 text-[10px] text-foreground-muted">
                 {activeIndex + 1}/{events.length}
               </span>
             )}
@@ -215,7 +215,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
             onClick={() => setActiveIndex((i) => Math.min(events.length - 1, i + 1))}
             disabled={!hasNext}
             aria-label="Next event"
-            className="shrink-0 h-8 w-8 rounded-lg border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-500 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+            className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -247,8 +247,8 @@ function PicksProgressBadge({ total, picked }: { total: number; picked: number }
   const circumference = 2 * Math.PI * r
 
   const strokeColor = allDone ? '#22c55e' : hasNone ? '#71717a' : '#f59e0b'
-  const textColor   = allDone ? 'text-green-400' : hasNone ? 'text-zinc-400' : 'text-amber-400'
-  const bgColor     = allDone ? 'bg-green-500/10 border-green-500/30' : hasNone ? 'bg-zinc-800/80 border-zinc-700/60' : 'bg-amber-500/10 border-amber-500/30'
+  const textColor   = allDone ? 'text-green-400' : hasNone ? 'text-foreground-muted' : 'text-amber-400'
+  const bgColor     = allDone ? 'bg-green-500/10 border-green-500/30' : hasNone ? 'bg-surface-2/80 border-border/60' : 'bg-amber-500/10 border-amber-500/30'
 
   return (
     <div className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 backdrop-blur-sm ${bgColor}`}>
@@ -280,7 +280,7 @@ function PicksProgressBadge({ total, picked }: { total: number; picked: number }
         <p className={`text-xs font-black leading-none ${textColor}`}>
           {picked}/{total}
         </p>
-        <p className="text-[10px] text-zinc-500 leading-none mt-0.5">
+        <p className="text-[10px] text-foreground-muted leading-none mt-0.5">
           {allDone ? 'All picked!' : 'Picks'}
         </p>
       </div>
@@ -310,29 +310,29 @@ function EventSectionClient({
 
   return (
     <section>
-      <div className="rounded-2xl overflow-hidden border border-zinc-800/60 mb-4">
-        <div className="relative h-32 sm:h-40 bg-zinc-900">
+      <div className="rounded-2xl overflow-hidden border border-border/60 mb-4">
+        <div className="relative h-32 sm:h-40 bg-surface">
           {event.image_url && (
             <Image src={event.image_url} alt={event.name} fill className="object-cover opacity-40" sizes="760px" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
           <div className="absolute bottom-4 left-4 right-4">
             <div className="flex items-end justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <Badge variant={event.status === 'live' ? 'live' : 'outline'} className="mb-2 text-[11px]">
                   {event.status === 'live' ? '🔴 LIVE NOW' : 'Upcoming'}
                 </Badge>
-                <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-black text-foreground flex items-center gap-2">
                   <span className="truncate">{event.name}</span>
                   <Link
                     href={`/events/${event.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
-                    className="text-zinc-400 hover:text-zinc-300 transition-colors shrink-0"
+                    className="text-foreground-muted hover:text-foreground-secondary transition-colors shrink-0"
                     title="Event page"
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Link>
                 </h2>
-                <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400 flex-wrap">
+                <div className="flex items-center gap-3 mt-1 text-xs text-foreground-muted flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     {format(new Date(event.date), 'EEEE, MMMM d, yyyy')}
@@ -356,10 +356,10 @@ function EventSectionClient({
 
         {/* Progress bar along the bottom of the banner */}
         {userId && totalFights > 0 && (
-          <div className="h-1 bg-zinc-800 w-full">
+          <div className="h-1 bg-surface-2 w-full">
             <div
               className={`h-full transition-all duration-500 ${
-                pickedCount === totalFights ? 'bg-green-500' : pickedCount > 0 ? 'bg-amber-500' : 'bg-zinc-700'
+                pickedCount === totalFights ? 'bg-green-500' : pickedCount > 0 ? 'bg-amber-500' : 'bg-surface-3'
               }`}
               style={{ width: `${(pickedCount / totalFights) * 100}%` }}
             />
@@ -372,47 +372,47 @@ function EventSectionClient({
           const completedFights = event.fights.filter((f: any) => f.status === 'completed')
 
           return (
-            <div className="border-t border-zinc-800/60 bg-zinc-900/60 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+            <div className="border-t border-border/60 bg-surface/60 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
               {/* Points breakdown — read from DB via getEventStats, always accurate */}
               <div className="flex items-center gap-1.5 text-xs flex-wrap">
-                <span className="text-zinc-400 font-semibold">Points:</span>
-                <span className="text-white font-bold">{basePts}</span>
-                <span className="text-zinc-500">base</span>
-                <span className="text-zinc-600">+</span>
-                <span className={streakPts > 0 ? 'text-orange-400 font-bold' : 'text-zinc-600 font-bold'}>{streakPts}</span>
-                <span className="text-zinc-500">streak</span>
-                <span className="text-zinc-600">=</span>
+                <span className="text-foreground-muted font-semibold">Points:</span>
+                <span className="text-foreground font-bold">{basePts}</span>
+                <span className="text-foreground-muted">base</span>
+                <span className="text-foreground-muted">+</span>
+                <span className={streakPts > 0 ? 'text-orange-400 font-bold' : 'text-foreground-muted font-bold'}>{streakPts}</span>
+                <span className="text-foreground-muted">streak</span>
+                <span className="text-foreground-muted">=</span>
                 <span className="text-amber-400 font-black">{totalPts}</span>
-                <span className="text-zinc-500">total</span>
+                <span className="text-foreground-muted">total</span>
               </div>
 
               {/* Divider */}
-              <div className="h-8 w-px bg-zinc-800 hidden sm:block" />
+              <div className="h-8 w-px bg-surface-2 hidden sm:block" />
 
               {/* Record */}
               <div className="flex items-center gap-3 text-sm font-bold">
                 <span className="text-green-400">{correct}W</span>
-                <span className="text-zinc-600">·</span>
+                <span className="text-foreground-muted">·</span>
                 <span className="text-red-400">{wrong}L</span>
                 {draws > 0 && <>
-                  <span className="text-zinc-600">·</span>
-                  <span className="text-zinc-400">{draws}D</span>
+                  <span className="text-foreground-muted">·</span>
+                  <span className="text-foreground-muted">{draws}D</span>
                 </>}
-                <span className="text-zinc-600 font-normal text-xs">/ {completedFights.length} fights done</span>
+                <span className="text-foreground-muted font-normal text-xs">/ {completedFights.length} fights done</span>
               </div>
 
               {/* Divider */}
-              <div className="h-8 w-px bg-zinc-800 hidden sm:block" />
+              <div className="h-8 w-px bg-surface-2 hidden sm:block" />
 
               {/* Per-fight mini results */}
               <div className="flex items-center gap-1 flex-wrap">
                 {completedFights.map((fight: any) => {
                   const pick = picks[fight.id]
                   if (!pick?.winnerId) return (
-                    <div key={fight.id} title="No pick" className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[9px] text-zinc-600">–</div>
+                    <div key={fight.id} title="No pick" className="w-5 h-5 rounded-full bg-surface-2 border border-border flex items-center justify-center text-[9px] text-foreground-muted">–</div>
                   )
                   if (!fight.winner_id) return (
-                    <div key={fight.id} title="Draw" className="w-5 h-5 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center text-[9px] text-zinc-400">D</div>
+                    <div key={fight.id} title="Draw" className="w-5 h-5 rounded-full bg-surface-3 border border-border flex items-center justify-center text-[9px] text-foreground-muted">D</div>
                   )
                   const won    = pick.winnerId === fight.winner_id
                   const earned = liveEarned[fight.id] ?? pick.pointsEarned ?? (pick.isConfidence ? 20 : 10)

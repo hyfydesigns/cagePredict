@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { SupabaseProvider } from '@/components/providers/supabase-provider'
+import { ThemeProvider } from '@/components/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { Navbar } from '@/components/layout/navbar'
 import { Footer } from '@/components/layout/footer'
@@ -83,8 +84,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const bannerFightTime = nextFight?.fight_time ?? null
 
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans min-h-screen bg-background`}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
         <SupabaseProvider>
           <StagingBanner />
           <Navbar profile={profile} isAuthenticated={!!user} />
@@ -101,6 +103,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Toaster />
           <RecoveryRedirect />
         </SupabaseProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

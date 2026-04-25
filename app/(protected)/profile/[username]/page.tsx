@@ -126,9 +126,9 @@ export default async function ProfilePage({ params }: Props) {
               { label: 'Current Streak', value: profile.current_streak },
               { label: 'Best Streak',    value: profile.longest_streak },
             ].map(({ label, value }) => (
-              <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-                <p className="text-2xl font-black text-white">{value}</p>
-                <p className="text-xs text-zinc-500 mt-1">{label}</p>
+              <div key={label} className="rounded-xl border border-border bg-surface p-4">
+                <p className="text-2xl font-black text-foreground">{value}</p>
+                <p className="text-xs text-foreground-muted mt-1">{label}</p>
               </div>
             ))}
           </div>

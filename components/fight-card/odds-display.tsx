@@ -35,7 +35,7 @@ export function OddsDisplay({
     return (
       <div className="flex items-center gap-3">
         <OddsChip odds={odds1} implied={implied1} oddsOpen={odds1Open} label={label1} />
-        <span className="text-zinc-400 text-xs">vs</span>
+        <span className="text-foreground-muted text-xs">vs</span>
         <OddsChip odds={odds2} implied={implied2} oddsOpen={odds2Open} label={label2} />
       </div>
     )
@@ -69,7 +69,7 @@ function OddsChip({
     <div className="flex items-center gap-1.5">
       {/* Fighter name label */}
       {label && (
-        <span className="text-[10px] text-zinc-500 font-semibold w-12 text-right truncate leading-none">
+        <span className="text-[10px] text-foreground-muted font-semibold w-12 text-right truncate leading-none">
           {label}
         </span>
       )}
@@ -89,13 +89,13 @@ function OddsChip({
         </div>
 
         {/* Implied probability */}
-        <span className="text-[10px] text-zinc-400 leading-none mt-0.5">
+        <span className="text-[10px] text-foreground-muted leading-none mt-0.5">
           {implied}%
         </span>
 
         {/* Opening odds (if different from current) */}
         {movement && movement.delta !== 0 && (
-          <span className="text-[9px] text-zinc-600 leading-none mt-0.5" title="Opening odds">
+          <span className="text-[9px] text-foreground-muted leading-none mt-0.5" title="Opening odds">
             open {formatOdds(oddsOpen!)}
           </span>
         )}
@@ -186,7 +186,7 @@ function OddsSparkline({ history }: { history: OddsSnapshot[] }) {
           strokeLinecap="round"
         />
       </svg>
-      <span className="text-[8px] text-zinc-600 leading-none">
+      <span className="text-[8px] text-foreground-muted leading-none">
         {slice.length} snapshots
       </span>
     </div>

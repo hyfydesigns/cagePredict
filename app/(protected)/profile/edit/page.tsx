@@ -91,12 +91,12 @@ export default function EditProfilePage() {
 
   return (
     <div className="container mx-auto py-8 max-w-md">
-      <h1 className="text-2xl font-black text-white mb-6">Edit Profile</h1>
+      <h1 className="text-2xl font-black text-foreground mb-6">Edit Profile</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
           <Label>Avatar</Label>
-          <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900">
+          <div className="p-4 rounded-xl border border-border bg-surface">
             <div className="text-4xl text-center mb-3">{avatarEmoji}</div>
             <AvatarPicker selected={avatarEmoji} onSelect={setAvatarEmoji} />
           </div>
@@ -110,7 +110,7 @@ export default function EditProfilePage() {
         <div className="space-y-1.5">
           <Label>Bio</Label>
           <Input value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell us about yourself..." maxLength={160} />
-          <p className="text-xs text-zinc-600">{bio.length}/160</p>
+          <p className="text-xs text-foreground-muted">{bio.length}/160</p>
         </div>
 
         <div className="space-y-1.5">
@@ -131,20 +131,20 @@ export default function EditProfilePage() {
       </form>
 
       {/* Notifications section — separate from the main form */}
-      <div className="mt-8 pt-8 border-t border-zinc-800">
-        <h2 className="text-lg font-bold text-white mb-1">Notifications</h2>
-        <p className="text-sm text-zinc-500 mb-4">
+      <div className="mt-8 pt-8 border-t border-border">
+        <h2 className="text-lg font-bold text-foreground mb-1">Notifications</h2>
+        <p className="text-sm text-foreground-muted mb-4">
           Control what emails CagePredict sends you.
         </p>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 flex items-center justify-between gap-4">
+        <div className="rounded-xl border border-border bg-surface p-4 flex items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className={`mt-0.5 rounded-lg p-1.5 ${emailNotifications ? 'bg-primary/10 text-primary' : 'bg-zinc-800 text-zinc-500'}`}>
+            <div className={`mt-0.5 rounded-lg p-1.5 ${emailNotifications ? 'bg-primary/10 text-primary' : 'bg-surface-2 text-foreground-muted'}`}>
               {emailNotifications ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Email notifications</p>
-              <p className="text-xs text-zinc-500 mt-0.5">
+              <p className="text-sm font-semibold text-foreground">Email notifications</p>
+              <p className="text-xs text-foreground-muted mt-0.5">
                 Card-live alerts &amp; weekly pick recaps
               </p>
             </div>
@@ -161,7 +161,7 @@ export default function EditProfilePage() {
               relative inline-flex h-6 w-11 shrink-0 items-center rounded-full
               transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
               disabled:opacity-50
-              ${emailNotifications ? 'bg-primary' : 'bg-zinc-700'}
+              ${emailNotifications ? 'bg-primary' : 'bg-surface-3'}
             `}
           >
             <span
@@ -175,9 +175,9 @@ export default function EditProfilePage() {
       </div>
 
       {/* Danger zone */}
-      <div className="mt-8 pt-8 border-t border-zinc-800">
-        <h2 className="text-lg font-bold text-white mb-1">Danger Zone</h2>
-        <p className="text-sm text-zinc-500 mb-4">
+      <div className="mt-8 pt-8 border-t border-border">
+        <h2 className="text-lg font-bold text-foreground mb-1">Danger Zone</h2>
+        <p className="text-sm text-foreground-muted mb-4">
           Permanently delete your account and all data. This cannot be undone.
         </p>
 
@@ -195,10 +195,10 @@ export default function EditProfilePage() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-white">Are you absolutely sure?</p>
-                <p className="text-xs text-zinc-400 mt-1">
+                <p className="text-sm font-semibold text-foreground">Are you absolutely sure?</p>
+                <p className="text-xs text-foreground-muted mt-1">
                   This will permanently delete your account, picks, points, and crew memberships.
-                  Type your username <span className="font-bold text-white">@{profile?.username}</span> to confirm.
+                  Type your username <span className="font-bold text-foreground">@{profile?.username}</span> to confirm.
                 </p>
               </div>
             </div>
@@ -207,7 +207,7 @@ export default function EditProfilePage() {
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder={profile?.username ?? 'your username'}
-              className="border-red-500/30 focus:border-red-500/60 bg-zinc-900"
+              className="border-red-500/30 focus:border-red-500/60 bg-surface"
               autoComplete="off"
             />
 
@@ -225,7 +225,7 @@ export default function EditProfilePage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleteConfirmText !== profile?.username || isDeleting}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold px-4 py-2 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-foreground text-sm font-bold px-4 py-2 transition-colors"
               >
                 {isDeleting
                   ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</>

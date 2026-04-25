@@ -3,11 +3,32 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Light theme (default) ─────────────────────────────────────────────── */
   :root {
-    --background: 240 4% 7%;
-    --foreground: 0 0% 98%;
+    --background:          240 5% 97%;     /* #f5f5f7 */
+    --surface:             0 0% 100%;      /* #ffffff */
+    --surface-2:           240 5% 94%;     /* #efeff1 */
+    --surface-3:           240 4% 88%;     /* #e0e0e3 */
+    --border:              240 5% 82%;     /* #d0d0d4 */
+    --border-subtle:       240 5% 90%;     /* #e4e4e7 */
+    --foreground:          240 10% 4%;     /* #09090b */
+    --foreground-secondary: 240 4% 32%;   /* #4e4e55 */
+    --foreground-muted:    240 4% 48%;     /* #737380 */
     --font-geist-sans: 'Inter', system-ui, -apple-system, sans-serif;
     --font-geist-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  /* ── Dark theme ────────────────────────────────────────────────────────── */
+  .dark {
+    --background:          240 4% 7%;      /* #111115 */
+    --surface:             240 4% 11%;     /* #18181c */
+    --surface-2:           240 5% 14%;     /* #222228 */
+    --surface-3:           240 4% 18%;     /* #2c2c32 */
+    --border:              240 5% 19%;     /* #2e2e38 */
+    --border-subtle:       240 5% 14%;     /* #222228 */
+    --foreground:          0 0% 98%;       /* #fafafa */
+    --foreground-secondary: 240 5% 65%;   /* #a1a1aa */
+    --foreground-muted:    240 4% 46%;     /* #71717a */
   }
 
   * {
@@ -19,10 +40,9 @@
   }
 
   body {
-    @apply bg-background text-zinc-100 antialiased;
+    @apply bg-background text-foreground antialiased;
     font-family: var(--font-geist-sans);
   }
-
 
   /* Custom scrollbar */
   ::-webkit-scrollbar {
@@ -30,14 +50,14 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #18181c;
+    background: hsl(var(--surface));
   }
   ::-webkit-scrollbar-thumb {
-    background: #3a3a44;
+    background: hsl(var(--border));
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #4e4e5a;
+    background: hsl(var(--foreground-muted));
   }
 }
 
@@ -63,7 +83,6 @@
   }
 
   .card-hover {
-    @apply transition-all duration-200 hover:border-zinc-700 hover:shadow-lg;
+    @apply transition-all duration-200 hover:border-border hover:shadow-lg;
   }
 }
-

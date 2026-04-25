@@ -44,7 +44,7 @@ export default function ResetPasswordPage() {
 
   if (verifying) {
     return (
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur flex items-center justify-center gap-3 text-zinc-400">
+      <div className="rounded-2xl border border-border bg-surface/80 p-8 shadow-2xl backdrop-blur flex items-center justify-center gap-3 text-foreground-muted">
         <Loader2 className="h-5 w-5 animate-spin" />
         Verifying link…
       </div>
@@ -53,7 +53,7 @@ export default function ResetPasswordPage() {
 
   if (verifyError) {
     return (
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur text-center space-y-4">
+      <div className="rounded-2xl border border-border bg-surface/80 p-8 shadow-2xl backdrop-blur text-center space-y-4">
         <p className="text-red-400 text-sm">{verifyError}</p>
         <Button variant="outline" onClick={() => router.replace('/forgot-password')}>
           Request a new link
@@ -85,7 +85,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur">
+    <div className="rounded-2xl border border-border bg-surface/80 p-8 shadow-2xl backdrop-blur">
       <div className="flex justify-center mb-5">
         <img
           src="/logo.svg"
@@ -94,8 +94,8 @@ export default function ResetPasswordPage() {
         />
       </div>
 
-      <h1 className="text-2xl font-black text-white mb-1">New password</h1>
-      <p className="text-zinc-500 text-sm mb-6">Choose a strong password for your account.</p>
+      <h1 className="text-2xl font-black text-foreground mb-1">New password</h1>
+      <p className="text-foreground-muted text-sm mb-6">Choose a strong password for your account.</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
@@ -114,7 +114,7 @@ export default function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground-secondary"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -137,7 +137,7 @@ export default function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground-secondary"
             >
               {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>

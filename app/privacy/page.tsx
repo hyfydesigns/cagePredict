@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold text-white">{title}</h2>
-      <div className="text-zinc-400 text-sm leading-relaxed space-y-2">{children}</div>
+      <h2 className="text-lg font-bold text-foreground">{title}</h2>
+      <div className="text-foreground-muted text-sm leading-relaxed space-y-2">{children}</div>
     </section>
   )
 }
@@ -21,9 +21,9 @@ export default function PrivacyPage() {
   return (
     <div className="container mx-auto py-12 max-w-2xl px-4">
       <div className="mb-8">
-        <p className="text-xs text-zinc-500 uppercase tracking-widest mb-2">Legal</p>
-        <h1 className="text-3xl font-black text-white">Privacy Policy</h1>
-        <p className="text-zinc-500 text-sm mt-2">Last updated: {updated}</p>
+        <p className="text-xs text-foreground-muted uppercase tracking-widest mb-2">Legal</p>
+        <h1 className="text-3xl font-black text-foreground">Privacy Policy</h1>
+        <p className="text-foreground-muted text-sm mt-2">Last updated: {updated}</p>
       </div>
 
       <div className="space-y-8">
@@ -38,10 +38,10 @@ export default function PrivacyPage() {
         <Section title="Information we collect">
           <p>We collect only what is necessary to operate the game:</p>
           <ul className="list-disc list-inside space-y-1 pl-2">
-            <li><strong className="text-zinc-300">Account data</strong> — email address, username, display name, and avatar emoji you choose during sign-up.</li>
-            <li><strong className="text-zinc-300">Prediction data</strong> — the fight picks you submit, confidence selections, and your points/streak history.</li>
-            <li><strong className="text-zinc-300">Crew data</strong> — crews you create or join, and messages you post.</li>
-            <li><strong className="text-zinc-300">Usage data</strong> — standard server logs (IP address, browser type, pages visited) retained for up to 30 days for security purposes.</li>
+            <li><strong className="text-foreground-secondary">Account data</strong> — email address, username, display name, and avatar emoji you choose during sign-up.</li>
+            <li><strong className="text-foreground-secondary">Prediction data</strong> — the fight picks you submit, confidence selections, and your points/streak history.</li>
+            <li><strong className="text-foreground-secondary">Crew data</strong> — crews you create or join, and messages you post.</li>
+            <li><strong className="text-foreground-secondary">Usage data</strong> — standard server logs (IP address, browser type, pages visited) retained for up to 30 days for security purposes.</li>
           </ul>
           <p>We do not collect payment information. We do not collect real-name, address, or date of birth.</p>
         </Section>
@@ -67,10 +67,10 @@ export default function PrivacyPage() {
         <Section title="Third-party services">
           <p>We use the following third-party services to operate CagePredict:</p>
           <ul className="list-disc list-inside space-y-1 pl-2">
-            <li><strong className="text-zinc-300">Supabase</strong> — authentication and database hosting.</li>
-            <li><strong className="text-zinc-300">Vercel</strong> — web hosting and serverless functions.</li>
-            <li><strong className="text-zinc-300">Resend</strong> — transactional email delivery.</li>
-            <li><strong className="text-zinc-300">RapidAPI / MMA API</strong> — UFC event and fighter data.</li>
+            <li><strong className="text-foreground-secondary">Supabase</strong> — authentication and database hosting.</li>
+            <li><strong className="text-foreground-secondary">Vercel</strong> — web hosting and serverless functions.</li>
+            <li><strong className="text-foreground-secondary">Resend</strong> — transactional email delivery.</li>
+            <li><strong className="text-foreground-secondary">RapidAPI / MMA API</strong> — UFC event and fighter data.</li>
           </ul>
           <p>Each provider has their own privacy policy and security practices.</p>
         </Section>
@@ -85,10 +85,10 @@ export default function PrivacyPage() {
         <Section title="Your rights">
           <p>You have the right to:</p>
           <ul className="list-disc list-inside space-y-1 pl-2">
-            <li><strong className="text-zinc-300">Access</strong> — request a copy of the data we hold about you.</li>
-            <li><strong className="text-zinc-300">Correction</strong> — update your username, display name, or email at any time in your profile settings.</li>
-            <li><strong className="text-zinc-300">Deletion</strong> — permanently delete your account and all associated data from your profile settings. Deletion is immediate and irreversible.</li>
-            <li><strong className="text-zinc-300">Opt-out</strong> — unsubscribe from email notifications at any time in your profile settings.</li>
+            <li><strong className="text-foreground-secondary">Access</strong> — request a copy of the data we hold about you.</li>
+            <li><strong className="text-foreground-secondary">Correction</strong> — update your username, display name, or email at any time in your profile settings.</li>
+            <li><strong className="text-foreground-secondary">Deletion</strong> — permanently delete your account and all associated data from your profile settings. Deletion is immediate and irreversible.</li>
+            <li><strong className="text-foreground-secondary">Opt-out</strong> — unsubscribe from email notifications at any time in your profile settings.</li>
           </ul>
         </Section>
 
@@ -117,10 +117,10 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <div className="pt-4 border-t border-zinc-800 flex gap-4 text-xs text-zinc-500">
-          <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms of Service</Link>
-          <Link href="/help" className="hover:text-zinc-300 transition-colors">Help</Link>
-          <Link href="/" className="hover:text-zinc-300 transition-colors">Back to Fight Card</Link>
+        <div className="pt-4 border-t border-border flex gap-4 text-xs text-foreground-muted">
+          <Link href="/terms" className="hover:text-foreground-secondary transition-colors">Terms of Service</Link>
+          <Link href="/help" className="hover:text-foreground-secondary transition-colors">Help</Link>
+          <Link href="/" className="hover:text-foreground-secondary transition-colors">Back to Fight Card</Link>
         </div>
       </div>
     </div>

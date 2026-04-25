@@ -100,11 +100,11 @@ export default async function CrewsPage() {
     <div className="container mx-auto py-8 max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-white flex items-center gap-3">
+          <h1 className="text-3xl font-black text-foreground flex items-center gap-3">
             <Users className="h-7 w-7 text-primary" />
             Crews
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">
+          <p className="text-foreground-muted text-sm mt-1">
             Create or join private leagues with friends
           </p>
         </div>
@@ -116,11 +116,11 @@ export default async function CrewsPage() {
       {pendingInvites.length > 0 && <PendingInvites invites={pendingInvites} />}
 
       <div>
-        <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-3">
           Your Crews ({myCrews.length})
         </h2>
         {myCrews.length === 0 ? (
-          <div className="text-center py-12 rounded-2xl border border-dashed border-zinc-800 text-zinc-600">
+          <div className="text-center py-12 rounded-2xl border border-dashed border-border text-foreground-muted">
             <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p className="font-semibold">No crews yet</p>
             <p className="text-sm mt-1">Create one or join with an invite code</p>

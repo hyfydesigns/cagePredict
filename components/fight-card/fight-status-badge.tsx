@@ -16,7 +16,7 @@ export function FightStatusBadge({ status }: FightStatusBadgeProps) {
   }
   if (status === 'completed') {
     return (
-      <Badge variant="outline" className="gap-1 border-zinc-700 text-zinc-300">
+      <Badge variant="outline" className="gap-1 border-border text-foreground-secondary">
         <CheckCircle2 className="h-3 w-3" />
         Final
       </Badge>
@@ -30,7 +30,7 @@ export function FightStatusBadge({ status }: FightStatusBadgeProps) {
     )
   }
   return (
-    <Badge variant="outline" className="gap-1 border-zinc-700 text-zinc-300">
+    <Badge variant="outline" className="gap-1 border-border text-foreground-secondary">
       <Clock className="h-3 w-3" />
       Upcoming
     </Badge>

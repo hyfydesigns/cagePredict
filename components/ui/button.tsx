@@ -13,17 +13,17 @@ const buttonVariants = cva(
         destructive:
           'bg-red-600 text-white hover:bg-red-700',
         outline:
-          'border border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600',
+          'border border-border bg-transparent text-foreground hover:bg-surface-2 hover:border-border',
         ghost:
-          'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60',
+          'text-foreground-muted hover:text-foreground hover:bg-surface-2/60',
         link:
           'text-primary underline-offset-4 hover:underline',
         secondary:
-          'bg-zinc-800 text-zinc-100 hover:bg-zinc-700',
+          'bg-surface-2 text-foreground hover:bg-surface-3',
         'fighter-pick':
-          'border-2 border-zinc-700 bg-zinc-800/80 text-white hover:border-primary hover:bg-primary/10 hover:shadow-[0_0_16px_rgba(239,68,68,0.25)] text-base font-bold',
+          'border-2 border-border bg-surface-2/80 text-foreground hover:border-primary hover:bg-primary/10 hover:shadow-[0_0_16px_rgba(239,68,68,0.25)] text-base font-bold',
         'fighter-pick-selected':
-          'border-2 border-primary bg-primary/15 text-white shadow-[0_0_16px_rgba(239,68,68,0.3)] text-base font-bold scale-[1.02]',
+          'border-2 border-primary bg-primary/15 text-foreground shadow-[0_0_16px_rgba(239,68,68,0.3)] text-base font-bold scale-[1.02]',
       },
       size: {
         default: 'h-10 px-4 py-2',

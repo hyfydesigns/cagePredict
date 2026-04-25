@@ -20,7 +20,7 @@ export function InviteCopy({ inviteUrl, inviteCode }: InviteCopyProps) {
 
   return (
     <div className="flex gap-2">
-      <div className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2 text-sm text-zinc-400 font-mono truncate">
+      <div className="flex-1 rounded-lg border border-border bg-surface-2/60 px-3 py-2 text-sm text-foreground-muted font-mono truncate">
         {inviteUrl}
       </div>
       <Button

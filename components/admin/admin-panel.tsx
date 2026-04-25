@@ -239,8 +239,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-white">Admin Panel</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">Manage events, fights, and results</p>
+          <h1 className="text-3xl font-black text-foreground">Admin Panel</h1>
+          <p className="text-foreground-muted text-sm mt-0.5">Manage events, fights, and results</p>
         </div>
         <Badge variant="warning" className="gap-1.5">
           <AlertTriangle className="h-3 w-3" /> Admin Access
@@ -254,10 +254,10 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
           { label: 'Total Fights', value: stats.fights, icon: Swords, color: 'text-primary' },
           { label: 'Predictions Made', value: stats.predictions, icon: BarChart3, color: 'text-green-400' },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-center">
+          <div key={label} className="rounded-xl border border-border bg-surface p-4 text-center">
             <Icon className={`h-5 w-5 mx-auto mb-2 ${color}`} />
-            <p className="text-2xl font-black text-white">{value}</p>
-            <p className="text-zinc-500 text-xs mt-0.5">{label}</p>
+            <p className="text-2xl font-black text-foreground">{value}</p>
+            <p className="text-foreground-muted text-xs mt-0.5">{label}</p>
           </div>
         ))}
       </div>
@@ -269,7 +269,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             <h2 className="font-bold text-red-400 flex items-center gap-2 text-sm">
               <Trash2 className="h-4 w-4" /> Danger Zone
             </h2>
-            <p className="text-zinc-500 text-xs mt-1">
+            <p className="text-foreground-muted text-xs mt-1">
               Permanently delete all fighters, events, fights, predictions, and reset user stats.
             </p>
           </div>
@@ -296,45 +296,45 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       </div>
 
       {/* Auto-import upcoming events */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+      <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
         <div>
-          <h2 className="font-bold text-white flex items-center gap-2">
+          <h2 className="font-bold text-foreground flex items-center gap-2">
             <Calendar className="h-4 w-4 text-blue-400" /> Auto-Import Upcoming Events
           </h2>
-          <p className="text-zinc-500 text-sm mt-1">
+          <p className="text-foreground-muted text-sm mt-1">
             Scans the next 16 Saturdays and imports any UFC events until there are at least 2 upcoming cards. Runs automatically every Monday — click to trigger manually.
           </p>
         </div>
-        <Button onClick={handleAutoImport} disabled={isAutoImportPending} variant="outline" className="border-zinc-700">
+        <Button onClick={handleAutoImport} disabled={isAutoImportPending} variant="outline" className="border-border">
           {isAutoImportPending
             ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Scanning…</>
             : <><Calendar className="h-4 w-4 mr-1.5 text-blue-400" />Run Auto-Import</>
           }
         </Button>
         {autoImportLog && (
-          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-3 max-h-48 overflow-y-auto">
+          <div className="rounded-xl bg-background border border-border p-3 max-h-48 overflow-y-auto">
             {autoImportLog.map((line, i) => (
               <p key={i} className={`text-xs font-mono leading-relaxed ${
                 line.startsWith('  ✓') ? 'text-green-400' :
-                line.startsWith('  ✗') ? 'text-zinc-500' :
-                line.startsWith('Found') || line.startsWith('Scanning') ? 'text-zinc-300' :
-                'text-zinc-400'
+                line.startsWith('  ✗') ? 'text-foreground-muted' :
+                line.startsWith('Found') || line.startsWith('Scanning') ? 'text-foreground-secondary' :
+                'text-foreground-muted'
               }`}>{line}</p>
             ))}
           </div>
         )}
-        <p className="text-zinc-600 text-xs">
-          Also runs automatically every Monday at 08:00 UTC via <code className="bg-zinc-800 px-1 rounded">/api/cron/import-events</code>.
+        <p className="text-foreground-muted text-xs">
+          Also runs automatically every Monday at 08:00 UTC via <code className="bg-surface-2 px-1 rounded">/api/cron/import-events</code>.
         </p>
       </div>
 
       {/* Fetch from RapidAPI */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+      <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
         <div>
-          <h2 className="font-bold text-white flex items-center gap-2">
+          <h2 className="font-bold text-foreground flex items-center gap-2">
             <Download className="h-4 w-4 text-primary" /> Import from RapidAPI
           </h2>
-          <p className="text-zinc-500 text-sm mt-1">
+          <p className="text-foreground-muted text-sm mt-1">
             Pick the date of a UFC event to import all fights and fighters automatically.
           </p>
         </div>
@@ -343,7 +343,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             type="date"
             value={fetchDate}
             onChange={(e) => setFetchDate(e.target.value)}
-            className="max-w-[200px] bg-zinc-800 border-zinc-700 text-white"
+            className="max-w-[200px] bg-surface-2 border-border text-foreground"
           />
           <Button onClick={handleApiFetch} disabled={isApiFetchPending}>
             {isApiFetchPending
@@ -355,24 +355,24 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       </div>
 
       {/* Backfill Win Breakdown */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+      <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
         <div>
-          <h2 className="font-bold text-white flex items-center gap-2">
+          <h2 className="font-bold text-foreground flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-purple-400" /> Backfill Win Breakdown
           </h2>
-          <p className="text-zinc-500 text-sm mt-1">
+          <p className="text-foreground-muted text-sm mt-1">
             Fetch KO/TKO · Submission · Decision win counts from UFCStats for fighters missing that data. Safe to run multiple times.
           </p>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
-          <Button onClick={handleBackfill} disabled={isBackfillPending} variant="outline" className="border-zinc-700">
+          <Button onClick={handleBackfill} disabled={isBackfillPending} variant="outline" className="border-border">
             {isBackfillPending
               ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Fetching…</>
               : <><BarChart3 className="h-4 w-4 mr-1.5 text-purple-400" />Run Backfill</>
             }
           </Button>
           {backfillResult && (
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-foreground-muted">
               <span className="text-green-400 font-semibold">{backfillResult.updated}</span> updated
               {backfillResult.errors > 0 && (
                 <>, <span className="text-red-400 font-semibold">{backfillResult.errors}</span> failed</>
@@ -380,18 +380,18 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             </p>
           )}
         </div>
-        <p className="text-zinc-600 text-xs">
+        <p className="text-foreground-muted text-xs">
           This scrapes ufcstats.com for each fighter — expect it to take 10–60 s depending on roster size.
         </p>
       </div>
 
       {/* Sync Odds */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+      <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
         <div>
-          <h2 className="font-bold text-white flex items-center gap-2">
+          <h2 className="font-bold text-foreground flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-green-400" /> Sync Betting Odds
           </h2>
-          <p className="text-zinc-500 text-sm mt-1">
+          <p className="text-foreground-muted text-sm mt-1">
             Pull live American odds from The Odds API and save opening odds + history.
           </p>
         </div>
@@ -399,7 +399,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
           <select
             value={oddsEventId}
             onChange={(e) => setOddsEventId(e.target.value)}
-            className="flex-1 max-w-xs rounded-md border border-zinc-700 bg-zinc-800 text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex-1 max-w-xs rounded-md border border-border bg-surface-2 text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
           >
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
@@ -414,21 +414,21 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             }
           </Button>
         </div>
-        <p className="text-zinc-600 text-xs">
-          Run this manually before events, or set up a cron to call <code className="bg-zinc-800 px-1 rounded">/api/cron/sync-odds</code> hourly on fight days.
+        <p className="text-foreground-muted text-xs">
+          Run this manually before events, or set up a cron to call <code className="bg-surface-2 px-1 rounded">/api/cron/sync-odds</code> hourly on fight days.
         </p>
       </div>
 
       {/* Seed fake data (fallback) */}
-      <div className="rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-5">
+      <div className="rounded-2xl border border-border/50 bg-surface/50 p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-bold text-zinc-400 text-sm">Seed Demo Data</h2>
-            <p className="text-zinc-600 text-xs mt-1">
+            <h2 className="font-bold text-foreground-muted text-sm">Seed Demo Data</h2>
+            <p className="text-foreground-muted text-xs mt-1">
               Load fictional fighters and events for testing.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleSeed} disabled={isSeedPending} className="shrink-0 border-zinc-700 text-zinc-400">
+          <Button variant="outline" size="sm" onClick={handleSeed} disabled={isSeedPending} className="shrink-0 border-border text-foreground-muted">
             {isSeedPending
               ? <Loader2 className="h-4 w-4 animate-spin" />
               : <><RefreshCw className="h-4 w-4 mr-1.5" />Seed Demo</>
@@ -438,57 +438,57 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       </div>
 
       {/* User Management */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between gap-4 flex-wrap">
+      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h2 className="font-bold text-white flex items-center gap-2">
+            <h2 className="font-bold text-foreground flex items-center gap-2">
               <UserX className="h-4 w-4 text-blue-400" /> User Management
             </h2>
-            <p className="text-zinc-500 text-sm mt-0.5">
+            <p className="text-foreground-muted text-sm mt-0.5">
               {users.length} registered user{users.length !== 1 ? 's' : ''}
             </p>
           </div>
           <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground-muted pointer-events-none" />
             <Input
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
               placeholder="Search users…"
-              className="pl-8 h-8 text-sm bg-zinc-800 border-zinc-700"
+              className="pl-8 h-8 text-sm bg-surface-2 border-border"
             />
           </div>
         </div>
 
         <div className="divide-y divide-zinc-800/60 max-h-[480px] overflow-y-auto">
           {filteredUsers.length === 0 ? (
-            <p className="px-5 py-8 text-center text-zinc-600 text-sm">No users found.</p>
+            <p className="px-5 py-8 text-center text-foreground-muted text-sm">No users found.</p>
           ) : (
             filteredUsers.map((u) => {
               const isAdmin = u.id === adminUserId
               const isConfirming = confirmDeleteUserId === u.id
               const accuracy = u.total_picks > 0 ? Math.round((u.correct_picks / u.total_picks) * 100) : 0
               return (
-                <div key={u.id} className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-800/30 transition-colors">
+                <div key={u.id} className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2/30 transition-colors">
                   {/* Avatar */}
-                  <div className="h-9 w-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-lg shrink-0 select-none">
+                  <div className="h-9 w-9 rounded-full bg-surface-2 border border-border flex items-center justify-center text-lg shrink-0 select-none">
                     {u.avatar_emoji}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-sm font-semibold text-white truncate">
+                      <p className="text-sm font-semibold text-foreground truncate">
                         {u.display_name || u.username}
                       </p>
-                      <span className="text-zinc-500 text-xs">@{u.username}</span>
+                      <span className="text-foreground-muted text-xs">@{u.username}</span>
                       {isAdmin && (
                         <Badge variant="warning" className="text-[10px] py-0 px-1.5">You</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-zinc-500 text-xs">{u.total_points} pts</span>
-                      <span className="text-zinc-600 text-xs">{u.total_picks} picks · {accuracy}% acc</span>
-                      <span className="text-zinc-700 text-xs hidden sm:inline">
+                      <span className="text-foreground-muted text-xs">{u.total_points} pts</span>
+                      <span className="text-foreground-muted text-xs">{u.total_picks} picks · {accuracy}% acc</span>
+                      <span className="text-foreground-muted text-xs hidden sm:inline">
                         Joined {format(new Date(u.created_at), 'MMM d, yyyy')}
                       </span>
                     </div>
@@ -501,7 +501,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                       variant={isConfirming ? 'destructive' : 'ghost'}
                       onClick={() => handleDeleteUser(u.id)}
                       disabled={isDeleteUserPending}
-                      className={`shrink-0 h-7 text-xs ${!isConfirming ? 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10' : ''}`}
+                      className={`shrink-0 h-7 text-xs ${!isConfirming ? 'text-foreground-muted hover:text-red-400 hover:bg-red-500/10' : ''}`}
                     >
                       {isDeleteUserPending && confirmDeleteUserId === null ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -520,32 +520,32 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       </div>
 
       {/* Force Resync Results */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+      <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
         <div>
-          <h2 className="font-bold text-white flex items-center gap-2">
+          <h2 className="font-bold text-foreground flex items-center gap-2">
             <Zap className="h-4 w-4 text-amber-400" /> Force Resync Results
           </h2>
-          <p className="text-zinc-500 text-sm mt-1">
-            Manually trigger the sync-results cron. Uses api-sports.io if <code className="text-xs bg-zinc-800 px-1 rounded">APISPORTS_KEY</code> is set, otherwise RapidAPI.
+          <p className="text-foreground-muted text-sm mt-1">
+            Manually trigger the sync-results cron. Uses api-sports.io if <code className="text-xs bg-surface-2 px-1 rounded">APISPORTS_KEY</code> is set, otherwise RapidAPI.
           </p>
         </div>
-        <Button onClick={handleForceSync} disabled={isSyncPending} variant="outline" className="border-zinc-700">
+        <Button onClick={handleForceSync} disabled={isSyncPending} variant="outline" className="border-border">
           {isSyncPending
             ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Syncing…</>
             : <><Zap className="h-4 w-4 mr-1.5 text-amber-400" />Run Sync Now</>
           }
         </Button>
         {syncLog && (
-          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-3 max-h-64 overflow-y-auto">
+          <div className="rounded-xl bg-background border border-border p-3 max-h-64 overflow-y-auto">
             {syncLog.map((line, i) => (
               <p key={i} className={`text-xs font-mono leading-relaxed ${
                 line.startsWith('✓') ? 'text-green-400' :
                 line.startsWith('✗') ? 'text-red-400' :
                 line.startsWith('🤝') ? 'text-blue-400' :
                 line.startsWith('⚠') || line.startsWith('ERROR') ? 'text-amber-400' :
-                line.startsWith('—') ? 'text-zinc-500 mt-2 font-semibold' :
+                line.startsWith('—') ? 'text-foreground-muted mt-2 font-semibold' :
                 line.startsWith('No DB match') ? 'text-orange-400' :
-                'text-zinc-400'
+                'text-foreground-muted'
               }`}>{line}</p>
             ))}
           </div>
@@ -553,13 +553,13 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       </div>
 
       {/* Set Fight Results */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-800">
-          <h2 className="font-bold text-white flex items-center gap-2">
+      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="font-bold text-foreground flex items-center gap-2">
             <Trophy className="h-4 w-4 text-amber-400" />
             Set Fight Results
           </h2>
-          <p className="text-zinc-500 text-sm mt-0.5">
+          <p className="text-foreground-muted text-sm mt-0.5">
             Mark fights as completed to automatically score all predictions.
           </p>
         </div>
@@ -569,12 +569,12 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             <div key={event.id}>
               {/* Event header toggle */}
               <button
-                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-zinc-800/40 transition-colors text-left"
+                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-surface-2/40 transition-colors text-left"
                 onClick={() => setExpandedEvent(expandedEvent === event.id ? null : event.id)}
               >
                 <div>
-                  <p className="font-semibold text-white text-sm">{event.name}</p>
-                  <p className="text-zinc-500 text-xs mt-0.5">
+                  <p className="font-semibold text-foreground text-sm">{event.name}</p>
+                  <p className="text-foreground-muted text-xs mt-0.5">
                     {format(new Date(event.date), 'MMM d, yyyy')} · {event.fights?.length ?? 0} fights
                   </p>
                 </div>
@@ -583,8 +583,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                     {event.status}
                   </Badge>
                   {expandedEvent === event.id
-                    ? <ChevronUp className="h-4 w-4 text-zinc-500" />
-                    : <ChevronDown className="h-4 w-4 text-zinc-500" />
+                    ? <ChevronUp className="h-4 w-4 text-foreground-muted" />
+                    : <ChevronDown className="h-4 w-4 text-foreground-muted" />
                   }
                 </div>
               </button>
@@ -620,7 +620,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
           ))}
 
           {events.length === 0 && (
-            <div className="px-5 py-10 text-center text-zinc-600 text-sm">
+            <div className="px-5 py-10 text-center text-foreground-muted text-sm">
               No events found. Click &quot;Fetch New Events&quot; to seed the database.
             </div>
           )}
@@ -646,24 +646,24 @@ function FightResultRow({
   const isCompleted = fight.status === 'completed'
 
   return (
-    <div className={`rounded-xl border p-3 ${isCompleted ? 'border-zinc-800/40 opacity-60' : 'border-zinc-700/60 bg-zinc-800/30'}`}>
+    <div className={`rounded-xl border p-3 ${isCompleted ? 'border-border/40 opacity-60' : 'border-border/60 bg-surface-2/30'}`}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         {/* Fight info */}
         <div className="flex-1 min-w-0">
           {fight.is_main_event && (
             <Badge variant="destructive" className="text-[10px] mb-1">Main Event</Badge>
           )}
-          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <span className="truncate">
               {fight.fighter1.flag_emoji} {fight.fighter1.name}
             </span>
-            <span className="text-zinc-600 shrink-0">vs</span>
+            <span className="text-foreground-muted shrink-0">vs</span>
             <span className="truncate">
               {fight.fighter2.flag_emoji} {fight.fighter2.name}
             </span>
           </div>
           {fight.weight_class && (
-            <p className="text-zinc-500 text-xs mt-0.5">{fight.weight_class}</p>
+            <p className="text-foreground-muted text-xs mt-0.5">{fight.weight_class}</p>
           )}
         </div>
 
@@ -681,8 +681,8 @@ function FightResultRow({
                 onClick={() => onSelectWinner(fight.fighter1.id)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
                   selectedWinner === fight.fighter1.id
-                    ? 'border-primary bg-primary/15 text-white'
-                    : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                    ? 'border-primary bg-primary/15 text-foreground'
+                    : 'border-border text-foreground-muted hover:border-border'
                 }`}
               >
                 {fight.fighter1.name.split(' ').pop()}
@@ -691,8 +691,8 @@ function FightResultRow({
                 onClick={() => onSelectWinner(fight.fighter2.id)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
                   selectedWinner === fight.fighter2.id
-                    ? 'border-primary bg-primary/15 text-white'
-                    : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                    ? 'border-primary bg-primary/15 text-foreground'
+                    : 'border-border text-foreground-muted hover:border-border'
                 }`}
               >
                 {fight.fighter2.name.split(' ').pop()}
@@ -702,7 +702,7 @@ function FightResultRow({
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
                   selectedWinner === 'draw'
                     ? 'border-blue-500 bg-blue-500/15 text-blue-400'
-                    : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                    : 'border-border text-foreground-muted hover:border-border'
                 }`}
               >
                 Draw

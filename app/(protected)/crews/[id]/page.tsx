@@ -120,11 +120,11 @@ export default async function CrewDetailPage({ params }: Props) {
   return (
     <div className="container mx-auto py-8 max-w-2xl space-y-6">
       {/* Header */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+      <div className="rounded-2xl border border-border bg-surface p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-black text-white">{crew.name}</h1>
+              <h1 className="text-2xl font-black text-foreground">{crew.name}</h1>
               {isOwner && (
                 <Badge variant="warning" className="gap-1">
                   <Crown className="h-2.5 w-2.5" />Owner
@@ -132,9 +132,9 @@ export default async function CrewDetailPage({ params }: Props) {
               )}
             </div>
             {crew.description && (
-              <p className="text-zinc-400 text-sm mt-1">{crew.description}</p>
+              <p className="text-foreground-muted text-sm mt-1">{crew.description}</p>
             )}
-            <p className="text-zinc-600 text-sm mt-2 flex items-center gap-1">
+            <p className="text-foreground-muted text-sm mt-2 flex items-center gap-1">
               <Users className="h-3.5 w-3.5" />
               {memberCount} / {crew.max_members} members
             </p>
@@ -153,15 +153,15 @@ export default async function CrewDetailPage({ params }: Props) {
         </div>
 
         {/* Invite link */}
-        <div className="mt-4 pt-4 border-t border-zinc-800">
-          <p className="text-xs font-semibold text-zinc-500 mb-2">Invite Link</p>
+        <div className="mt-4 pt-4 border-t border-border">
+          <p className="text-xs font-semibold text-foreground-muted mb-2">Invite Link</p>
           <InviteCopy inviteUrl={inviteUrl} inviteCode={crew.invite_code} />
         </div>
 
         {/* Invite a specific player (owner only) */}
         {isOwner && (
-          <div className="mt-4 pt-4 border-t border-zinc-800">
-            <p className="text-xs font-semibold text-zinc-500 mb-2">Invite a Player</p>
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs font-semibold text-foreground-muted mb-2">Invite a Player</p>
             <InviteUserForm crewId={crew.id} />
           </div>
         )}
@@ -185,7 +185,7 @@ export default async function CrewDetailPage({ params }: Props) {
                 currentUserId={user?.id}
               />
             ) : (
-              <p className="text-center text-sm text-zinc-600 py-8">No events found.</p>
+              <p className="text-center text-sm text-foreground-muted py-8">No events found.</p>
             )}
           </TabsContent>
         </Tabs>

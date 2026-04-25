@@ -205,19 +205,19 @@ export default async function HomePage({
         <Badge variant="destructive" className="mb-2">
           <Swords className="h-3 w-3 mr-1" /> Free to Play
         </Badge>
-        <h1 className="text-4xl sm:text-5xl font-black text-white leading-tight">
+        <h1 className="text-4xl sm:text-5xl font-black text-foreground leading-tight">
           Predict.<br />
           <span className="text-gradient-red">Compete.</span><br />
           Climb the Rankings.
         </h1>
-        <p className="text-zinc-400 text-base max-w-md mx-auto">
+        <p className="text-foreground-muted text-base max-w-md mx-auto">
           Pick the winner of every UFC fight. Earn points for correct predictions. Rise to the top of the global leaderboard.
         </p>
         {!user && (
           <div className="flex items-center justify-center gap-3 pt-2">
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-bold text-white hover:bg-primary-hover transition-colors shadow-[0_0_20px_rgba(239,68,68,0.35)]"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-bold text-foreground hover:bg-primary-hover transition-colors shadow-[0_0_20px_rgba(239,68,68,0.35)]"
             >
               Start Predicting Free
               <ChevronRight className="h-4 w-4" />
@@ -228,7 +228,7 @@ export default async function HomePage({
 
       {/* Events */}
       {typedEvents.length === 0 ? (
-        <div className="text-center py-16 text-zinc-600">
+        <div className="text-center py-16 text-foreground-muted">
           <Swords className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p className="text-lg font-semibold">No upcoming events</p>
           <p className="text-sm mt-1">Check back soon or visit the admin panel to seed events.</p>

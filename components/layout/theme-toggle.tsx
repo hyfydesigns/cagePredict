@@ -5,31 +5,29 @@ import { Sun, Moon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   // Avoid hydration mismatch — only render after mount
   useEffect(() => setMounted(true), [])
-  if (!mounted) return <div className="h-8 w-8" />
+  if (!mounted) return <div className="h-9 w-9" />
 
   const isDark = resolvedTheme === 'dark'
 
   return (
     <button
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       className={cn(
-        'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
-        'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60',
-        'dark:text-zinc-500 dark:hover:text-zinc-200',
-        'light:text-zinc-500 light:hover:bg-zinc-200'
+        'relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
+        'text-foreground-muted hover:text-foreground hover:bg-surface-2',
+        className,
       )}
     >
-      {isDark
-        ? <Sun className="h-4 w-4" />
-        : <Moon className="h-4 w-4" />
-      }
+      <Sun  className={cn('h-4 w-4 absolute transition-all duration-200', isDark  ? 'opacity-0 scale-75' : 'opacity-100 scale-100')} />
+      <Moon className={cn('h-4 w-4 absolute transition-all duration-200', !isDark ? 'opacity-0 scale-75' : 'opacity-100 scale-100')} />
     </button>
   )
 }

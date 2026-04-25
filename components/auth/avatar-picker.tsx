@@ -21,7 +21,7 @@ export function AvatarPicker({ selected, onSelect }: AvatarPickerProps) {
             'flex h-10 w-10 items-center justify-center rounded-xl border-2 text-xl transition-all duration-150',
             selected === emoji
               ? 'border-primary bg-primary/15 scale-110 shadow-[0_0_12px_rgba(239,68,68,0.3)]'
-              : 'border-zinc-700 bg-zinc-800/60 hover:border-zinc-500 hover:scale-105'
+              : 'border-border bg-surface-2/60 hover:border-border hover:scale-105'
           )}
         >
           {emoji}
