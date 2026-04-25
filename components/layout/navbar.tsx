@@ -30,7 +30,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/60 bg-[#080808]/90 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/60 bg-background/90 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group">
@@ -132,7 +132,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
 
       {/* Mobile Nav */}
       {mobileOpen && (
-        <nav className="md:hidden border-t border-zinc-800 bg-[#080808] px-4 py-3 space-y-1">
+        <nav className="md:hidden border-t border-zinc-800 bg-background px-4 py-3 space-y-1">
           {NAV_LINKS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}

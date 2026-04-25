@@ -16,11 +16,11 @@ const config: Config = {
     },
     extend: {
       colors: {
-        background: '#080808',
-        surface: '#111111',
-        'surface-2': '#1a1a1a',
-        border: '#262626',
-        'border-subtle': '#1a1a1a',
+        background: '#111115',
+        surface: '#18181c',
+        'surface-2': '#222228',
+        border: '#2e2e38',
+        'border-subtle': '#222228',
         primary: {
           DEFAULT: '#ef4444',
           foreground: '#ffffff',
@@ -46,10 +46,10 @@ const config: Config = {
         mono: ['var(--font-geist-mono)', ...fontFamily.mono],
       },
       backgroundImage: {
-        'card-gradient': 'linear-gradient(135deg, #111111 0%, #0d0d0d 100%)',
+        'card-gradient': 'linear-gradient(135deg, #18181c 0%, #14141a 100%)',
         'hero-gradient': 'radial-gradient(ellipse at top, rgba(239,68,68,0.15) 0%, transparent 60%)',
-        'fighter-gradient-left': 'linear-gradient(to right, rgba(8,8,8,0) 0%, rgba(8,8,8,0.9) 100%)',
-        'fighter-gradient-right': 'linear-gradient(to left, rgba(8,8,8,0) 0%, rgba(8,8,8,0.9) 100%)',
+        'fighter-gradient-left': 'linear-gradient(to right, rgba(17,17,21,0) 0%, rgba(17,17,21,0.9) 100%)',
+        'fighter-gradient-right': 'linear-gradient(to left, rgba(17,17,21,0) 0%, rgba(17,17,21,0.9) 100%)',
       },
       animation: {
         'pulse-red': 'pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',

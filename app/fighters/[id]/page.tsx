@@ -618,9 +618,9 @@ export default async function FighterProfilePage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-    <div className="min-h-screen bg-zinc-950 pb-16">
+    <div className="min-h-screen bg-background pb-16">
       {/* Top nav */}
-      <div className="sticky top-0 z-10 bg-zinc-950/90 backdrop-blur border-b border-zinc-800/60">
+      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-zinc-800/60">
         <div className="max-w-2xl mx-auto px-4 h-12 flex items-center justify-between gap-4">
           <Link
             href="/"

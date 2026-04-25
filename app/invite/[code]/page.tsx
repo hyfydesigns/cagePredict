@@ -27,7 +27,7 @@ export default async function InvitePage({ params }: Props) {
 
   if (!crew) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-[#080808]">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-4">🔍</div>
           <h1 className="text-xl font-bold text-white">Invalid invite link</h1>
@@ -52,7 +52,7 @@ export default async function InvitePage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#080808]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="absolute inset-0 bg-hero-gradient opacity-50 pointer-events-none" />
 
       <div className="relative w-full max-w-sm space-y-6 text-center">

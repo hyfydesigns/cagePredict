@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 3%;
+    --background: 240 4% 7%;
     --foreground: 0 0% 98%;
     --font-geist-sans: 'Inter', system-ui, -apple-system, sans-serif;
     --font-geist-mono: 'JetBrains Mono', 'Fira Code', monospace;
@@ -30,14 +30,14 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #111;
+    background: #18181c;
   }
   ::-webkit-scrollbar-thumb {
-    background: #333;
+    background: #3a3a44;
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: #4e4e5a;
   }
 }
 
