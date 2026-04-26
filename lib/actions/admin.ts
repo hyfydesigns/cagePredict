@@ -216,6 +216,88 @@ export async function clearAllData(): Promise<ActionResult> {
   return { success: true, message: 'All events, fights, fighters, and predictions cleared.' }
 }
 
+// ─── RapidAPI fight-meta cross-reference ────────────────────────────────────
+
+/**
+ * Queries RapidAPI for a given event date and updates `fight_type` + `display_order`
+ * on existing DB fights for the given event, matching by normalised fighter name pair.
+ * No-op when RAPIDAPI_KEY is absent. Never throws — errors are logged and swallowed.
+ */
+async function syncFightMetaFromRapidApi(
+  eventId: string,
+  day: number,
+  month: number,
+  year: number,
+): Promise<void> {
+  const key  = process.env.RAPIDAPI_KEY
+  const host = process.env.RAPIDAPI_UFC_HOST ?? 'mmaapi.p.rapidapi.com'
+  if (!key) return
+
+  try {
+    const url = `https://${host}/api/mma/unique-tournament/19906/schedules/${day}/${month}/${year}`
+    const res = await fetch(url, {
+      headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': host },
+      cache: 'no-store',
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    const apiFights: any[] = data.events ?? []
+    if (apiFights.length === 0) return
+
+    const supabase = createServiceClient()
+
+    // Fetch DB fights with fighter names for matching
+    const { data: dbFights } = await supabase
+      .from('fights')
+      .select('id, fighter1:fighters!fights_fighter1_id_fkey(name), fighter2:fighters!fights_fighter2_id_fkey(name)')
+      .eq('event_id', eventId)
+
+    if (!dbFights?.length) return
+
+    const norm = (n: string) => n.toLowerCase().replace(/[^a-z]/g, '')
+
+    // Build lookup: sorted name pair → db fight id
+    const lookup = new Map<string, string>()
+    for (const f of dbFights) {
+      const n1 = norm((f.fighter1 as any)?.name ?? '')
+      const n2 = norm((f.fighter2 as any)?.name ?? '')
+      if (n1 && n2) lookup.set([n1, n2].sort().join(':'), f.id)
+    }
+
+    // Determine main event: highest `order` among maincard fights
+    const maincardFights = apiFights.filter((f: any) => f.fightType === 'maincard')
+    const maxOrder = maincardFights.length > 0
+      ? Math.max(...maincardFights.map((f: any) => (typeof f.order === 'number' ? f.order : 0)))
+      : -1
+
+    // Patch each matched fight with fight_type, display_order, is_main_event
+    for (const apiFight of apiFights) {
+      const n1 = norm(apiFight.homeTeam?.name ?? '')
+      const n2 = norm(apiFight.awayTeam?.name ?? '')
+      if (!n1 || !n2) continue
+      const dbId = lookup.get([n1, n2].sort().join(':'))
+      if (!dbId) continue
+
+      const updates: Record<string, unknown> = {}
+      if (typeof apiFight.fightType === 'string' && apiFight.fightType) {
+        updates.fight_type = apiFight.fightType
+      }
+      if (typeof apiFight.order === 'number') {
+        updates.display_order = apiFight.order
+        if (apiFight.fightType === 'maincard') {
+          updates.is_main_event = apiFight.order === maxOrder
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('fights').update(updates).eq('id', dbId)
+      }
+    }
+  } catch (e) {
+    console.error('[syncFightMetaFromRapidApi] error:', e)
+  }
+}
+
 // ─── Fetch real event (api-sports.io preferred, RapidAPI fallback) ───────────
 
 export async function fetchEventByDate(
@@ -541,7 +623,8 @@ async function fetchEventByDateApiSports(
     newEventIds.push(normEvent.uuid)
 
     // 4. Upsert fights (skip TBA bouts where either fighter slot is missing)
-    for (const fight of fights) {
+    for (let fightIdx = 0; fightIdx < fights.length; fightIdx++) {
+      const fight = fights[fightIdx]
       if (!fight.fighters.first?.id || !fight.fighters.second?.id) continue
       const { fight: normFight } = normaliseFight(fight, apiFights, opts.forceEventUuid)
       const f1data = fight.fighters.first?.id != null ? fighterMap.get(fight.fighters.first.id) : undefined
@@ -596,13 +679,23 @@ async function fetchEventByDateApiSports(
         odds_f2:        0,
         analysis_f1:    aiResult.analysis_f1,
         analysis_f2:    aiResult.analysis_f2,
-        display_order:  normFight.display_order,
+        // api-sports doesn't return card position — use loop index as tie-breaking fallback
+        // so fights at least have a distinct order. syncFightMetaFromRapidApi (called below)
+        // will overwrite this with proper RapidAPI fight.order values when available.
+        display_order:  normFight.display_order !== 0 ? normFight.display_order : fightIdx,
         fight_type:     normFight.card_segment,
       }
 
       const { error: fErr } = await supabase.from('fights').upsert(fightRow as any, { onConflict: 'id', ignoreDuplicates: false })
       if (!fErr) insertedFights++
     }
+  }
+
+  // Cross-reference with RapidAPI to populate fight_type + display_order.
+  // api-sports doesn't return card segment or fight order, but RapidAPI does.
+  // This runs after all fight rows are upserted so updates land on existing rows.
+  for (const eventId of newEventIds) {
+    await syncFightMetaFromRapidApi(eventId, day, month, year)
   }
 
   revalidatePath('/')
@@ -1015,6 +1108,12 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
 
   if (result.error) return { error: result.error }
 
+  // Always cross-reference with RapidAPI to ensure fight_type and display_order are set.
+  // fetchEventByDateApiSports already calls this, but refreshEventFights may skip it if
+  // the api-sports import short-circuits (e.g. all fights already exist). Run it here
+  // unconditionally so a single "Refresh Fights" click is always enough to fix card order.
+  await syncFightMetaFromRapidApi(eventId, day, month, year)
+
   revalidatePath('/', 'layout')
   revalidatePath('/admin')
   return { success: true, message: result.message ?? 'Fights refreshed.' }
@@ -1142,4 +1241,43 @@ export async function deduplicateFights(): Promise<ActionResult & { removed: num
     message: `Removed ${toDelete.length} duplicate fight(s).`,
     removed: toDelete.length,
   }
+}
+
+// ─── Fight meta controls ─────────────────────────────────────────────────────
+
+export async function updateFightMeta(
+  fightId: string,
+  updates: { fight_type?: string | null; display_order?: number; is_main_event?: boolean }
+): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('fights')
+    .update(updates)
+    .eq('id', fightId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  return { success: true, message: 'Fight updated.' }
+}
+
+export async function deleteFight(fightId: string): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+
+  // Remove predictions first (FK constraint)
+  await supabase.from('predictions').delete().eq('fight_id', fightId)
+
+  const { error } = await supabase.from('fights').delete().eq('id', fightId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  return { success: true, message: 'Fight deleted.' }
 }

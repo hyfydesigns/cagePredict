@@ -4,12 +4,13 @@ import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, CheckCircle, Trophy, Users, Swords,
-  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search, Zap, Calendar, Radio
+  BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search, Zap, Calendar, Radio,
+  ArrowUp, ArrowDown, Star
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -22,6 +23,8 @@ interface AdminFight {
   weight_class: string | null
   is_main_event: boolean
   winner_id: string | null
+  fight_type: string | null
+  display_order: number | null
   fighter1: AdminFighter
   fighter2: AdminFighter
 }
@@ -75,6 +78,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [refreshingEventId, setRefreshingEventId] = useState<string | null>(null)
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
+  const [deletedFightIds, setDeletedFightIds] = useState<Set<string>>(new Set())
   const [fetchDate, setFetchDate] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -677,7 +681,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                     className="overflow-hidden"
                   >
                     <div className="px-5 pb-4 space-y-2.5">
-                      {event.fights?.map((fight) => (
+                      {event.fights?.filter((fight) => !deletedFightIds.has(fight.id)).map((fight) => (
                         <FightResultRow
                           key={fight.id}
                           fight={fight}
@@ -687,6 +691,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                           }
                           onComplete={() => handleCompleteFight(fight.id)}
                           isCompleting={completingFight === fight.id && isResultPending}
+                          onDeleted={() => setDeletedFightIds((prev) => new Set([...prev, fight.id]))}
                         />
                       ))}
                     </div>
@@ -707,27 +712,79 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   )
 }
 
+const SEGMENT_OPTIONS = [
+  { value: '',            label: '— unset —' },
+  { value: 'maincard',    label: 'Main Card' },
+  { value: 'prelims',     label: 'Prelims' },
+  { value: 'earlyprelims', label: 'Early Prelims' },
+]
+
 function FightResultRow({
   fight,
   selectedWinner,
   onSelectWinner,
   onComplete,
   isCompleting,
+  onDeleted,
 }: {
   fight: AdminFight
   selectedWinner: string | null
   onSelectWinner: (id: string) => void
   onComplete: () => void
   isCompleting: boolean
+  onDeleted: () => void
 }) {
+  const { toast } = useToast()
   const isCompleted = fight.status === 'completed'
 
+  // Local editable state for segment + order (controlled inline)
+  const [segment, setSegment]   = useState<string>(fight.fight_type ?? '')
+  const [order, setOrder]       = useState<number>(fight.display_order ?? 0)
+  const [isMain, setIsMain]     = useState<boolean>(fight.is_main_event)
+  const [isSavingMeta, setIsSavingMeta] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function handleSaveMeta() {
+    setIsSavingMeta(true)
+    const result = await updateFightMeta(fight.id, {
+      fight_type: segment || null,
+      display_order: order,
+      is_main_event: isMain,
+    })
+    setIsSavingMeta(false)
+    toast({
+      title: result.error ? 'Update failed' : 'Fight updated',
+      description: result.error ?? undefined,
+      variant: result.error ? 'destructive' : 'default',
+    })
+  }
+
+  async function handleDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      setTimeout(() => setConfirmDelete(false), 4000)
+      return
+    }
+    setConfirmDelete(false)
+    setIsDeleting(true)
+    const result = await deleteFight(fight.id)
+    setIsDeleting(false)
+    if (result.error) {
+      toast({ title: 'Delete failed', description: result.error, variant: 'destructive' })
+    } else {
+      toast({ title: 'Fight deleted' })
+      onDeleted()
+    }
+  }
+
   return (
-    <div className={`rounded-xl border p-3 ${isCompleted ? 'border-border/40 opacity-60' : 'border-border/60 bg-surface-2/30'}`}>
+    <div className={`rounded-xl border p-3 space-y-2.5 ${isCompleted ? 'border-border/40 opacity-70' : 'border-border/60 bg-surface-2/30'}`}>
+      {/* ── Top row: fight info + result ── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         {/* Fight info */}
         <div className="flex-1 min-w-0">
-          {fight.is_main_event && (
+          {isMain && (
             <Badge variant="destructive" className="text-[10px] mb-1">Main Event</Badge>
           )}
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -752,7 +809,6 @@ function FightResultRow({
           </div>
         ) : (
           <div className="flex items-center gap-2 flex-wrap shrink-0">
-            {/* Winner picker */}
             <div className="flex gap-1 flex-wrap">
               <button
                 onClick={() => onSelectWinner(fight.fighter1.id)}
@@ -785,20 +841,90 @@ function FightResultRow({
                 Draw
               </button>
             </div>
-
             <Button
               size="sm"
               onClick={onComplete}
               disabled={!selectedWinner || isCompleting}
               className="text-xs h-7 px-3"
             >
-              {isCompleting
-                ? <Loader2 className="h-3 w-3 animate-spin" />
-                : 'Set Result'
-              }
+              {isCompleting ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Set Result'}
             </Button>
           </div>
         )}
+      </div>
+
+      {/* ── Bottom row: meta controls ── */}
+      <div className="flex items-center gap-2 flex-wrap border-t border-border/30 pt-2">
+        {/* Segment selector */}
+        <select
+          value={segment}
+          onChange={(e) => setSegment(e.target.value)}
+          className="text-[11px] bg-surface-2 border border-border rounded px-1.5 py-0.5 text-foreground-muted focus:outline-none focus:border-primary cursor-pointer"
+        >
+          {SEGMENT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+
+        {/* Display order */}
+        <div className="flex items-center gap-0.5">
+          <span className="text-[11px] text-foreground-muted mr-1">Order:</span>
+          <button
+            onClick={() => setOrder((n) => Math.max(0, n - 1))}
+            className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-surface-2 transition-colors"
+          >
+            <ArrowDown className="h-3 w-3 text-foreground-muted" />
+          </button>
+          <span className="text-[11px] font-mono text-foreground w-5 text-center">{order}</span>
+          <button
+            onClick={() => setOrder((n) => n + 1)}
+            className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-surface-2 transition-colors"
+          >
+            <ArrowUp className="h-3 w-3 text-foreground-muted" />
+          </button>
+        </div>
+
+        {/* Main event toggle */}
+        <button
+          onClick={() => setIsMain((v) => !v)}
+          className={`flex items-center gap-1 text-[11px] font-bold border rounded px-1.5 py-0.5 transition-colors ${
+            isMain
+              ? 'border-red-500/60 bg-red-500/10 text-red-400'
+              : 'border-border text-foreground-muted hover:bg-surface-2'
+          }`}
+        >
+          <Star className="h-3 w-3" />
+          Main
+        </button>
+
+        {/* Save meta */}
+        <button
+          onClick={handleSaveMeta}
+          disabled={isSavingMeta}
+          className="flex items-center gap-1 text-[11px] font-bold text-primary border border-primary/40 rounded px-1.5 py-0.5 hover:bg-primary/10 transition-colors disabled:opacity-50"
+        >
+          {isSavingMeta ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+        </button>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Delete */}
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className={`flex items-center gap-1 text-[11px] font-bold border rounded px-1.5 py-0.5 transition-colors disabled:opacity-50 ${
+            confirmDelete
+              ? 'border-red-500 bg-red-500/20 text-red-400'
+              : 'border-border text-foreground-muted hover:border-red-500/60 hover:text-red-400'
+          }`}
+        >
+          {isDeleting
+            ? <Loader2 className="h-3 w-3 animate-spin" />
+            : <Trash2 className="h-3 w-3" />
+          }
+          {confirmDelete ? 'Confirm?' : 'Delete'}
+        </button>
       </div>
     </div>
   )
