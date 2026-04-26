@@ -318,9 +318,10 @@ function EventSectionClient({
   // During a live event, identify which fight is happening right now:
   // the first non-completed, non-cancelled fight in chronological card order.
   // Use a stable string key so the memo doesn't re-run on every new array reference.
-  const fightStatusKey = event.fights.map((f) => `${f.id}:${f.status}`).join(',')
+  const fightStatusKey = event.fights.map((f) => `${f.id}:${f.status}:${(f as any).fight_time ?? ''}`).join(',')
   const happeningNowId = useMemo(() => {
     if (event.status !== 'live') return null
+    const now = Date.now()
     const sectionPriority: Record<string, number> = {
       earlyprelims: 0, early_prelims: 0,
       prelims: 1,
@@ -336,8 +337,17 @@ function EventSectionClient({
       // Fallback: non-main-event fights come before the main event
       return (a.is_main_event ? 1 : 0) - (b.is_main_event ? 1 : 0)
     })
-    // First fight that hasn't finished yet (upcoming or live status)
-    return sorted.find((f) => f.status !== 'completed' && f.status !== 'cancelled')?.id ?? null
+    // A fight is effectively done if:
+    //   1. Its DB status is completed/cancelled (ideal — sync is up to date), OR
+    //   2. Its fight_time was more than 30 min ago (defensive fallback for stale
+    //      status data when sync-results hasn't caught up yet).
+    const isEffectivelyDone = (f: (typeof sorted)[number]) => {
+      if (f.status === 'completed' || f.status === 'cancelled') return true
+      const ft = (f as any).fight_time
+      if (ft && new Date(ft).getTime() < now - 30 * 60 * 1000) return true
+      return false
+    }
+    return sorted.find((f) => !isEffectivelyDone(f))?.id ?? null
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.status, fightStatusKey])
 
