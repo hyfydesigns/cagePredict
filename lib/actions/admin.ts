@@ -1223,20 +1223,24 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
   const month = d.getUTCMonth() + 1
   const year  = d.getUTCFullYear()
 
-  // Re-run a lightweight import that only adds missing fight rows.
-  // Pass the existing event UUID so fights are linked to the correct DB event
-  // rather than a newly-generated one. Skip AI/UFCStats (fighters already enriched).
+  // When RapidAPI is available, skip api-sports entirely for refreshes.
+  // api-sports groups fights by slug which can collide across events on the same date,
+  // causing fights from a different event to get stamped with forceEventUuid.
+  // The RapidAPI reconciliation is authoritative: it matches by event name, deletes
+  // wrong fights, inserts missing ones, and sets correct fight_type/display_order.
+  if (process.env.RAPIDAPI_KEY) {
+    await syncFightMetaFromRapidApi(eventId, day, month, year)
+    revalidatePath('/', 'layout')
+    revalidatePath('/admin')
+    return { success: true, message: 'Fights reconciled from RapidAPI.' }
+  }
+
+  // Fallback: api-sports only (no RapidAPI key configured)
   const result = isApiSportsConfigured()
     ? await fetchEventByDateApiSports(day, month, year, { skipAI: true, skipUFCStats: true, forceEventUuid: eventId })
-    : await fetchEventByDateRapidApi(day, month, year)
+    : { error: 'No API source configured (set RAPIDAPI_KEY or APISPORTS_KEY)' }
 
   if (result.error) return { error: result.error }
-
-  // Always cross-reference with RapidAPI to ensure fight_type and display_order are set.
-  // fetchEventByDateApiSports already calls this, but refreshEventFights may skip it if
-  // the api-sports import short-circuits (e.g. all fights already exist). Run it here
-  // unconditionally so a single "Refresh Fights" click is always enough to fix card order.
-  await syncFightMetaFromRapidApi(eventId, day, month, year)
 
   revalidatePath('/', 'layout')
   revalidatePath('/admin')
