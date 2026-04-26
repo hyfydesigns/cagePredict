@@ -599,6 +599,13 @@ async function fetchEventByDateApiSports(
         // detail is ApiSportsFighterDetail (full); basic is ApiFightFighter (minimal from fight slot)
         const base = normaliseFighter(detail ?? basic)
 
+        // If a fighter with this name was previously imported from a different API source
+        // (e.g. RapidAPI), reuse their existing UUID so we update the same row rather
+        // than creating a parallel entry that breaks the fight dedup check.
+        const { data: existingFighter } = await supabase
+          .from('fighters').select('id').ilike('name', base.name).maybeSingle()
+        const resolvedUuid = existingFighter?.id ?? base.uuid
+
         // Age from birth_date (only present on the full detail object)
         let age: number | null = null
         const bd = detail?.birth_date
@@ -627,7 +634,7 @@ async function fetchEventByDateApiSports(
           winBreakdown = calcWinBreakdown(ufcStats.fights)
 
           fighterMap.set(fId, {
-            ...base,
+            ...base, uuid: resolvedUuid,
             height_cm: ufcStatsHeight,
             reach_cm:  ufcStatsReach,
             striking_accuracy: base.striking_accuracy ?? ufcStats.str_acc,
@@ -638,7 +645,7 @@ async function fetchEventByDateApiSports(
           })
         } else {
           fighterMap.set(fId, {
-            ...base,
+            ...base, uuid: resolvedUuid,
             height_cm: ufcStatsHeight,
             reach_cm:  ufcStatsReach,
             age, fighting_style, last_5_form, ...winBreakdown,
