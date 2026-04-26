@@ -290,11 +290,25 @@ async function syncFightMetaFromRapidApi(
     if (!dbFights) return
 
     // Build lookup: sorted name pair → db fight id
+    // If a pair already exists in the map it's a duplicate — collect extras for deletion.
     const dbLookup = new Map<string, string>()
+    const inDbDuplicates: string[] = []
     for (const f of dbFights) {
       const n1 = norm((f.fighter1 as any)?.name ?? '')
       const n2 = norm((f.fighter2 as any)?.name ?? '')
-      if (n1 && n2) dbLookup.set([n1, n2].sort().join(':'), f.id)
+      if (!n1 || !n2) continue
+      const key = [n1, n2].sort().join(':')
+      if (dbLookup.has(key)) {
+        inDbDuplicates.push(f.id)  // extra copy — safe to delete
+      } else {
+        dbLookup.set(key, f.id)
+      }
+    }
+
+    // Delete in-DB duplicates immediately (these are always safe to remove)
+    if (inDbDuplicates.length > 0) {
+      await supabase.from('predictions').delete().in('fight_id', inDbDuplicates)
+      await supabase.from('fights').delete().in('id', inDbDuplicates)
     }
 
     // Build set of valid fighter pairs from RapidAPI
@@ -316,7 +330,6 @@ async function syncFightMetaFromRapidApi(
       if (toDelete.length > 0) {
         await supabase.from('predictions').delete().in('fight_id', toDelete)
         await supabase.from('fights').delete().in('id', toDelete)
-        // Remove deleted entries from lookup so we don't try to update them
         for (const [pair, dbId] of [...dbLookup]) {
           if (toDelete.includes(dbId)) dbLookup.delete(pair)
         }
@@ -726,9 +739,20 @@ async function fetchEventByDateApiSports(
     for (let fightIdx = 0; fightIdx < fights.length; fightIdx++) {
       const fight = fights[fightIdx]
       if (!fight.fighters.first?.id || !fight.fighters.second?.id) continue
-      const { fight: normFight } = normaliseFight(fight, apiFights, opts.forceEventUuid)
-      const f1data = fight.fighters.first?.id != null ? fighterMap.get(fight.fighters.first.id) : undefined
+
+      // Resolve fighter data BEFORE calling normaliseFight so we can override UUIDs.
+      // normaliseFight() generates api-sports UUIDs from the raw fight data — it has no
+      // knowledge of fighters already in the DB from other API sources. We use the UUIDs
+      // stored in fighterMap (which were resolved via name-lookup earlier) instead.
+      const f1data = fight.fighters.first?.id  != null ? fighterMap.get(fight.fighters.first.id)  : undefined
       const f2data = fight.fighters.second?.id != null ? fighterMap.get(fight.fighters.second.id) : undefined
+
+      const { fight: normFight } = normaliseFight(fight, apiFights, opts.forceEventUuid)
+
+      // Use resolved fighter UUIDs (may differ from normFight's api-sports UUIDs when a
+      // fighter was previously imported from RapidAPI and already exists in the DB).
+      const f1uuid = f1data?.uuid ?? normFight.fighter1_uuid
+      const f2uuid = f2data?.uuid ?? normFight.fighter2_uuid
 
       const aiInput1 = f1data ? {
         name: f1data.name, wins: f1data.wins, losses: f1data.losses, draws: f1data.draws,
@@ -747,15 +771,15 @@ async function fetchEventByDateApiSports(
       if (aiResult.debugError && !firstAiError) firstAiError = aiResult.debugError
 
       // Check if a fight with the same fighter pair already exists for this event.
-      // This handles cross-API-source re-imports (RapidAPI UUIDs vs api-sports UUIDs)
-      // by reusing the existing row's ID rather than inserting a duplicate.
+      // Use the resolved UUIDs (f1uuid/f2uuid) so we correctly match fights regardless
+      // of which API source originally imported them.
       const { data: existingFight } = await supabase
         .from('fights')
         .select('id')
         .eq('event_id', normFight.event_uuid)
         .or(
-          `and(fighter1_id.eq.${normFight.fighter1_uuid},fighter2_id.eq.${normFight.fighter2_uuid}),` +
-          `and(fighter1_id.eq.${normFight.fighter2_uuid},fighter2_id.eq.${normFight.fighter1_uuid})`
+          `and(fighter1_id.eq.${f1uuid},fighter2_id.eq.${f2uuid}),` +
+          `and(fighter1_id.eq.${f2uuid},fighter2_id.eq.${f1uuid})`
         )
         .maybeSingle()
 
@@ -764,8 +788,8 @@ async function fetchEventByDateApiSports(
       const fightRow = {
         id:             fightId,
         event_id:       normFight.event_uuid,
-        fighter1_id:    normFight.fighter1_uuid,
-        fighter2_id:    normFight.fighter2_uuid,
+        fighter1_id:    f1uuid,
+        fighter2_id:    f2uuid,
         weight_class:   normFight.weight_class,
         is_main_event:  normFight.is_main_event,
         is_title_fight: normFight.is_title_fight,
