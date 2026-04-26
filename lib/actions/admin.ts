@@ -364,26 +364,98 @@ async function syncFightMetaFromRapidApi(
       }
     }
 
-    // ── 3. Insert fights present in RapidAPI but missing from DB ─────────────
+    // ── 3. Handle RapidAPI fights with no exact pair match in DB ─────────────
+    // This covers two scenarios:
+    //   a) Fighter replacement — one corner was swapped (e.g. Filho vs Rocha → Filho vs Durden).
+    //      Detect by checking if either fighter appears in an existing DB fight, then update
+    //      that fight's fighter column to the new opponent.
+    //   b) Genuinely new fight — neither fighter appears in any DB fight; insert fresh row.
+
+    // Build single-fighter index for replacement detection: norm name → { fightId, f1n, f2n }
+    const dbFighterIndex = new Map<string, { fightId: string; f1n: string; f2n: string }>()
+    for (const f of dbFights) {
+      if (inDbDuplicates.includes(f.id)) continue
+      const n1 = norm((f.fighter1 as any)?.name ?? '')
+      const n2 = norm((f.fighter2 as any)?.name ?? '')
+      if (!n1 || !n2) continue
+      const fightId = dbLookup.get([n1, n2].sort().join(':')) ?? f.id
+      dbFighterIndex.set(n1, { fightId, f1n: n1, f2n: n2 })
+      dbFighterIndex.set(n2, { fightId, f1n: n1, f2n: n2 })
+    }
+
     for (const apiFight of apiFights) {
       const n1 = norm(apiFight.homeTeam?.name ?? '')
       const n2 = norm(apiFight.awayTeam?.name ?? '')
       if (!n1 || !n2) continue
-      if (dbLookup.has([n1, n2].sort().join(':'))) continue  // already exists
+      if (dbLookup.has([n1, n2].sort().join(':'))) continue  // exact match — already handled
 
-      // Look up fighter UUIDs by name (case-insensitive prefix match)
+      // ── a) Fighter replacement ─────────────────────────────────────────────
+      const match1 = dbFighterIndex.get(n1)  // homeTeam fighter is in an existing DB fight
+      const match2 = dbFighterIndex.get(n2)  // awayTeam fighter is in an existing DB fight
+      const existing = match1 ?? match2
+
+      if (existing) {
+        // The fighter that stayed is the one that matched; the new fighter is the other
+        const newFighterName = match1 ? apiFight.awayTeam?.name : apiFight.homeTeam?.name
+        const newFighterApiId = match1 ? apiFight.awayTeam?.id  : apiFight.homeTeam?.id
+        const stayedNorm = match1 ? n1 : n2
+
+        // Determine which DB column the new fighter occupies
+        const newFighterIsF1 = existing.f1n !== stayedNorm  // if stayed fighter was f1, new one is f2
+
+        // Find or create the replacement fighter
+        let newFighterId: string | null = null
+        const { data: existingFighter } = await supabase
+          .from('fighters').select('id').ilike('name', `${newFighterName}%`).maybeSingle()
+
+        if (existingFighter?.id) {
+          newFighterId = existingFighter.id
+        } else if (newFighterApiId) {
+          // Insert a minimal fighter record — full stats will be populated on next import
+          newFighterId = apiIdToUuid(newFighterApiId, 'fighter')
+          await supabase.from('fighters').upsert({
+            id: newFighterId, name: newFighterName,
+            wins: 0, losses: 0, draws: 0, record: '0-0-0',
+          } as any, { onConflict: 'id', ignoreDuplicates: true })
+        }
+
+        if (newFighterId) {
+          const col = newFighterIsF1 ? 'fighter1_id' : 'fighter2_id'
+          await supabase.from('fights').update({ [col]: newFighterId }).eq('id', existing.fightId)
+        }
+        continue
+      }
+
+      // ── b) Genuinely new fight — insert ────────────────────────────────────
       const [{ data: f1rows }, { data: f2rows }] = await Promise.all([
         supabase.from('fighters').select('id').ilike('name', `${apiFight.homeTeam?.name}%`).limit(1),
         supabase.from('fighters').select('id').ilike('name', `${apiFight.awayTeam?.name}%`).limit(1),
       ])
-      if (!f1rows?.[0] || !f2rows?.[0]) continue  // fighters not in DB yet
+
+      // Create minimal records for any fighter not yet in DB
+      const f1id = f1rows?.[0]?.id ?? (apiFight.homeTeam?.id ? apiIdToUuid(apiFight.homeTeam.id, 'fighter') : null)
+      const f2id = f2rows?.[0]?.id ?? (apiFight.awayTeam?.id ? apiIdToUuid(apiFight.awayTeam.id, 'fighter') : null)
+      if (!f1id || !f2id) continue
+
+      if (!f1rows?.[0] && apiFight.homeTeam?.name) {
+        await supabase.from('fighters').upsert({
+          id: f1id, name: apiFight.homeTeam.name,
+          wins: 0, losses: 0, draws: 0, record: '0-0-0',
+        } as any, { onConflict: 'id', ignoreDuplicates: true })
+      }
+      if (!f2rows?.[0] && apiFight.awayTeam?.name) {
+        await supabase.from('fighters').upsert({
+          id: f2id, name: apiFight.awayTeam.name,
+          wins: 0, losses: 0, draws: 0, record: '0-0-0',
+        } as any, { onConflict: 'id', ignoreDuplicates: true })
+      }
 
       const isMain = apiFight.fightType === 'maincard' && apiFight.order === maxOrder
       await supabase.from('fights').insert({
         id:            apiIdToUuid(apiFight.id, 'fight'),
         event_id:      eventId,
-        fighter1_id:   f1rows[0].id,
-        fighter2_id:   f2rows[0].id,
+        fighter1_id:   f1id,
+        fighter2_id:   f2id,
         fight_type:    apiFight.fightType ?? null,
         display_order: typeof apiFight.order === 'number' ? apiFight.order : 0,
         is_main_event: isMain,
