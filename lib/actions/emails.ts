@@ -19,6 +19,9 @@ type RankRow   = { id: string; total_points: number }
 export async function sendCardLiveEmails(
   eventId: string
 ): Promise<{ sent: number; error?: string }> {
+  // SUSPENDED — remove this line to re-enable
+  return { sent: 0 }
+
   if (!process.env.RESEND_API_KEY) return { sent: 0, error: 'RESEND_API_KEY not set' }
 
   const supabase = createServiceClient()
