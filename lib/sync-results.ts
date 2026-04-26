@@ -32,6 +32,10 @@ function mapMethod(winType: string): string {
   return map[winType] ?? winType
 }
 
+/** Normalise a fighter name for fuzzy matching — strips diacritics, lowercases, removes non-letters. */
+const norm = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
+
 function mapResultType(type: string | null): string | null {
   if (!type) return null
   const map: Record<string, string> = {
@@ -128,7 +132,6 @@ async function syncViaApiSports(
       // Fallback: match by fighter names (handles RapidAPI-imported events where
       // UUIDs use a different prefix and will never match directly)
       if (!dbFight) {
-        const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
         const f1n = norm(f1Name)
         const f2n = norm(f2Name)
         dbFight = dbFights.find((f: any) => {
@@ -182,7 +185,6 @@ async function syncViaApiSports(
 
       let winnerUuid: string | null = null
       if (!isDraw) {
-        const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
         // New format: use winner boolean flags
         if (apiFight.fighters.first?.winner) {
           const apiWinnerName = apiFight.fighters.first.name
@@ -282,8 +284,6 @@ async function syncViaRapidApi(
       errors.push(`Fetch failed for ${event.name}: ${e.message}`)
       continue
     }
-
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
 
     for (const apiFight of apiFights) {
       const fightUuid = rapidApiIdToUuid(apiFight.id, 'fight')
