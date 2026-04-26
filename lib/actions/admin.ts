@@ -563,8 +563,23 @@ async function fetchEventByDateApiSports(
         : { analysis_f1: null, analysis_f2: null }
       if (aiResult.debugError && !firstAiError) firstAiError = aiResult.debugError
 
+      // Check if a fight with the same fighter pair already exists for this event.
+      // This handles cross-API-source re-imports (RapidAPI UUIDs vs api-sports UUIDs)
+      // by reusing the existing row's ID rather than inserting a duplicate.
+      const { data: existingFight } = await supabase
+        .from('fights')
+        .select('id')
+        .eq('event_id', normFight.event_uuid)
+        .or(
+          `and(fighter1_id.eq.${normFight.fighter1_uuid},fighter2_id.eq.${normFight.fighter2_uuid}),` +
+          `and(fighter1_id.eq.${normFight.fighter2_uuid},fighter2_id.eq.${normFight.fighter1_uuid})`
+        )
+        .maybeSingle()
+
+      const fightId = existingFight?.id ?? normFight.uuid
+
       const fightRow = {
-        id:             normFight.uuid,
+        id:             fightId,
         event_id:       normFight.event_uuid,
         fighter1_id:    normFight.fighter1_uuid,
         fighter2_id:    normFight.fighter2_uuid,
@@ -1037,4 +1052,85 @@ export async function completeFight(
   revalidatePath('/leaderboard')
   revalidatePath('/admin')
   return { success: true, message: 'Fight completed and scores updated.' }
+}
+
+// ─── Deduplicate fights ───────────────────────────────────────────────────────
+
+/**
+ * Finds fights where the same fighter pair appears more than once for the same
+ * event (caused by cross-API re-imports generating different UUIDs) and removes
+ * the duplicates, keeping whichever row has predictions attached, or the one
+ * with more data (e.g. completed status) if there are no predictions.
+ */
+export async function deduplicateFights(): Promise<ActionResult & { removed: number }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error, removed: 0 }
+
+  const supabase = createServiceClient()
+
+  // Fetch all fights with their prediction counts
+  const { data: fights, error: fErr } = await supabase
+    .from('fights')
+    .select('id, event_id, fighter1_id, fighter2_id, status, winner_id, method')
+    .order('created_at', { ascending: true })
+
+  if (fErr) return { error: fErr.message, removed: 0 }
+  if (!fights?.length) return { success: true, message: 'No fights found.', removed: 0 }
+
+  // Group by event + normalised fighter pair (order-independent)
+  const groups = new Map<string, typeof fights>()
+  for (const fight of fights) {
+    const [a, b] = [fight.fighter1_id, fight.fighter2_id].sort()
+    const key = `${fight.event_id}::${a}::${b}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(fight)
+  }
+
+  const toDelete: string[] = []
+
+  for (const [, group] of groups) {
+    if (group.length < 2) continue
+
+    // Fetch prediction counts for each fight in this group
+    const counts = await Promise.all(group.map(async (f: { id: string; status: string }) => {
+      const { count } = await supabase
+        .from('predictions')
+        .select('id', { count: 'exact', head: true })
+        .eq('fight_id', f.id)
+      return { id: f.id, picks: count ?? 0, status: f.status }
+    }))
+
+    // Keep the fight that has the most predictions; if tied, prefer completed > others
+    counts.sort((a, b) => {
+      if (b.picks !== a.picks) return b.picks - a.picks
+      const priority = (s: string) => s === 'completed' ? 2 : s === 'live' ? 1 : 0
+      return priority(b.status) - priority(a.status)
+    })
+
+    // Everything after the first (best) entry is a duplicate
+    for (const dup of counts.slice(1)) {
+      toDelete.push(dup.id)
+    }
+  }
+
+  if (toDelete.length === 0) {
+    return { success: true, message: 'No duplicate fights found.', removed: 0 }
+  }
+
+  // Delete duplicates in batches
+  const batchSize = 50
+  for (let i = 0; i < toDelete.length; i += batchSize) {
+    const batch = toDelete.slice(i, i + batchSize)
+    await supabase.from('predictions').delete().in('fight_id', batch)
+    await supabase.from('fights').delete().in('id', batch)
+  }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+
+  return {
+    success: true,
+    message: `Removed ${toDelete.length} duplicate fight(s).`,
+    removed: toDelete.length,
+  }
 }
