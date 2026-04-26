@@ -74,44 +74,46 @@ export interface ApiSportsFighterBasic {
 
 export interface ApiSportsFight {
   id: number
-  /** ISO datetime string, e.g. "2024-04-13T23:00:00+00:00" */
+  /** ISO datetime string, e.g. "2026-04-25T16:00:00+00:00" */
   date: string
-  event: {
-    id: number
-    name: string
-    date: string  // "YYYY-MM-DD"
-    city: string | null
-    country: string | null
-    venue: string | null
-  }
-  league: {
-    id: number
-    name: string
-  }
+  time: string | null
+  timestamp: number | null
+  timezone: string | null
+  /** Event name, e.g. "UFC Fight Night: Sterling vs. Zalal" */
+  slug: string | null
+  /** True if this is the main event of the card */
+  is_main: boolean | null
+  /** Weight class string, e.g. "Welterweight" */
+  category: string | null
+  /** { long: "Finished"|"Cancelled"|"Scheduled"|"In Progress", short: "FIN"|"CANC"|"NS"|"INPROG" } */
+  status: { long: string; short: string } | null
   fighters: {
-    first: ApiSportsFighterBasic
-    second: ApiSportsFighterBasic
+    first:  ApiFightFighter | null
+    second: ApiFightFighter | null
   }
-  /** Number of scheduled rounds */
-  rounds: number | null
-  weight_class: {
-    id: number
-    name: string  // "Lightweight", "Welterweight", etc.
-  } | null
-  /** "Main Card" | "Prelims" | "Early Prelims" */
-  card_segment: string | null
-  /** "Scheduled" | "Finished" | "In Progress" | "Cancelled" | "Postponed" */
-  status: string
-  /** null if fight not yet finished */
-  winner: { id: number; name: string } | null
-  result: {
+  /** Present on finished fights */
+  result?: {
     type: string | null    // "KO/TKO" | "Submission" | "Decision" | "Draw" | "No Contest"
-    details: string | null // e.g. "Punches" or "Rear Naked Choke"
+    details: string | null
     round: number | null
-    clock: string | null   // e.g. "2:21"
+    clock: string | null
   } | null
-  /** Display order on the card (higher = more important) */
-  position: number | null
+  // Legacy fields (may be absent in some API plan tiers — kept for compat)
+  event?: { id: number; name: string; date?: string; city?: string | null; venue?: string | null } | null
+  league?: { id: number; name: string } | null
+  weight_class?: { id: number; name: string } | null
+  card_segment?: string | null
+  position?: number | null
+  winner?: { id: number; name: string } | null
+  rounds?: number | null
+}
+
+/** Minimal fighter shape embedded inside fight.fighters.first / .second */
+export interface ApiFightFighter {
+  id: number
+  name: string
+  logo?: string | null
+  winner?: boolean
 }
 
 export interface ApiSportsFighterDetail extends ApiSportsFighterBasic {
@@ -185,10 +187,18 @@ export interface NormalisedEvent {
 
 function mapStatus(status: string): 'upcoming' | 'live' | 'completed' | 'cancelled' {
   const s = status.toLowerCase()
-  if (s === 'finished' || s === 'final') return 'completed'
-  if (s === 'in progress' || s === 'inprogress') return 'live'
-  if (s === 'cancelled' || s === 'canceled' || s === 'postponed') return 'cancelled'
+  if (s === 'finished' || s === 'final' || s === 'fin') return 'completed'
+  if (s === 'in progress' || s === 'inprogress' || s === 'inprog') return 'live'
+  if (s === 'cancelled' || s === 'canceled' || s === 'postponed' || s === 'canc') return 'cancelled'
   return 'upcoming'
+}
+
+/** Extract status string from api-sports status object (new format) or plain string (legacy) */
+function extractStatus(status: ApiSportsFight['status']): string {
+  if (!status) return 'upcoming'
+  if (typeof status === 'string') return status
+  // Prefer the short code for matching (FIN, CANC, NS, INPROG, etc.)
+  return status.long ?? status.short ?? 'upcoming'
 }
 
 function mapResultType(type: string | null): string | null {
@@ -259,7 +269,7 @@ function countryToFlag(nationality: string | null): string | null {
   return String.fromCodePoint(...pts)
 }
 
-export function normaliseFighter(f: ApiSportsFighterBasic | ApiSportsFighterDetail | null | undefined): NormalisedFighter {
+export function normaliseFighter(f: ApiSportsFighterBasic | ApiSportsFighterDetail | ApiFightFighter | null | undefined): NormalisedFighter {
   // Guard against null/undefined (TBA slots or malformed API response)
   if (!f || f.id == null) {
     return {
@@ -270,21 +280,22 @@ export function normaliseFighter(f: ApiSportsFighterBasic | ApiSportsFighterDeta
       striking_accuracy: null, sig_str_landed: null, td_avg: null, sub_avg: null,
     }
   }
+  const fa     = f as any  // cast once; ApiFightFighter lacks most BasicFighter fields
   const detail = 'career' in f ? (f as ApiSportsFighterDetail) : null
-  const wins   = (f as any)?.record?.wins   ?? 0
-  const losses = (f as any)?.record?.losses ?? 0
-  const draws  = (f as any)?.record?.draws  ?? 0
+  const wins   = fa?.record?.wins   ?? 0
+  const losses = fa?.record?.losses ?? 0
+  const draws  = fa?.record?.draws  ?? 0
   return {
     id: f.id,
     uuid: apiSportsIdToUuid(f.id, 'fighter'),
     name: f.name ?? 'TBA',
-    nickname: f.nickname ?? null,
-    image_url: f.image ?? null,
-    nationality: f.nationality ?? null,
-    flag_emoji: countryToFlag(f.nationality ?? null),
-    birth_date: f.birth_date ?? null,
-    height_cm: parseHeight(f.height ?? null),
-    reach_cm: parseReach(f.reach ?? null),
+    nickname:   fa.nickname   ?? null,
+    image_url:  fa.image      ?? fa.logo ?? null,
+    nationality: fa.nationality ?? null,
+    flag_emoji: countryToFlag(fa.nationality ?? null),
+    birth_date: fa.birth_date ?? null,
+    height_cm: parseHeight(fa.height ?? null),
+    reach_cm: parseReach(fa.reach ?? null),
     weight_class: null,  // set from fight context
     wins,
     losses,
@@ -300,60 +311,78 @@ export function normaliseFighter(f: ApiSportsFighterBasic | ApiSportsFighterDeta
 export function normaliseFight(
   fight: ApiSportsFight,
   allFights: ApiSportsFight[],
+  overrideEventUuid?: string,  // pass existing DB event UUID to avoid creating duplicates
 ): { fight: NormalisedFight; event: NormalisedEvent; f1: NormalisedFighter; f2: NormalisedFighter } {
-  const f1 = normaliseFighter(fight.fighters.first)
-  const f2 = normaliseFighter(fight.fighters.second)
+  const f1 = normaliseFighter(fight.fighters?.first)
+  const f2 = normaliseFighter(fight.fighters?.second)
 
-  const eventId = fight.event?.id ?? 0
+  // Event identification: new API uses slug (no event.id); legacy uses event.id
+  const eventId   = fight.event?.id ?? 0
+  const eventName = fight.slug ?? fight.event?.name ?? 'Unknown Event'
+  // Stable event UUID: prefer explicit override, then legacy event.id, then slug-based date key
+  const eventUuid = overrideEventUuid
+    ?? (eventId ? apiSportsIdToUuid(eventId, 'event') : null)
+    ?? (() => {
+      // Derive a stable numeric ID from the date string (YYYYMMDD as integer)
+      const dateKey = fight.date?.slice(0, 10).replace(/-/g, '') ?? '00000000'
+      return apiSportsIdToUuid(parseInt(dateKey, 10), 'event')
+    })()
 
-  // Determine main event: highest position on the main card
-  const maincardFights = allFights.filter(
-    (f) => f.event?.id === eventId &&
-           (f.card_segment?.toLowerCase().includes('main') ?? false)
-  )
-  const maxPos = maincardFights.reduce((max, f) => Math.max(max, f.position ?? 0), 0)
-  const isMainEvent = (fight.card_segment?.toLowerCase().includes('main') ?? false)
-    && (fight.position ?? 0) === maxPos
-    && maxPos > 0
+  // is_main: prefer new field, fall back to card_segment logic
+  const isMainEvent = fight.is_main
+    ?? (fight.card_segment?.toLowerCase().includes('main') && fight.position != null
+        ? fight.position === Math.max(...allFights.filter(f => f.event?.id === eventId || f.slug === fight.slug).map(f => f.position ?? 0))
+        : false)
 
-  const status = mapStatus(fight.status)
+  const statusStr = extractStatus(fight.status)
+  const status    = mapStatus(statusStr)
+
+  // Winner: new API uses fighters.first.winner / fighters.second.winner booleans
   let winnerUuid: string | null = null
-  if (fight.winner?.id === fight.fighters.first?.id) winnerUuid = f1.uuid
-  else if (fight.winner?.id === fight.fighters.second?.id) winnerUuid = f2.uuid
+  if (fight.fighters?.first?.winner)  winnerUuid = f1.uuid
+  else if (fight.fighters?.second?.winner) winnerUuid = f2.uuid
+  // Legacy: winner object
+  else if (fight.winner?.id === fight.fighters?.first?.id)  winnerUuid = f1.uuid
+  else if (fight.winner?.id === fight.fighters?.second?.id) winnerUuid = f2.uuid
+
+  // Weight class: new API uses category string; legacy uses weight_class.name
+  const weightClass = fight.category ?? fight.weight_class?.name ?? null
 
   const normFight: NormalisedFight = {
-    id: fight.id,
-    uuid: apiSportsIdToUuid(fight.id, 'fight'),
-    event_uuid: apiSportsIdToUuid(eventId, 'event'),
-    fighter1_uuid: f1.uuid,
-    fighter2_uuid: f2.uuid,
-    fight_time: fight.date,
-    status: status === 'cancelled' ? 'cancelled' : status,
-    winner_uuid: status === 'completed' ? winnerUuid : null,
-    method: mapResultType(fight.result?.type ?? null),
-    round: fight.result?.round ?? null,
+    id:             fight.id,
+    uuid:           apiSportsIdToUuid(fight.id, 'fight'),
+    event_uuid:     eventUuid,
+    fighter1_uuid:  f1.uuid,
+    fighter2_uuid:  f2.uuid,
+    fight_time:     fight.date,
+    status:         status === 'cancelled' ? 'cancelled' : status,
+    winner_uuid:    status === 'completed' ? winnerUuid : null,
+    method:         mapResultType(fight.result?.type ?? null),
+    round:          fight.result?.round ?? null,
     time_of_finish: fight.result?.clock ?? null,
-    weight_class: fight.weight_class?.name ?? null,
-    card_segment: fight.card_segment ?? null,
-    display_order: fight.position ?? 0,
-    is_main_event: isMainEvent,
-    is_title_fight: false,  // api-sports.io doesn't reliably flag title fights
+    weight_class:   weightClass,
+    card_segment:   fight.card_segment ?? null,
+    display_order:  fight.position ?? 0,
+    is_main_event:  Boolean(isMainEvent),
+    is_title_fight: false,
   }
 
-  // Determine event status from all fights in this event
-  const eventFights = allFights.filter((f) => f.event?.id === eventId)
-  const allDone = eventFights.every((f) => ['Finished', 'Cancelled'].includes(f.status))
-  const anyLive = eventFights.some((f) => f.status === 'In Progress')
+  // Determine event status from all fights sharing this event
+  const eventFights = allFights.filter(f =>
+    (eventId && f.event?.id === eventId) || (fight.slug && f.slug === fight.slug)
+  )
+  const allDone    = eventFights.length > 0 && eventFights.every(f => ['Finished', 'Cancelled'].includes(extractStatus(f.status)))
+  const anyLive    = eventFights.some(f => extractStatus(f.status).toLowerCase().includes('progress'))
   const eventStatus: 'upcoming' | 'live' | 'completed' = allDone ? 'completed' : anyLive ? 'live' : 'upcoming'
 
   const normEvent: NormalisedEvent = {
-    id: eventId,
-    uuid: apiSportsIdToUuid(eventId, 'event'),
-    name: fight.event?.name ?? 'Unknown Event',
-    date: fight.date,
+    id:       eventId,
+    uuid:     eventUuid,
+    name:     eventName,
+    date:     fight.date,
     location: fight.event?.city ?? null,
-    venue: fight.event?.venue ?? null,
-    status: eventStatus,
+    venue:    fight.event?.venue ?? null,
+    status:   eventStatus,
   }
 
   return { fight: normFight, event: normEvent, f1, f2 }
@@ -404,7 +433,9 @@ async function apiGet<T>(
  *  Falls back to including the fight if none of the discriminating fields are present
  *  (safe since callers already filter by specific event date). */
 function isUfcFight(f: ApiSportsFight | any): boolean {
-  // If any known field is present, use it to decide
+  // New api-sports format: event name is in slug field
+  if (f.slug != null) return f.slug.toLowerCase().includes('ufc')
+  // Legacy / alternative formats
   if (f.league != null)      return f.league?.id === UFC_LEAGUE_ID || f.league?.name?.toLowerCase().includes('ufc')
   if (f.event != null)       return f.event?.name?.toLowerCase().includes('ufc') ?? false
   if (f.competition != null) return f.competition?.name?.toLowerCase().includes('ufc') ?? false

@@ -48,19 +48,30 @@ async function fetchHistoryFromApiSports(fighterApiId: number): Promise<External
     const fights = await getFighterFights(fighterApiId)
 
     return fights
-      .filter((f) => f.status === 'Finished' || f.status === 'Final')
+      .filter((f) => {
+        // status is { long, short } object in new api-sports format
+        const statusLong = typeof f.status === 'object' && f.status !== null
+          ? (f.status.long ?? f.status.short ?? '')
+          : String(f.status ?? '')
+        return statusLong === 'Finished' || statusLong === 'Final'
+      })
       .map((f) => {
-        const isFirst  = f.fighters.first.id === fighterApiId
+        const isFirst  = f.fighters.first?.id === fighterApiId
         const opponent = isFirst ? f.fighters.second : f.fighters.first
-        const won      = f.winner?.id === fighterApiId
-        const isNC     = f.result?.type?.toLowerCase().includes('no contest') ?? false
-        const isDraw   = f.result?.type?.toLowerCase().includes('draw') ?? false
+        // Winner: new format uses fighters.*.winner boolean; legacy uses winner object
+        const won = f.fighters.first?.winner
+          ? f.fighters.first.id === fighterApiId
+          : f.fighters.second?.winner
+            ? f.fighters.second.id === fighterApiId
+            : f.winner?.id === fighterApiId
+        const isNC   = f.result?.type?.toLowerCase().includes('no contest') ?? false
+        const isDraw = f.result?.type?.toLowerCase().includes('draw') ?? false
 
         return {
           date:       f.date,
-          eventName:  f.event.name,
-          opponent:   opponent.name,
-          opponentId: opponent.id,
+          eventName:  f.slug ?? f.event?.name ?? 'Unknown Event',
+          opponent:   opponent?.name ?? 'Unknown',
+          opponentId: opponent?.id ?? 0,
           result:     isNC ? 'NC' : isDraw ? 'D' : won ? 'W' : 'L',
           method:     f.result?.type ?? null,
           round:      f.result?.round ?? null,

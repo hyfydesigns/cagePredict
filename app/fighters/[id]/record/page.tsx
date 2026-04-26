@@ -122,23 +122,33 @@ async function getCareerFights(fighter: FighterRow): Promise<{ fights: CareerFig
         const { getFighterFights } = await import('@/lib/apis/api-sports')
         const raw = await getFighterFights(n)
         const fights: CareerFight[] = raw
-          .filter((f) => f.status === 'Finished' || f.status === 'Final')
+          .filter((f) => {
+            const statusLong = typeof f.status === 'object' && f.status !== null
+              ? (f.status.long ?? f.status.short ?? '')
+              : String(f.status ?? '')
+            return statusLong === 'Finished' || statusLong === 'Final'
+          })
           .map((f) => {
-            const isFirst = f.fighters.first.id === n
+            const isFirst = f.fighters.first?.id === n
             const opp     = isFirst ? f.fighters.second : f.fighters.first
-            const won     = f.winner?.id === n
-            const isNC    = f.result?.type?.toLowerCase().includes('no contest') ?? false
-            const isDraw  = f.result?.type?.toLowerCase().includes('draw') ?? false
+            const won = f.fighters.first?.winner
+              ? f.fighters.first.id === n
+              : f.fighters.second?.winner
+                ? f.fighters.second.id === n
+                : f.winner?.id === n
+            const isNC   = f.result?.type?.toLowerCase().includes('no contest') ?? false
+            const isDraw = f.result?.type?.toLowerCase().includes('draw') ?? false
+            const eventName = f.slug ?? f.event?.name ?? 'Unknown Event'
             return {
               result:       isNC ? 'NC' : isDraw ? 'D' : won ? 'W' : 'L',
-              opponent:     opp.name,
+              opponent:     opp?.name ?? 'Unknown',
               opponentHref: null,
-              eventName:    f.event.name,
+              eventName,
               date:         f.date?.slice(0, 10) ?? null,
               method:       f.result?.type ?? null,
               round:        f.result?.round ?? null,
               time:         f.result?.clock ?? null,
-              isUFC:        isUFCEvent(f.event.name),
+              isUFC:        isUFCEvent(eventName),
             } as CareerFight
           })
           .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
