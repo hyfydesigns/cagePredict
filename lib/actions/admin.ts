@@ -1323,6 +1323,57 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
   }
 }
 
+// ─── Cron: sync all upcoming fight cards ─────────────────────────────────────
+
+/**
+ * Called by /api/cron/sync-card — no admin auth needed (server-to-server).
+ * For every upcoming event, pulls the latest fight card from RapidAPI:
+ * updates fight_type / display_order / is_main_event, detects fighter
+ * replacements, inserts new fights, and removes fights that no longer exist.
+ */
+export async function syncAllUpcomingCards(): Promise<{
+  synced: number
+  log: string[]
+  errors: string[]
+}> {
+  if (!process.env.RAPIDAPI_KEY) {
+    return { synced: 0, log: [], errors: ['RAPIDAPI_KEY not configured — skipping card sync'] }
+  }
+
+  const supabase = createServiceClient()
+  const { data: events } = await supabase
+    .from('events')
+    .select('id, name, date')
+    .eq('status', 'upcoming')
+
+  const log: string[] = []
+  const errors: string[] = []
+  let synced = 0
+
+  for (const event of (events ?? [])) {
+    const d = new Date(event.date)
+    try {
+      await syncFightMetaFromRapidApi(
+        event.id,
+        d.getUTCDate(),
+        d.getUTCMonth() + 1,
+        d.getUTCFullYear(),
+      )
+      log.push(`✓ ${event.name}`)
+      synced++
+    } catch (e: any) {
+      errors.push(`${event.name}: ${e?.message ?? String(e)}`)
+    }
+  }
+
+  if (synced > 0) {
+    revalidatePath('/', 'layout')
+    revalidatePath('/admin')
+  }
+
+  return { synced, log, errors }
+}
+
 // ─── Complete fight ──────────────────────────────────────────────────────────
 
 export async function completeFight(
