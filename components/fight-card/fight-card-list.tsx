@@ -13,10 +13,12 @@ interface FightCardListProps {
   lockedFightId: string | null
   userId?: string
   commentsByFight?: Record<string, CommentWithProfile[]>
+  happeningNowId?: string | null
 }
 
 export function FightCardList({
   fights, picks, predict, toggleLock, isPending, lockedFightId, userId, commentsByFight = {},
+  happeningNowId = null,
 }: FightCardListProps) {
   return (
     <div className="space-y-4">
@@ -33,6 +35,7 @@ export function FightCardList({
             lockTaken={lockedFightId !== null && lockedFightId !== fight.id}
             userId={userId}
             isPending={isPending}
+            isHappeningNow={fight.id === happeningNowId}
             initialComments={commentsByFight[fight.id] ?? []}
             onPredict={predict}
             onToggleLock={toggleLock}

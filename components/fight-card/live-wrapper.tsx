@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Radio, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -301,6 +301,25 @@ function EventSectionClient({
   // Lift prediction state here so the picks counter and fight cards stay in sync
   const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
 
+  // During a live event, identify which fight is happening right now:
+  // the first upcoming fight in chronological card order (early prelims → prelims → main card,
+  // then ascending by display_order within each section).
+  const happeningNowId = useMemo(() => {
+    if (event.status !== 'live') return null
+    const sectionPriority: Record<string, number> = {
+      earlyprelims: 0, early_prelims: 0,
+      prelims: 1,
+      maincard: 2,
+    }
+    const sorted = [...event.fights].sort((a, b) => {
+      const pa = sectionPriority[(a as any).fight_type] ?? 1
+      const pb = sectionPriority[(b as any).fight_type] ?? 1
+      if (pa !== pb) return pa - pb
+      return ((a as any).display_order ?? 0) - ((b as any).display_order ?? 0)
+    })
+    return sorted.find((f) => f.status === 'upcoming')?.id ?? null
+  }, [event.status, event.fights])
+
   const fightIds    = event.fights.map((f) => f.id)
   // Scope the lock to this event only — a confidence pick on another event's
   // fight should not block the lock button here
@@ -446,6 +465,7 @@ function EventSectionClient({
         lockedFightId={eventLockedFightId}
         userId={userId}
         commentsByFight={commentsByFight}
+        happeningNowId={happeningNowId}
       />
     </section>
   )
