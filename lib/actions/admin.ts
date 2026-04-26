@@ -386,10 +386,11 @@ async function fetchEventByDateApiSports(
 
   if (apiFights.length === 0) return { error: `No UFC fights found for ${dateStr}` }
 
-  // Group by event
+  // Group by event — skip fights with missing event data
   const eventMap = new Map<number, typeof apiFights>()
   for (const fight of apiFights) {
-    const eid = fight.event.id
+    const eid = fight.event?.id
+    if (eid == null) continue
     if (!eventMap.has(eid)) eventMap.set(eid, [])
     eventMap.get(eid)!.push(fight)
   }

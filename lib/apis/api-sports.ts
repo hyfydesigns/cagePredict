@@ -304,9 +304,11 @@ export function normaliseFight(
   const f1 = normaliseFighter(fight.fighters.first)
   const f2 = normaliseFighter(fight.fighters.second)
 
+  const eventId = fight.event?.id ?? 0
+
   // Determine main event: highest position on the main card
   const maincardFights = allFights.filter(
-    (f) => f.event.id === fight.event.id &&
+    (f) => f.event?.id === eventId &&
            (f.card_segment?.toLowerCase().includes('main') ?? false)
   )
   const maxPos = maincardFights.reduce((max, f) => Math.max(max, f.position ?? 0), 0)
@@ -322,7 +324,7 @@ export function normaliseFight(
   const normFight: NormalisedFight = {
     id: fight.id,
     uuid: apiSportsIdToUuid(fight.id, 'fight'),
-    event_uuid: apiSportsIdToUuid(fight.event.id, 'event'),
+    event_uuid: apiSportsIdToUuid(eventId, 'event'),
     fighter1_uuid: f1.uuid,
     fighter2_uuid: f2.uuid,
     fight_time: fight.date,
@@ -339,18 +341,18 @@ export function normaliseFight(
   }
 
   // Determine event status from all fights in this event
-  const eventFights = allFights.filter((f) => f.event.id === fight.event.id)
+  const eventFights = allFights.filter((f) => f.event?.id === eventId)
   const allDone = eventFights.every((f) => ['Finished', 'Cancelled'].includes(f.status))
   const anyLive = eventFights.some((f) => f.status === 'In Progress')
   const eventStatus: 'upcoming' | 'live' | 'completed' = allDone ? 'completed' : anyLive ? 'live' : 'upcoming'
 
   const normEvent: NormalisedEvent = {
-    id: fight.event.id,
-    uuid: apiSportsIdToUuid(fight.event.id, 'event'),
-    name: fight.event.name,
-    date: fight.date,   // earliest fight date — overwritten when grouping
-    location: fight.event.city ?? null,
-    venue: fight.event.venue ?? null,
+    id: eventId,
+    uuid: apiSportsIdToUuid(eventId, 'event'),
+    name: fight.event?.name ?? 'Unknown Event',
+    date: fight.date,
+    location: fight.event?.city ?? null,
+    venue: fight.event?.venue ?? null,
     status: eventStatus,
   }
 
