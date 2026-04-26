@@ -336,7 +336,10 @@ function EventSectionClient({
       // Fallback: non-main-event fights come before the main event
       return (a.is_main_event ? 1 : 0) - (b.is_main_event ? 1 : 0)
     })
-    // First fight that hasn't finished yet (upcoming or live status)
+    // Prefer a fight explicitly marked live by sync-results (api confirmed in-progress)
+    const liveFight = sorted.find((f) => f.status === 'live')
+    if (liveFight) return liveFight.id
+    // Fall back to the first fight that hasn't finished yet
     return sorted.find((f) => f.status !== 'completed' && f.status !== 'cancelled')?.id ?? null
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.status, fightStatusKey])

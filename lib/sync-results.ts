@@ -155,6 +155,9 @@ async function syncViaApiSports(
         : String(apiFight.status ?? '')).toLowerCase()
       const isFinished  = ['finished', 'final', 'fin'].includes(statusLong)
       const isCancelled = ['cancelled', 'canceled', 'postponed', 'canc'].includes(statusLong)
+      // Any non-empty status that isn't finished/cancelled/not-started means the fight is in progress
+      const notStartedStatuses = ['', 'ns', 'not started', 'scheduled', 'tbd']
+      const isInProgress = !isFinished && !isCancelled && !!statusLong && !notStartedStatuses.includes(statusLong)
       const method     = mapResultType(apiFight.result?.type ?? null)
       const round      = apiFight.result?.round ?? null
       const clockTime  = apiFight.result?.clock ?? null
@@ -168,6 +171,19 @@ async function syncViaApiSports(
 
       if (dbFight.status === 'completed') {
         log.push(`  ⏭ ${f1Name} vs ${f2Name} already completed`)
+        continue
+      }
+
+      // Fight is currently in progress (walkouts, round 1, etc.) — mark as live in DB
+      // so the "Fighting Now" indicator on the front-end picks it up immediately.
+      if (isInProgress) {
+        if (dbFight.status !== 'live') {
+          const { error } = await supabase.from('fights').update({ status: 'live' }).eq('id', dbFight.id)
+          if (error) errors.push(`live(${dbFight.id}): ${error.message}`)
+          else log.push(`🥊 ${f1Name} vs ${f2Name} → marked LIVE (api status: "${statusLong}")`)
+        } else {
+          log.push(`  ⏳ ${f1Name} vs ${f2Name} — status: "${statusLong}" (already live in DB)`)
+        }
         continue
       }
 
