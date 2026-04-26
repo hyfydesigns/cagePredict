@@ -386,6 +386,14 @@ async function fetchEventByDateApiSports(
 
   if (apiFights.length === 0) return { error: `No UFC fights found for ${dateStr}` }
 
+  // Log first fight's raw keys to debug missing event/league fields
+  if (apiFights.length > 0) {
+    const sample = apiFights[0] as any
+    console.log('[import] sample fight keys:', Object.keys(sample).join(', '))
+    console.log('[import] sample fight.event:', JSON.stringify(sample.event ?? sample.fixture ?? sample.competition ?? sample.tournament ?? 'NONE'))
+    console.log('[import] sample fight raw (first 500):', JSON.stringify(sample).slice(0, 500))
+  }
+
   // Group by event — skip fights with missing event data
   const eventMap = new Map<number, typeof apiFights>()
   for (const fight of apiFights) {
