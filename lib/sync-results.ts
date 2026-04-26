@@ -283,11 +283,26 @@ async function syncViaRapidApi(
       continue
     }
 
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+
     for (const apiFight of apiFights) {
       const fightUuid = rapidApiIdToUuid(apiFight.id, 'fight')
-      const dbFight   = dbFights.find((f: any) => f.id === fightUuid)
       const home      = apiFight.homeTeam?.name ?? '?'
       const away      = apiFight.awayTeam?.name ?? '?'
+
+      // Primary match: by RapidAPI UUID (fights imported via RapidAPI)
+      let dbFight = dbFights.find((f: any) => f.id === fightUuid)
+
+      // Fallback: match by fighter names (fights imported via api-sports have different UUIDs)
+      if (!dbFight) {
+        const h = norm(home), a = norm(away)
+        dbFight = dbFights.find((f: any) => {
+          const d1 = norm(f.fighter1?.name ?? '')
+          const d2 = norm(f.fighter2?.name ?? '')
+          return (d1 === h && d2 === a) || (d1 === a && d2 === h)
+        })
+        if (dbFight) log.push(`  Name-matched ${home} vs ${away} → DB fight ${dbFight.id}`)
+      }
 
       if (!dbFight) {
         skipped.push(`No DB match for API fight ${apiFight.id} (${home} vs ${away}) → uuid ${fightUuid}`)
@@ -318,7 +333,7 @@ async function syncViaRapidApi(
 
       if (apiFight.winnerCode === 0) {
         const { error } = await supabase.rpc('complete_fight', {
-          p_fight_id:  fightUuid,
+          p_fight_id:  dbFight.id,
           p_winner_id: null,
           p_method:    method ?? 'Draw',
           p_round:     round,
@@ -334,15 +349,24 @@ async function syncViaRapidApi(
         continue
       }
 
+      // Determine winner DB ID — prefer name match over RapidAPI UUID
+      // since DB fighters may have been imported from api-sports (different UUID prefix)
+      const winnerName = apiFight.winnerCode === 1 ? home : away
       const winnerApiId = apiFight.winnerCode === 1 ? apiFight.homeTeam?.id : apiFight.awayTeam?.id
       if (!winnerApiId) {
         errors.push(`No winner team ID for fight ${apiFight.id} (${home} vs ${away})`)
         continue
       }
 
+      const winnerNorm = norm(winnerName)
+      const winnerDbId =
+        norm(dbFight.fighter1?.name ?? '') === winnerNorm ? dbFight.fighter1?.id :
+        norm(dbFight.fighter2?.name ?? '') === winnerNorm ? dbFight.fighter2?.id :
+        rapidApiIdToUuid(winnerApiId, 'fighter')
+
       const { error: rpcErr } = await supabase.rpc('complete_fight', {
-        p_fight_id:  fightUuid,
-        p_winner_id: rapidApiIdToUuid(winnerApiId, 'fighter'),
+        p_fight_id:  dbFight.id,
+        p_winner_id: winnerDbId,
         p_method:    method,
         p_round:     round,
         p_time:      null,
@@ -379,7 +403,14 @@ export async function runSyncResults(): Promise<SyncResultsOutput> {
 
   const { data: liveEvents, error: evErr } = await supabase
     .from('events')
-    .select('id, date, name, fights(id, status, fighter1_id, fighter2_id, winner_id)')
+    .select(`
+      id, date, name,
+      fights(
+        id, status, fighter1_id, fighter2_id, winner_id,
+        fighter1:fighters!fights_fighter1_id_fkey(id, name),
+        fighter2:fighters!fights_fighter2_id_fkey(id, name)
+      )
+    `)
     .eq('status', 'live')
 
   if (evErr) {
