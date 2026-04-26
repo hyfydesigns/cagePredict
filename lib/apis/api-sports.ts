@@ -316,8 +316,8 @@ export function normaliseFight(
 
   const status = mapStatus(fight.status)
   let winnerUuid: string | null = null
-  if (fight.winner?.id === fight.fighters.first.id) winnerUuid = f1.uuid
-  else if (fight.winner?.id === fight.fighters.second.id) winnerUuid = f2.uuid
+  if (fight.winner?.id === fight.fighters.first?.id) winnerUuid = f1.uuid
+  else if (fight.winner?.id === fight.fighters.second?.id) winnerUuid = f2.uuid
 
   const normFight: NormalisedFight = {
     id: fight.id,

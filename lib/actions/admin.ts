@@ -471,7 +471,7 @@ async function fetchEventByDateApiSports(
     for (const [, fighter] of fighterMap) {
       // Determine weight class from the first fight featuring this fighter
       const fightCtx = fights.find((f) =>
-        f.fighters.first.id === fighter.id || f.fighters.second.id === fighter.id
+        f.fighters.first?.id === fighter.id || f.fighters.second?.id === fighter.id
       )
       const weightClass = fightCtx?.weight_class?.name ?? null
 
@@ -538,8 +538,8 @@ async function fetchEventByDateApiSports(
     for (const fight of fights) {
       if (!fight.fighters.first?.id || !fight.fighters.second?.id) continue
       const { fight: normFight } = normaliseFight(fight, apiFights)
-      const f1data = fighterMap.get(fight.fighters.first.id)
-      const f2data = fighterMap.get(fight.fighters.second.id)
+      const f1data = fight.fighters.first?.id != null ? fighterMap.get(fight.fighters.first.id) : undefined
+      const f2data = fight.fighters.second?.id != null ? fighterMap.get(fight.fighters.second.id) : undefined
 
       const aiInput1 = f1data ? {
         name: f1data.name, wins: f1data.wins, losses: f1data.losses, draws: f1data.draws,
