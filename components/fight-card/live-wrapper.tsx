@@ -38,14 +38,34 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
 
   const isLive = events.some((e) => e.status === 'live')
 
-  // Initial index: prefer live event, then first upcoming, then last in list
-  const [activeIndex, setActiveIndex] = useState(() => {
-    const liveIdx = initialEvents.findIndex((e) => e.status === 'live')
-    if (liveIdx !== -1) return liveIdx
-    const upcomingIdx = initialEvents.findIndex((e) => e.status === 'upcoming')
-    if (upcomingIdx !== -1) return upcomingIdx
-    return Math.max(0, initialEvents.length - 1)
-  })
+  // Track the active event by ID (not index) so array re-orders never lose focus.
+  // Always prefer the live event; fall back to first upcoming, then last in list.
+  const pickActiveId = (list: EventWithFights[]) =>
+    list.find((e) => e.status === 'live')?.id ??
+    list.find((e) => e.status === 'upcoming')?.id ??
+    list[list.length - 1]?.id ??
+    null
+
+  const [activeEventId, setActiveEventId] = useState<string | null>(() => pickActiveId(initialEvents))
+
+  // Derive the display index from the ID so prev/next arrows keep working.
+  const activeIndex = Math.max(0, events.findIndex((e) => e.id === activeEventId))
+  const activeEvent = events.find((e) => e.id === activeEventId) ?? events[events.length - 1]
+
+  const hasPrev = activeIndex > 0
+  const hasNext = activeIndex < events.length - 1
+
+  // Helper: update events + snap to live if one exists, otherwise keep current selection.
+  const applyFreshEvents = (fresh: EventWithFights[]) => {
+    setEvents(fresh)
+    const liveEvent = fresh.find((e) => e.status === 'live')
+    if (liveEvent) {
+      setActiveEventId(liveEvent.id)
+    } else {
+      // Keep current selection if still in list; fall back gracefully
+      setActiveEventId((prev) => fresh.find((e) => e.id === prev)?.id ?? pickActiveId(fresh))
+    }
+  }
 
   // ── DB-authoritative stats (all events on page, all fight IDs) ──────────────
   // Queried by fight ID — not event_id — so prelim events stored under a
@@ -60,20 +80,11 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, completedAny, allFightIds.join(',')])
 
-  // Sync index whenever the events list changes (from initialEvents prop or polling).
-  // A live event always takes priority — snap to it so the card never drifts away.
+  // Sync whenever initialEvents prop changes (e.g. after a server revalidation).
   useEffect(() => {
-    setEvents(initialEvents)
-    const liveIdx = initialEvents.findIndex((e) => e.status === 'live')
-    if (liveIdx !== -1) setActiveIndex(liveIdx)
+    applyFreshEvents(initialEvents)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEvents])
-
-  // Same snap for polling refreshes — if a live event appears, switch to it.
-  const updateEventsFromPoll = (fresh: EventWithFights[]) => {
-    setEvents(fresh)
-    const liveIdx = fresh.findIndex((e) => e.status === 'live')
-    if (liveIdx !== -1) setActiveIndex(liveIdx)
-  }
 
   // ── Supabase realtime: instant fight result updates ───────────────────────
   // When sync-results cron calls complete_fight(), the DB change is broadcast
@@ -150,7 +161,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
       startTransition(async () => {
         try {
           const fresh = await getActiveEvents()
-          updateEventsFromPoll(fresh)
+          applyFreshEvents(fresh)
           setRefreshError(false)
         } catch {
           setRefreshError(true)
@@ -160,12 +171,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     return () => clearInterval(interval)
   }, [isLive])
 
-  const activeEvent = events[activeIndex] ?? events[events.length - 1]
-
   if (!activeEvent) return null
-
-  const hasPrev = activeIndex > 0
-  const hasNext = activeIndex < events.length - 1
 
   return (
     <div className="space-y-4">
@@ -188,7 +194,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
       {events.length > 1 && (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
+            onClick={() => setActiveEventId(events[Math.max(0, activeIndex - 1)]?.id ?? activeEventId)}
             disabled={!hasPrev}
             aria-label="Previous event"
             className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
@@ -220,7 +226,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
           </div>
 
           <button
-            onClick={() => setActiveIndex((i) => Math.min(events.length - 1, i + 1))}
+            onClick={() => setActiveEventId(events[Math.min(events.length - 1, activeIndex + 1)]?.id ?? activeEventId)}
             disabled={!hasNext}
             aria-label="Next event"
             className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
@@ -310,8 +316,9 @@ function EventSectionClient({
   const { picks, predict, toggleLock, isPending, lockedFightId } = usePredictions(userPicks)
 
   // During a live event, identify which fight is happening right now:
-  // the first upcoming fight in chronological card order (early prelims → prelims → main card,
-  // then ascending by display_order within each section).
+  // the first non-completed, non-cancelled fight in chronological card order.
+  // Use a stable string key so the memo doesn't re-run on every new array reference.
+  const fightStatusKey = event.fights.map((f) => `${f.id}:${f.status}`).join(',')
   const happeningNowId = useMemo(() => {
     if (event.status !== 'live') return null
     const sectionPriority: Record<string, number> = {
@@ -323,10 +330,16 @@ function EventSectionClient({
       const pa = sectionPriority[(a as any).fight_type] ?? 1
       const pb = sectionPriority[(b as any).fight_type] ?? 1
       if (pa !== pb) return pa - pb
-      return ((a as any).display_order ?? 0) - ((b as any).display_order ?? 0)
+      const oa = (a as any).display_order ?? 0
+      const ob = (b as any).display_order ?? 0
+      if (oa !== ob) return oa - ob
+      // Fallback: non-main-event fights come before the main event
+      return (a.is_main_event ? 1 : 0) - (b.is_main_event ? 1 : 0)
     })
-    return sorted.find((f) => f.status === 'upcoming')?.id ?? null
-  }, [event.status, event.fights])
+    // First fight that hasn't finished yet (upcoming or live status)
+    return sorted.find((f) => f.status !== 'completed' && f.status !== 'cancelled')?.id ?? null
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.status, fightStatusKey])
 
   const fightIds    = event.fights.map((f) => f.id)
   // Scope the lock to this event only — a confidence pick on another event's
