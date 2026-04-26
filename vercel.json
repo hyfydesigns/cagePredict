@@ -31,7 +31,7 @@
     },
     {
       "path": "/api/cron/sync-card",
-      "schedule": "0 9 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
