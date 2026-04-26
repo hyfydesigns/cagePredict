@@ -219,8 +219,13 @@ export async function clearAllData(): Promise<ActionResult> {
 // ─── RapidAPI fight-meta cross-reference ────────────────────────────────────
 
 /**
- * Queries RapidAPI for a given event date and updates `fight_type` + `display_order`
- * on existing DB fights for the given event, matching by normalised fighter name pair.
+ * Full reconciliation of DB fights for an event against the authoritative RapidAPI data:
+ *  1. Updates fight_type, display_order, is_main_event for every matched fight.
+ *  2. Deletes DB fights whose fighter pair doesn't appear in RapidAPI at all
+ *     (wrong fights that snuck in from a different event or a bad import).
+ *     Deletion only proceeds when ≥3 name-pair matches are found (confidence check).
+ *  3. Inserts fights present in RapidAPI but absent from the DB (looks up fighters by name).
+ *
  * No-op when RAPIDAPI_KEY is absent. Never throws — errors are logged and swallowed.
  */
 async function syncFightMetaFromRapidApi(
@@ -241,41 +246,94 @@ async function syncFightMetaFromRapidApi(
     })
     if (!res.ok) return
     const data = await res.json()
-    const apiFights: any[] = data.events ?? []
-    if (apiFights.length === 0) return
+    const allApiEvents: any[] = data.events ?? []
+    if (allApiEvents.length === 0) return
 
     const supabase = createServiceClient()
 
-    // Fetch DB fights with fighter names for matching
+    // Find the RapidAPI tournament that best matches our DB event (by name)
+    const { data: dbEvent } = await supabase
+      .from('events').select('name').eq('id', eventId).single()
+    if (!dbEvent) return
+
+    const norm     = (n: string) => n.toLowerCase().replace(/[^a-z]/g, '')
+    const dbNorm   = norm(dbEvent.name)
+
+    const tourneyMap = new Map<number, { name: string; fights: any[] }>()
+    for (const f of allApiEvents) {
+      const tId = f.tournament?.id
+      if (!tId) continue
+      if (!tourneyMap.has(tId)) tourneyMap.set(tId, { name: f.tournament?.name ?? '', fights: [] })
+      tourneyMap.get(tId)!.fights.push(f)
+    }
+
+    // Score each tournament against the DB event name
+    let bestEntry: { name: string; fights: any[] } | null = null
+    let bestScore = -1
+    for (const [, entry] of tourneyMap) {
+      const tn = norm(entry.name)
+      const score = tn === dbNorm ? 1000 :
+        (dbNorm.startsWith(tn.slice(0, 8)) || tn.startsWith(dbNorm.slice(0, 8))) ? 10 :
+        entry.fights.length  // fallback: most fights
+      if (score > bestScore) { bestScore = score; bestEntry = entry }
+    }
+    if (!bestEntry) return
+
+    const apiFights: any[] = bestEntry.fights
+
+    // Fetch DB fights with fighter names
     const { data: dbFights } = await supabase
       .from('fights')
-      .select('id, fighter1:fighters!fights_fighter1_id_fkey(name), fighter2:fighters!fights_fighter2_id_fkey(name)')
+      .select('id, fighter1:fighters!fights_fighter1_id_fkey(id, name), fighter2:fighters!fights_fighter2_id_fkey(id, name)')
       .eq('event_id', eventId)
 
-    if (!dbFights?.length) return
-
-    const norm = (n: string) => n.toLowerCase().replace(/[^a-z]/g, '')
+    if (!dbFights) return
 
     // Build lookup: sorted name pair → db fight id
-    const lookup = new Map<string, string>()
+    const dbLookup = new Map<string, string>()
     for (const f of dbFights) {
       const n1 = norm((f.fighter1 as any)?.name ?? '')
       const n2 = norm((f.fighter2 as any)?.name ?? '')
-      if (n1 && n2) lookup.set([n1, n2].sort().join(':'), f.id)
+      if (n1 && n2) dbLookup.set([n1, n2].sort().join(':'), f.id)
     }
 
-    // Determine main event: highest `order` among maincard fights
+    // Build set of valid fighter pairs from RapidAPI
+    const apiPairs = new Set<string>()
+    for (const f of apiFights) {
+      const n1 = norm(f.homeTeam?.name ?? '')
+      const n2 = norm(f.awayTeam?.name ?? '')
+      if (n1 && n2) apiPairs.add([n1, n2].sort().join(':'))
+    }
+
+    // ── 1. Delete DB fights that don't match any RapidAPI fight ──────────────
+    const matchedCount = [...dbLookup.keys()].filter((p) => apiPairs.has(p)).length
+    if (matchedCount >= 3) {
+      // Enough matches to be confident we have the right event — prune wrong rows
+      const toDelete: string[] = []
+      for (const [pair, dbId] of dbLookup) {
+        if (!apiPairs.has(pair)) toDelete.push(dbId)
+      }
+      if (toDelete.length > 0) {
+        await supabase.from('predictions').delete().in('fight_id', toDelete)
+        await supabase.from('fights').delete().in('id', toDelete)
+        // Remove deleted entries from lookup so we don't try to update them
+        for (const [pair, dbId] of [...dbLookup]) {
+          if (toDelete.includes(dbId)) dbLookup.delete(pair)
+        }
+      }
+    }
+
+    // ── 2. Update metadata on matched fights ─────────────────────────────────
     const maincardFights = apiFights.filter((f: any) => f.fightType === 'maincard')
     const maxOrder = maincardFights.length > 0
       ? Math.max(...maincardFights.map((f: any) => (typeof f.order === 'number' ? f.order : 0)))
       : -1
 
-    // Patch each matched fight with fight_type, display_order, is_main_event
     for (const apiFight of apiFights) {
       const n1 = norm(apiFight.homeTeam?.name ?? '')
       const n2 = norm(apiFight.awayTeam?.name ?? '')
       if (!n1 || !n2) continue
-      const dbId = lookup.get([n1, n2].sort().join(':'))
+      const dbId = dbLookup.get([n1, n2].sort().join(':'))
       if (!dbId) continue
 
       const updates: Record<string, unknown> = {}
@@ -288,10 +346,45 @@ async function syncFightMetaFromRapidApi(
           updates.is_main_event = apiFight.order === maxOrder
         }
       }
-
       if (Object.keys(updates).length > 0) {
         await supabase.from('fights').update(updates).eq('id', dbId)
       }
+    }
+
+    // ── 3. Insert fights present in RapidAPI but missing from DB ─────────────
+    for (const apiFight of apiFights) {
+      const n1 = norm(apiFight.homeTeam?.name ?? '')
+      const n2 = norm(apiFight.awayTeam?.name ?? '')
+      if (!n1 || !n2) continue
+      if (dbLookup.has([n1, n2].sort().join(':'))) continue  // already exists
+
+      // Look up fighter UUIDs by name (case-insensitive prefix match)
+      const [{ data: f1rows }, { data: f2rows }] = await Promise.all([
+        supabase.from('fighters').select('id').ilike('name', `${apiFight.homeTeam?.name}%`).limit(1),
+        supabase.from('fighters').select('id').ilike('name', `${apiFight.awayTeam?.name}%`).limit(1),
+      ])
+      if (!f1rows?.[0] || !f2rows?.[0]) continue  // fighters not in DB yet
+
+      const isMain = apiFight.fightType === 'maincard' && apiFight.order === maxOrder
+      await supabase.from('fights').insert({
+        id:            apiIdToUuid(apiFight.id, 'fight'),
+        event_id:      eventId,
+        fighter1_id:   f1rows[0].id,
+        fighter2_id:   f2rows[0].id,
+        fight_type:    apiFight.fightType ?? null,
+        display_order: typeof apiFight.order === 'number' ? apiFight.order : 0,
+        is_main_event: isMain,
+        is_title_fight: false,
+        status:        'upcoming',
+        weight_class:  null,
+        fight_time:    new Date((apiFight.startTimestamp as number ?? Date.now() / 1000) * 1000).toISOString(),
+        winner_id:     null,
+        method:        null,
+        round:         null,
+        time_of_finish: null,
+        odds_f1:       0,
+        odds_f2:       0,
+      } as any)
     }
   } catch (e) {
     console.error('[syncFightMetaFromRapidApi] error:', e)
