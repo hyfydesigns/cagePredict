@@ -259,9 +259,18 @@ function countryToFlag(nationality: string | null): string | null {
   return String.fromCodePoint(...pts)
 }
 
-export function normaliseFighter(f: ApiSportsFighterBasic | ApiSportsFighterDetail): NormalisedFighter {
+export function normaliseFighter(f: ApiSportsFighterBasic | ApiSportsFighterDetail | null | undefined): NormalisedFighter {
+  // Guard against null/undefined (TBA slots or malformed API response)
+  if (!f || f.id == null) {
+    return {
+      id: 0, uuid: '', name: 'TBA', nickname: null, image_url: null,
+      nationality: null, flag_emoji: null, birth_date: null,
+      height_cm: null, reach_cm: null, weight_class: null,
+      wins: 0, losses: 0, draws: 0, record: '0-0-0',
+      striking_accuracy: null, sig_str_landed: null, td_avg: null, sub_avg: null,
+    }
+  }
   const detail = 'career' in f ? (f as ApiSportsFighterDetail) : null
-  // Guard against malformed/TBA fighters where record or id may be missing
   const wins   = (f as any)?.record?.wins   ?? 0
   const losses = (f as any)?.record?.losses ?? 0
   const draws  = (f as any)?.record?.draws  ?? 0

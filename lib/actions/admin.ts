@@ -534,8 +534,9 @@ async function fetchEventByDateApiSports(
     insertedEvents++
     newEventIds.push(normEvent.uuid)
 
-    // 4. Upsert fights
+    // 4. Upsert fights (skip TBA bouts where either fighter slot is missing)
     for (const fight of fights) {
+      if (!fight.fighters.first?.id || !fight.fighters.second?.id) continue
       const { fight: normFight } = normaliseFight(fight, apiFights)
       const f1data = fighterMap.get(fight.fighters.first.id)
       const f2data = fighterMap.get(fight.fighters.second.id)
