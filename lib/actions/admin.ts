@@ -406,21 +406,22 @@ async function fetchEventByDateApiSports(
       age: number | null; fighting_style: string | null; last_5_form: string | null
     }>()
 
-    const uniqueFighterIds = [
-      ...new Set(fights.flatMap((f) => [f.fighters.first.id, f.fighters.second.id]))
-    ]
+    // Filter out null/TBA fighter slots before collecting IDs
+    const allFighterSlots = fights.flatMap((f) => [f.fighters.first, f.fighters.second]).filter(Boolean)
+    const uniqueFighterIds = [...new Set(allFighterSlots.map((f) => f.id).filter((id) => id != null))]
 
     // Fetch full fighter detail in batches of 5 to respect rate limits
     for (let i = 0; i < uniqueFighterIds.length; i += 5) {
       const batch = uniqueFighterIds.slice(i, i + 5)
       await Promise.all(batch.map(async (fId) => {
-        const basic = fights.flatMap((f) => [f.fighters.first, f.fighters.second]).find((f) => f.id === fId)!
+        const basic = allFighterSlots.find((f) => f.id === fId)
+        if (!basic) return  // skip if fighter data is missing
         const detail = opts.skipUFCStats ? null : await getFighterById(fId).catch(() => null)
         const base = normaliseFighter(detail ?? basic)
 
         // Age from birth_date
         let age: number | null = null
-        const bd = (detail ?? basic).birth_date
+        const bd = (detail ?? basic)?.birth_date
         if (bd) age = Math.floor((Date.now() - new Date(bd).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
 
         let fighting_style: string | null = null
