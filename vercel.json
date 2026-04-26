@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/sync-results",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-card",
+      "schedule": "0 * * * *"
     }
   ]
 }
