@@ -38,16 +38,14 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
 
   const isLive = events.some((e) => e.status === 'live')
 
-  // Default to the live event, then most recent upcoming, then last in list
-  const defaultIndex = Math.max(
-    0,
-    events.findIndex((e) => e.status === 'live') !== -1
-      ? events.findIndex((e) => e.status === 'live')
-      : events.findIndex((e) => e.status === 'upcoming') !== -1
-        ? events.findIndex((e) => e.status === 'upcoming')
-        : events.length - 1
-  )
-  const [activeIndex, setActiveIndex] = useState(defaultIndex)
+  // Initial index: prefer live event, then first upcoming, then last in list
+  const [activeIndex, setActiveIndex] = useState(() => {
+    const liveIdx = initialEvents.findIndex((e) => e.status === 'live')
+    if (liveIdx !== -1) return liveIdx
+    const upcomingIdx = initialEvents.findIndex((e) => e.status === 'upcoming')
+    if (upcomingIdx !== -1) return upcomingIdx
+    return Math.max(0, initialEvents.length - 1)
+  })
 
   // ── DB-authoritative stats (all events on page, all fight IDs) ──────────────
   // Queried by fight ID — not event_id — so prelim events stored under a
@@ -62,10 +60,20 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, completedAny, allFightIds.join(',')])
 
-  // Keep index in bounds if events list changes
+  // Sync index whenever the events list changes (from initialEvents prop or polling).
+  // A live event always takes priority — snap to it so the card never drifts away.
   useEffect(() => {
     setEvents(initialEvents)
+    const liveIdx = initialEvents.findIndex((e) => e.status === 'live')
+    if (liveIdx !== -1) setActiveIndex(liveIdx)
   }, [initialEvents])
+
+  // Same snap for polling refreshes — if a live event appears, switch to it.
+  const updateEventsFromPoll = (fresh: EventWithFights[]) => {
+    setEvents(fresh)
+    const liveIdx = fresh.findIndex((e) => e.status === 'live')
+    if (liveIdx !== -1) setActiveIndex(liveIdx)
+  }
 
   // ── Supabase realtime: instant fight result updates ───────────────────────
   // When sync-results cron calls complete_fight(), the DB change is broadcast
@@ -142,7 +150,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
       startTransition(async () => {
         try {
           const fresh = await getActiveEvents()
-          setEvents(fresh)
+          updateEventsFromPoll(fresh)
           setRefreshError(false)
         } catch {
           setRefreshError(true)
