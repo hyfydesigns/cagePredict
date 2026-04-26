@@ -1061,6 +1061,10 @@ export async function completeFight(
  * event (caused by cross-API re-imports generating different UUIDs) and removes
  * the duplicates, keeping whichever row has predictions attached, or the one
  * with more data (e.g. completed status) if there are no predictions.
+ *
+ * Matches by fighter NAME (normalised) rather than UUID so that RapidAPI-imported
+ * fights (UUID prefix 0001/0003) and api-sports-imported fights (prefix 0004/0006)
+ * are correctly detected as duplicates even though their IDs differ.
  */
 export async function deduplicateFights(): Promise<ActionResult & { removed: number }> {
   const auth = await requireAdmin()
@@ -1068,19 +1072,24 @@ export async function deduplicateFights(): Promise<ActionResult & { removed: num
 
   const supabase = createServiceClient()
 
-  // Fetch all fights with their prediction counts
+  // Fetch all fights with joined fighter names so we can match across API sources
   const { data: fights, error: fErr } = await supabase
     .from('fights')
-    .select('id, event_id, fighter1_id, fighter2_id, status, winner_id, method')
+    .select('id, event_id, status, fighter1:fighters!fights_fighter1_id_fkey(name), fighter2:fighters!fights_fighter2_id_fkey(name)')
     .order('created_at', { ascending: true })
 
   if (fErr) return { error: fErr.message, removed: 0 }
   if (!fights?.length) return { success: true, message: 'No fights found.', removed: 0 }
 
-  // Group by event + normalised fighter pair (order-independent)
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+
+  // Group by event + normalised fighter name pair (order-independent)
   const groups = new Map<string, typeof fights>()
   for (const fight of fights) {
-    const [a, b] = [fight.fighter1_id, fight.fighter2_id].sort()
+    const f1 = norm((fight.fighter1 as any)?.name ?? '')
+    const f2 = norm((fight.fighter2 as any)?.name ?? '')
+    if (!f1 || !f2) continue
+    const [a, b] = [f1, f2].sort()
     const key = `${fight.event_id}::${a}::${b}`
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(fight)
@@ -1092,7 +1101,7 @@ export async function deduplicateFights(): Promise<ActionResult & { removed: num
     if (group.length < 2) continue
 
     // Fetch prediction counts for each fight in this group
-    const counts = await Promise.all(group.map(async (f: { id: string; status: string }) => {
+    const counts = await Promise.all(group.map(async (f: { id: string; status: string; [k: string]: unknown }) => {
       const { count } = await supabase
         .from('predictions')
         .select('id', { count: 'exact', head: true })
