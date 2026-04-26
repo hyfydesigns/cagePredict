@@ -26,12 +26,14 @@ interface FightCardSectionsProps {
   lockedFightId: string | null
   userId?: string
   commentsByFight?: Record<string, CommentWithProfile[]>
+  happeningNowId?: string | null
 }
 
 export function FightCardSections({
   fights, picks, predict, toggleLock, isPending, lockedFightId, userId, commentsByFight = {},
+  happeningNowId = null,
 }: FightCardSectionsProps) {
-  const listProps = { picks, predict, toggleLock, isPending, lockedFightId, userId, commentsByFight }
+  const listProps = { picks, predict, toggleLock, isPending, lockedFightId, userId, commentsByFight, happeningNowId }
 
   const maincard     = fights.filter((f) => (f as any).fight_type === 'maincard')
   const prelims      = fights.filter((f) => (f as any).fight_type === 'prelims')

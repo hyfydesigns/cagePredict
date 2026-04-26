@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useAnimate } from 'framer-motion'
-import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react'
+import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare, Swords } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { FighterPortrait } from './fighter-portrait'
 import { PredictionPicker } from './prediction-picker'
@@ -85,6 +85,7 @@ interface FightCardProps {
   lockTaken?: boolean
   userId?: string
   isPending?: boolean
+  isHappeningNow?: boolean
   initialComments?: CommentWithProfile[]
   onPredict: (fightId: string, winnerId: string, method?: string | null, round?: number | null) => Promise<void>
   onToggleLock: (fightId: string, isConfidence: boolean) => Promise<void>
@@ -93,7 +94,7 @@ interface FightCardProps {
 export function FightCard({
   fight, eventDate, userPick, userMethod = null, userRound = null,
   isConfidence = false, lockTaken = false,
-  userId, isPending = false, initialComments = [], onPredict, onToggleLock,
+  userId, isPending = false, isHappeningNow = false, initialComments = [], onPredict, onToggleLock,
 }: FightCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [showComments, setShowComments] = useState(false)
@@ -145,12 +146,24 @@ export function FightCard({
           ? 'border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.08)]'
           : 'border-border/60',
         isLive && 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.18)] animate-pulse-red',
+        isHappeningNow && 'border-amber-500/60 shadow-[0_0_24px_rgba(245,158,11,0.25)]',
         isCompleted && pickCorrect  && 'border-emerald-500/40',
         isCompleted && pickIncorrect && 'border-red-500/20',
         !pickCorrect && !pickIncorrect && isCompleted && 'border-border/30 opacity-90',
         'bg-gradient-to-b from-surface to-background'
       )}
     >
+      {/* Happening-now accent bar */}
+      {isHappeningNow && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500/10 border-b border-amber-500/30 px-4 py-1.5">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <Swords className="h-3 w-3 text-amber-400" />
+          <span className="text-[11px] font-black uppercase tracking-widest text-amber-400">Fighting Now</span>
+          <Swords className="h-3 w-3 text-amber-400 scale-x-[-1]" />
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+        </div>
+      )}
+
       {/* Header bar */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50">
         <div className="flex items-center gap-2 flex-wrap">
