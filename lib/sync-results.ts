@@ -74,8 +74,9 @@ async function syncViaApiSports(
   log: string[],
   errors: string[],
   skipped: string[],
-): Promise<number> {
+): Promise<{ synced: number; rateLimited: boolean }> {
   let synced = 0
+  let rateLimited = false
 
   for (const event of liveEvents) {
     const dbFights: any[] = (event as any).fights ?? []
@@ -117,6 +118,11 @@ async function syncViaApiSports(
       }
       apiFights = foundFights
     } catch (e: any) {
+      if (e.message?.toLowerCase().includes('request limit') || e.message?.toLowerCase().includes('rate limit')) {
+        rateLimited = true
+        log.push(`  ⚠ api-sports daily limit reached — will fall back to RapidAPI`)
+        break
+      }
       errors.push(`Fetch failed for ${event.name}: ${e.message}`)
       continue
     }
@@ -269,7 +275,7 @@ async function syncViaApiSports(
     }
   }
 
-  return synced
+  return { synced, rateLimited }
 }
 
 // ─── RapidAPI sync (legacy fallback) ─────────────────────────────────────────
@@ -459,9 +465,18 @@ export async function runSyncResults(): Promise<SyncResultsOutput> {
   const log: string[] = []
   const skipped: string[] = []
 
-  const synced = provider === 'api-sports'
-    ? await syncViaApiSports(liveEvents, supabase, log, errors, skipped)
-    : await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
+  let synced = 0
+  if (provider === 'api-sports') {
+    const { synced: asSynced, rateLimited } = await syncViaApiSports(liveEvents, supabase, log, errors, skipped)
+    synced += asSynced
+    // If api-sports hit its daily limit, fall back to RapidAPI automatically
+    if (rateLimited && process.env.RAPIDAPI_KEY) {
+      log.push('[rapidapi] Falling back to RapidAPI due to api-sports rate limit')
+      synced += await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
+    }
+  } else {
+    synced = await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
+  }
 
   if (synced > 0) {
     revalidatePath('/', 'layout')
