@@ -66,14 +66,14 @@ function PickButton({
       className={cn(
         'relative flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 py-3 font-bold text-sm transition-all duration-200',
         isSelected
-          ? 'border-primary bg-primary/15 text-foreground shadow-[0_0_20px_rgba(239,68,68,0.3)] scale-[1.02]'
+          ? 'border-blue-400 bg-blue-500/15 text-foreground shadow-[0_0_20px_rgba(96,165,250,0.3)] scale-[1.02]'
           : 'border-border bg-surface-2/50 text-foreground-secondary hover:border-border hover:bg-surface-3/50 hover:text-foreground',
       )}
     >
       {isPending && isSelected ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : isSelected ? (
-        <CheckCircle className="h-4 w-4 text-primary" />
+        <CheckCircle className="h-4 w-4 text-blue-400" />
       ) : null}
       <span className="text-xs font-black uppercase tracking-wide line-clamp-1">
         {fighter.name.split(' ').pop()}
@@ -157,7 +157,7 @@ export function PredictionPicker({
     const ml = methodLabel(currentMethod, currentRound)
     return (
       <div className="px-4 py-3 border-t border-border/50 flex flex-wrap items-center justify-center gap-2">
-        <CheckCircle className="h-4 w-4 text-primary" />
+        <CheckCircle className="h-4 w-4 text-blue-400" />
         <span className="text-sm text-foreground-secondary">
           Locked in: <span className="text-foreground font-semibold">{picked.name}</span>
         </span>
