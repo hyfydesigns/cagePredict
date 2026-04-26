@@ -7,6 +7,7 @@ import { SEED_EVENTS, SEED_FIGHTERS } from '@/seeds/seed-data'
 import { sendCardLiveEmails } from '@/lib/actions/emails'
 import { isAdmin } from '@/lib/auth/is-admin'
 import { runSyncResults } from '@/lib/sync-results'
+import { getUpcomingUFCEvents, parseTapologyDate, type TapologyEvent } from '@/lib/apis/tapology'
 import { getUFCStatsData, calcWinBreakdown } from '@/lib/apis/ufc-stats'
 import {
   isConfigured as isApiSportsConfigured,
@@ -1325,11 +1326,96 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
 
 // ─── Cron: sync all upcoming fight cards ─────────────────────────────────────
 
+/** Strip diacritics, lowercase, remove non-letters — for fuzzy name matching */
+const normFighterName = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
+
+/**
+ * Cross-check DB fights for an event against Tapology's fight card.
+ * When Tapology has a different fighter in one corner (replacement/correction),
+ * the DB is updated to match Tapology, which is treated as the source of truth.
+ */
+async function reconcileWithTapology(
+  eventId: string,
+  tapologyFights: TapologyEvent['fight_card'],
+  supabase: ReturnType<typeof createServiceClient>,
+  log: string[],
+): Promise<void> {
+  const { data: dbFights } = await supabase
+    .from('fights')
+    .select(`
+      id, fighter1_id, fighter2_id,
+      fighter1:fighters!fights_fighter1_id_fkey(id, name),
+      fighter2:fighters!fights_fighter2_id_fkey(id, name)
+    `)
+    .eq('event_id', eventId)
+    .not('status', 'in', '("completed","cancelled")')
+
+  if (!dbFights?.length) return
+
+  // Parse Tapology fight strings into normalised name pairs
+  const tapPairs = Object.values(tapologyFights).map((tf) => {
+    const [raw1 = '', raw2 = ''] = tf.fight.split(' vs. ').map((s) => s.trim())
+    return { raw1, raw2, n1: normFighterName(raw1), n2: normFighterName(raw2) }
+  })
+
+  for (const dbFight of dbFights as any[]) {
+    const f1 = { id: dbFight.fighter1?.id as string, name: dbFight.fighter1?.name as string ?? '' }
+    const f2 = { id: dbFight.fighter2?.id as string, name: dbFight.fighter2?.name as string ?? '' }
+    const n1 = normFighterName(f1.name)
+    const n2 = normFighterName(f2.name)
+
+    for (const tap of tapPairs) {
+      const tapSet = new Set([tap.n1, tap.n2])
+      const shared = [n1, n2].filter((n) => tapSet.has(n))
+
+      if (shared.length === 2) break   // Both fighters match — no issue
+
+      if (shared.length === 1) {
+        // One corner has changed — Tapology has the correct fighter
+        const sharedNorm    = shared[0]
+        const wrongFighter  = n1 === sharedNorm ? f2 : f1
+        const correctRaw    = tap.n1 === sharedNorm ? tap.raw2 : tap.raw1
+        const column        = n1 === sharedNorm ? 'fighter2_id' : 'fighter1_id'
+
+        if (normFighterName(wrongFighter.name) === normFighterName(correctRaw)) break // already correct
+
+        log.push(`⚠ Tapology correction on fight ${dbFight.id}: "${wrongFighter.name}" → "${correctRaw}"`)
+
+        // Look up fighter by name or create a minimal record
+        const { data: existing } = await supabase
+          .from('fighters')
+          .select('id')
+          .ilike('name', correctRaw)
+          .maybeSingle()
+
+        let newId = existing?.id as string | undefined
+        if (!newId) {
+          const { data: inserted } = await supabase
+            .from('fighters')
+            .insert({ name: correctRaw })
+            .select('id')
+            .single()
+          newId = inserted?.id
+        }
+
+        if (newId) {
+          await supabase.from('fights').update({ [column]: newId }).eq('id', dbFight.id)
+          log.push(`  ✓ Updated ${column} to "${correctRaw}" (${newId})`)
+        }
+        break
+      }
+      // shared.length === 0 → completely different fight, skip
+    }
+  }
+}
+
 /**
  * Called by /api/cron/sync-card — no admin auth needed (server-to-server).
- * For every upcoming event, pulls the latest fight card from RapidAPI:
- * updates fight_type / display_order / is_main_event, detects fighter
- * replacements, inserts new fights, and removes fights that no longer exist.
+ * For every upcoming event:
+ *  1. Pulls latest fight card from RapidAPI (metadata, order, replacements)
+ *  2. Cross-checks fighter names against Tapology and corrects any mismatches
+ *     (Tapology is treated as the source of truth when the two disagree)
  */
 export async function syncAllUpcomingCards(): Promise<{
   synced: number
@@ -1350,16 +1436,42 @@ export async function syncAllUpcomingCards(): Promise<{
   const errors: string[] = []
   let synced = 0
 
+  // Fetch Tapology once for all events (one API call)
+  const tapologyEvents = await getUpcomingUFCEvents()
+  if (tapologyEvents.length > 0) {
+    log.push(`[tapology] Fetched ${tapologyEvents.length} upcoming UFC events`)
+  } else {
+    log.push('[tapology] No events returned (key missing or API unavailable)')
+  }
+
   for (const event of (events ?? [])) {
     const d = new Date(event.date)
+    const eventMonth = d.getUTCMonth() + 1
+    const eventDay   = d.getUTCDate()
+
     try {
+      // Step 1 — RapidAPI sync (fight order, segments, insertions, deletions)
       await syncFightMetaFromRapidApi(
         event.id,
-        d.getUTCDate(),
-        d.getUTCMonth() + 1,
+        eventDay,
+        eventMonth,
         d.getUTCFullYear(),
       )
-      log.push(`✓ ${event.name}`)
+      log.push(`[rapidapi] ✓ ${event.name}`)
+
+      // Step 2 — Tapology reconciliation (fighter name corrections)
+      const tapEvent = tapologyEvents.find((te) => {
+        const parsed = parseTapologyDate(te.datetime)
+        return parsed && parsed.month === eventMonth && parsed.day === eventDay
+      })
+
+      if (tapEvent) {
+        log.push(`[tapology] Reconciling ${event.name} against "${tapEvent.organization}"`)
+        await reconcileWithTapology(event.id, tapEvent.fight_card, supabase, log)
+      } else {
+        log.push(`[tapology] No matching event found for ${event.name} (${eventMonth}/${eventDay})`)
+      }
+
       synced++
     } catch (e: any) {
       errors.push(`${event.name}: ${e?.message ?? String(e)}`)
