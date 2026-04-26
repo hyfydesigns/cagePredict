@@ -9,7 +9,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -68,6 +68,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [syncLog, setSyncLog]                          = useState<string[] | null>(null)
   const [isBackfillPending, startBackfillTransition]   = useTransition()
   const [backfillResult, setBackfillResult]            = useState<{ updated: number; errors: number } | null>(null)
+  const [isDedupPending, startDedupTransition]         = useTransition()
   const [isAutoImportPending, startAutoImportTransition] = useTransition()
   const [autoImportLog, setAutoImportLog]                = useState<string[] | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
@@ -155,6 +156,17 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
         ]
         setSyncLog(allLines.length ? allLines : ['Nothing to sync — no live events, or all fights already completed.'])
       }
+    })
+  }
+
+  function handleDedup() {
+    startDedupTransition(async () => {
+      const result = await deduplicateFights()
+      toast({
+        title: result.error ? 'Dedup failed' : result.removed === 0 ? 'No duplicates found' : `Removed ${result.removed} duplicate fight(s)`,
+        description: result.error ?? (result.removed > 0 ? 'Duplicate fights deleted. Refresh the page.' : 'All fights are unique.'),
+        variant: result.error ? 'destructive' : 'default',
+      })
     })
   }
 
@@ -353,6 +365,24 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             }
           </Button>
         </div>
+      </div>
+
+      {/* Deduplicate Fights */}
+      <div className="rounded-2xl border border-amber-500/30 bg-surface p-5 space-y-3">
+        <div>
+          <h2 className="font-bold text-foreground flex items-center gap-2">
+            <Swords className="h-4 w-4 text-amber-400" /> Deduplicate Fights
+          </h2>
+          <p className="text-foreground-muted text-sm mt-1">
+            Remove duplicate fight rows caused by re-importing from a different API source (RapidAPI vs api-sports). Keeps the row with the most predictions.
+          </p>
+        </div>
+        <Button onClick={handleDedup} disabled={isDedupPending} variant="outline" className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
+          {isDedupPending
+            ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Scanning…</>
+            : <><Swords className="h-4 w-4 mr-1.5" />Remove Duplicates</>
+          }
+        </Button>
       </div>
 
       {/* Backfill Win Breakdown */}
