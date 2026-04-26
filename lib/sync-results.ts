@@ -129,7 +129,7 @@ async function syncViaApiSports(
       // Primary match: by UUID (api-sports imported events)
       let dbFight = dbFights.find((f: any) => f.id === fightUuid)
 
-      // Fallback: match by fighter names (handles RapidAPI-imported events where
+      // Fallback 1: full name match (handles RapidAPI-imported events where
       // UUIDs use a different prefix and will never match directly)
       if (!dbFight) {
         const f1n = norm(f1Name)
@@ -141,6 +141,24 @@ async function syncViaApiSports(
         })
         if (dbFight) {
           log.push(`  Name-matched ${f1Name} vs ${f2Name} → DB fight ${dbFight.id}`)
+        }
+      }
+
+      // Fallback 2: last-name-only match — catches cases where APIs disagree on
+      // first names (e.g. "Joaquin" vs "J.J.", accent variants, middle names).
+      // Only used when there is exactly one candidate to avoid false positives.
+      if (!dbFight) {
+        const lastName = (s: string) => norm(s.trim().split(/\s+/).pop() ?? s)
+        const f1l = lastName(f1Name)
+        const f2l = lastName(f2Name)
+        const candidates = dbFights.filter((f: any) => {
+          const d1l = lastName(f.fighter1?.name ?? '')
+          const d2l = lastName(f.fighter2?.name ?? '')
+          return (d1l === f1l && d2l === f2l) || (d1l === f2l && d2l === f1l)
+        })
+        if (candidates.length === 1) {
+          dbFight = candidates[0]
+          log.push(`  Last-name-matched ${f1Name} vs ${f2Name} → DB fight ${dbFight.id}`)
         }
       }
 
