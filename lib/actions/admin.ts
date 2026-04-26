@@ -309,7 +309,8 @@ export async function autoImportUpcomingEvents(): Promise<{
       const upcomingFights = await getUpcomingUFCFights()
       const dateSet = new Set<string>()
       for (const fight of upcomingFights) {
-        const d = fight.event?.date?.slice(0, 10)  // "YYYY-MM-DD"
+        // New api-sports format: date is on fight.date; legacy: fight.event.date
+        const d = (fight.date ?? fight.event?.date)?.slice(0, 10)  // "YYYY-MM-DD"
         if (d && !coveredDates.has(d)) dateSet.add(d)
       }
       candidateDates = [...dateSet].sort()
@@ -370,7 +371,7 @@ async function fetchEventByDateApiSports(
   day: number,
   month: number,
   year: number,
-  opts: { skipAI?: boolean; skipUFCStats?: boolean } = {},
+  opts: { skipAI?: boolean; skipUFCStats?: boolean; forceEventUuid?: string } = {},
 ): Promise<ActionResult> {
   try {
   const supabase = createServiceClient()
@@ -386,21 +387,13 @@ async function fetchEventByDateApiSports(
 
   if (apiFights.length === 0) return { error: `No UFC fights found for ${dateStr}` }
 
-  // Log first fight's raw keys to debug missing event/league fields
-  if (apiFights.length > 0) {
-    const sample = apiFights[0] as any
-    console.log('[import] sample fight keys:', Object.keys(sample).join(', '))
-    console.log('[import] sample fight.event:', JSON.stringify(sample.event ?? sample.fixture ?? sample.competition ?? sample.tournament ?? 'NONE'))
-    console.log('[import] sample fight raw (first 500):', JSON.stringify(sample).slice(0, 500))
-  }
-
-  // Group by event — skip fights with missing event data
-  const eventMap = new Map<number, typeof apiFights>()
+  // Group by event — use event.id when available, fall back to slug (new API format)
+  const eventMap = new Map<string, typeof apiFights>()
   for (const fight of apiFights) {
-    const eid = fight.event?.id
-    if (eid == null) continue
-    if (!eventMap.has(eid)) eventMap.set(eid, [])
-    eventMap.get(eid)!.push(fight)
+    const key = fight.event?.id != null ? String(fight.event.id) : (fight.slug ?? null)
+    if (!key) continue
+    if (!eventMap.has(key)) eventMap.set(key, [])
+    eventMap.get(key)!.push(fight)
   }
 
   let insertedFighters = 0
@@ -416,8 +409,10 @@ async function fetchEventByDateApiSports(
     }>()
 
     // Filter out null/TBA fighter slots before collecting IDs
-    const allFighterSlots = fights.flatMap((f) => [f.fighters.first, f.fighters.second]).filter(Boolean)
-    const uniqueFighterIds = [...new Set(allFighterSlots.map((f) => f.id).filter((id) => id != null))]
+    const allFighterSlots = fights
+      .flatMap((f) => [f.fighters.first, f.fighters.second])
+      .filter((f): f is NonNullable<typeof f> => f != null)
+    const uniqueFighterIds = [...new Set(allFighterSlots.map((f) => f.id).filter((id): id is number => id != null))]
 
     // Fetch full fighter detail in batches of 5 to respect rate limits
     for (let i = 0; i < uniqueFighterIds.length; i += 5) {
@@ -426,11 +421,12 @@ async function fetchEventByDateApiSports(
         const basic = allFighterSlots.find((f) => f.id === fId)
         if (!basic) return  // skip if fighter data is missing
         const detail = opts.skipUFCStats ? null : await getFighterById(fId).catch(() => null)
+        // detail is ApiSportsFighterDetail (full); basic is ApiFightFighter (minimal from fight slot)
         const base = normaliseFighter(detail ?? basic)
 
-        // Age from birth_date
+        // Age from birth_date (only present on the full detail object)
         let age: number | null = null
-        const bd = (detail ?? basic)?.birth_date
+        const bd = detail?.birth_date
         if (bd) age = Math.floor((Date.now() - new Date(bd).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
 
         let fighting_style: string | null = null
@@ -479,10 +475,11 @@ async function fetchEventByDateApiSports(
     // 2. Upsert fighters
     for (const [, fighter] of fighterMap) {
       // Determine weight class from the first fight featuring this fighter
+      // New api-sports format uses `category`; legacy format uses `weight_class.name`
       const fightCtx = fights.find((f) =>
         f.fighters.first?.id === fighter.id || f.fighters.second?.id === fighter.id
       )
-      const weightClass = fightCtx?.weight_class?.name ?? null
+      const weightClass = fightCtx?.category ?? fightCtx?.weight_class?.name ?? null
 
       const row = {
         id:               fighter.uuid,
@@ -517,7 +514,7 @@ async function fetchEventByDateApiSports(
     }
 
     // 3. Upsert event — never downgrade status (e.g. don't overwrite 'live' → 'upcoming')
-    const { event: normEvent } = normaliseFight(fights[0], apiFights)
+    const { event: normEvent } = normaliseFight(fights[0], apiFights, opts.forceEventUuid)
     const earliestDate = fights.reduce((min, f) => f.date < min ? f.date : min, fights[0].date)
 
     // Fetch existing event status so we don't clobber a manually-set 'live'/'completed'
@@ -546,7 +543,7 @@ async function fetchEventByDateApiSports(
     // 4. Upsert fights (skip TBA bouts where either fighter slot is missing)
     for (const fight of fights) {
       if (!fight.fighters.first?.id || !fight.fighters.second?.id) continue
-      const { fight: normFight } = normaliseFight(fight, apiFights)
+      const { fight: normFight } = normaliseFight(fight, apiFights, opts.forceEventUuid)
       const f1data = fight.fighters.first?.id != null ? fighterMap.get(fight.fighters.first.id) : undefined
       const f2data = fight.fighters.second?.id != null ? fighterMap.get(fight.fighters.second.id) : undefined
 
@@ -995,10 +992,10 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
   const year  = d.getUTCFullYear()
 
   // Re-run a lightweight import that only adds missing fight rows.
-  // We skip AI analysis and UFCStats enrichment here (those are slow and the
-  // fighters were already enriched during the original import).
+  // Pass the existing event UUID so fights are linked to the correct DB event
+  // rather than a newly-generated one. Skip AI/UFCStats (fighters already enriched).
   const result = isApiSportsConfigured()
-    ? await fetchEventByDateApiSports(day, month, year, { skipAI: true, skipUFCStats: true })
+    ? await fetchEventByDateApiSports(day, month, year, { skipAI: true, skipUFCStats: true, forceEventUuid: eventId })
     : await fetchEventByDateRapidApi(day, month, year)
 
   if (result.error) return { error: result.error }

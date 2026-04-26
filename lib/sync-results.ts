@@ -94,11 +94,11 @@ async function syncViaApiSports(
             f.league?.id === UFC_LEAGUE_ID ||
             f.league?.name?.toLowerCase().includes('ufc') ||
             f.event?.name?.toLowerCase().includes('ufc') ||
+            f.slug?.toLowerCase().includes('ufc') ||       // new api-sports format
             f.competition?.name?.toLowerCase().includes('ufc') ||
             f.tournament?.name?.toLowerCase().includes('ufc') ||
-            // Last resort: if no league/event/competition info at all, include everything
-            // (we already filtered to the UFC event date, false positives are unlikely)
-            (!f.league && !f.event)
+            // Last resort: if no discriminating field at all, include everything
+            (!f.league && !f.event && !f.slug)
         )
         log.push(`  [${tryDate}] ${allFights.length} total, ${ufcFights.length} UFC`)
         if (allFights.length > 0 && ufcFights.length === 0) {
@@ -119,8 +119,8 @@ async function syncViaApiSports(
 
     for (const apiFight of apiFights) {
       const fightUuid = apiSportsIdToUuid(apiFight.id, 'fight')
-      const f1Name    = apiFight.fighters.first.name
-      const f2Name    = apiFight.fighters.second.name
+      const f1Name    = apiFight.fighters.first?.name ?? 'TBA'
+      const f2Name    = apiFight.fighters.second?.name ?? 'TBA'
 
       // Primary match: by UUID (api-sports imported events)
       let dbFight = dbFights.find((f: any) => f.id === fightUuid)
@@ -146,9 +146,12 @@ async function syncViaApiSports(
         continue
       }
 
-      const status     = apiFight.status.toLowerCase()
-      const isFinished = ['finished', 'final'].includes(status)
-      const isCancelled = ['cancelled', 'canceled', 'postponed'].includes(status)
+      // status is { long, short } object in new api-sports format (or null)
+      const statusLong = (typeof apiFight.status === 'object' && apiFight.status !== null
+        ? apiFight.status.long ?? apiFight.status.short ?? ''
+        : String(apiFight.status ?? '')).toLowerCase()
+      const isFinished  = ['finished', 'final', 'fin'].includes(statusLong)
+      const isCancelled = ['cancelled', 'canceled', 'postponed', 'canc'].includes(statusLong)
       const method     = mapResultType(apiFight.result?.type ?? null)
       const round      = apiFight.result?.round ?? null
       const clockTime  = apiFight.result?.clock ?? null
@@ -166,29 +169,47 @@ async function syncViaApiSports(
       }
 
       if (!isFinished) {
-        log.push(`  ⏳ ${f1Name} vs ${f2Name} — status: "${apiFight.status}"`)
+        log.push(`  ⏳ ${f1Name} vs ${f2Name} — status: "${statusLong}"`)
         continue
       }
 
       // Determine winner UUID (draw / no contest = null winner)
-      const isDraw = !apiFight.winner ||
-        apiFight.result?.type?.toLowerCase().includes('draw') ||
-        apiFight.result?.type?.toLowerCase().includes('no contest')
+      // New format: fighters.first.winner / fighters.second.winner booleans
+      // Legacy format: apiFight.winner object
+      const resultType = apiFight.result?.type?.toLowerCase() ?? ''
+      const isDraw = resultType.includes('draw') || resultType.includes('no contest') ||
+        (!apiFight.fighters.first?.winner && !apiFight.fighters.second?.winner && !apiFight.winner)
 
       let winnerUuid: string | null = null
-      if (!isDraw && apiFight.winner) {
-        const apiWinnerId   = apiFight.winner.id
-        const apiWinnerName = apiFight.winner.name
-        // First try: api-sports UUID (works for api-sports imported fighters)
-        const apiWinnerUuid = apiSportsIdToUuid(apiWinnerId, 'fighter')
-        // Fallback: match winner by name against the two DB fighters
+      if (!isDraw) {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
-        if (dbFight.fighter1?.id && norm(dbFight.fighter1?.name ?? '') === norm(apiWinnerName)) {
-          winnerUuid = dbFight.fighter1.id
-        } else if (dbFight.fighter2?.id && norm(dbFight.fighter2?.name ?? '') === norm(apiWinnerName)) {
-          winnerUuid = dbFight.fighter2.id
-        } else {
-          winnerUuid = apiWinnerUuid // best guess
+        // New format: use winner boolean flags
+        if (apiFight.fighters.first?.winner) {
+          const apiWinnerName = apiFight.fighters.first.name
+          winnerUuid = norm(dbFight.fighter1?.name ?? '') === norm(apiWinnerName)
+            ? dbFight.fighter1?.id
+            : norm(dbFight.fighter2?.name ?? '') === norm(apiWinnerName)
+              ? dbFight.fighter2?.id
+              : apiSportsIdToUuid(apiFight.fighters.first.id, 'fighter')
+        } else if (apiFight.fighters.second?.winner) {
+          const apiWinnerName = apiFight.fighters.second.name
+          winnerUuid = norm(dbFight.fighter2?.name ?? '') === norm(apiWinnerName)
+            ? dbFight.fighter2?.id
+            : norm(dbFight.fighter1?.name ?? '') === norm(apiWinnerName)
+              ? dbFight.fighter1?.id
+              : apiSportsIdToUuid(apiFight.fighters.second.id, 'fighter')
+        } else if (apiFight.winner) {
+          // Legacy format fallback
+          const apiWinnerId   = apiFight.winner.id
+          const apiWinnerName = apiFight.winner.name
+          const apiWinnerUuid = apiSportsIdToUuid(apiWinnerId, 'fighter')
+          if (norm(dbFight.fighter1?.name ?? '') === norm(apiWinnerName)) {
+            winnerUuid = dbFight.fighter1?.id
+          } else if (norm(dbFight.fighter2?.name ?? '') === norm(apiWinnerName)) {
+            winnerUuid = dbFight.fighter2?.id
+          } else {
+            winnerUuid = apiWinnerUuid
+          }
         }
       }
 
