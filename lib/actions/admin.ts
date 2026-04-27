@@ -1303,9 +1303,21 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
   // wrong fights, inserts missing ones, and sets correct fight_type/display_order.
   if (process.env.RAPIDAPI_KEY) {
     await syncFightMetaFromRapidApi(eventId, day, month, year)
+
+    // Cross-check against Tapology and correct any fighter mismatches
+    const tapologyEvents = await getUpcomingUFCEvents()
+    const tapEvent = tapologyEvents.find((te) => {
+      const parsed = parseTapologyDate(te.datetime)
+      return parsed && parsed.month === month && parsed.day === day
+    })
+    if (tapEvent) {
+      const tapLog: string[] = []
+      await reconcileWithTapology(eventId, tapEvent.fight_card, supabase, tapLog)
+    }
+
     revalidatePath('/', 'layout')
     revalidatePath('/admin')
-    return { success: true, message: 'Fights reconciled from RapidAPI.' }
+    return { success: true, message: 'Fights reconciled from RapidAPI + Tapology.' }
   }
 
   // Fallback: api-sports only (no RapidAPI key configured)
