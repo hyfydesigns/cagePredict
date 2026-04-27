@@ -1403,12 +1403,12 @@ async function reconcileWithTapology(
 
         let newId = existing?.id as string | undefined
         if (!newId) {
-          const { data: inserted } = await supabase
+          const newUuid = crypto.randomUUID()
+          const { error: insErr } = await supabase
             .from('fighters')
-            .insert({ name: correctRaw })
-            .select('id')
-            .single()
-          newId = inserted?.id
+            .insert({ id: newUuid, name: correctRaw })
+          if (!insErr) newId = newUuid
+          else log.push(`  ✗ Failed to insert fighter "${correctRaw}": ${insErr.message}`)
         }
 
         if (newId) {
