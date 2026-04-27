@@ -1356,7 +1356,7 @@ async function reconcileWithTapology(
   const { data: dbFights } = await supabase
     .from('fights')
     .select(`
-      id, fighter1_id, fighter2_id,
+      id, fighter1_id, fighter2_id, weight_class,
       fighter1:fighters!fights_fighter1_id_fkey(id, name),
       fighter2:fighters!fights_fighter2_id_fkey(id, name)
     `)
@@ -1406,7 +1406,13 @@ async function reconcileWithTapology(
           const newUuid = crypto.randomUUID()
           const { error: insErr } = await supabase
             .from('fighters')
-            .insert({ id: newUuid, name: correctRaw })
+            .insert({
+              id: newUuid,
+              name: correctRaw,
+              weight_class: dbFight.weight_class ?? 'Unknown',
+              wins: 0, losses: 0, draws: 0,
+              record: '0-0-0',
+            })
           if (!insErr) newId = newUuid
           else log.push(`  ✗ Failed to insert fighter "${correctRaw}": ${insErr.message}`)
         }
