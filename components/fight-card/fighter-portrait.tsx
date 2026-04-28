@@ -63,10 +63,10 @@ export function FighterPortrait({
       <Link href={`/fighters/${fighter.id}`} className="block group">
         <div className={cn(
           'relative w-24 h-28 sm:w-28 sm:h-32 rounded-xl overflow-hidden border-2 transition-all duration-300 group-hover:scale-[1.03]',
-          isPicked && isWinner  ? 'border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)] group-hover:border-green-300'
-          : isPicked && isLoser ? 'border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.35)] group-hover:border-red-300'
-          : isPicked            ? 'border-blue-400 shadow-[0_0_20px_rgba(96,165,250,0.35)] group-hover:border-blue-300'
-          : isWinner            ? 'border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.35)] group-hover:border-amber-300'
+          isPicked && isWinner  ? 'border-green-400 dark:shadow-[0_0_20px_rgba(34,197,94,0.4)] group-hover:border-green-300'
+          : isPicked && isLoser ? 'border-red-400 dark:shadow-[0_0_20px_rgba(239,68,68,0.35)] group-hover:border-red-300'
+          : isPicked            ? 'border-blue-400 dark:shadow-[0_0_20px_rgba(96,165,250,0.35)] group-hover:border-blue-300'
+          : isWinner            ? 'border-amber-400 dark:shadow-[0_0_20px_rgba(245,158,11,0.35)] group-hover:border-amber-300'
           :                       'border-border group-hover:border-primary/60',
         )}>
           {fighter.image_url && !imgError ? (
