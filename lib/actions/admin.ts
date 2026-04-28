@@ -314,19 +314,32 @@ async function syncFightMetaFromRapidApi(
 
     // Build set of valid fighter pairs from RapidAPI
     const apiPairs = new Set<string>()
+    const apiNames = new Set<string>()   // individual fighter norms — for partial-match check
     for (const f of apiFights) {
       const n1 = norm(f.homeTeam?.name ?? '')
       const n2 = norm(f.awayTeam?.name ?? '')
-      if (n1 && n2) apiPairs.add([n1, n2].sort().join(':'))
+      if (n1 && n2) {
+        apiPairs.add([n1, n2].sort().join(':'))
+        apiNames.add(n1)
+        apiNames.add(n2)
+      }
     }
 
     // ── 1. Delete DB fights that don't match any RapidAPI fight ──────────────
     const matchedCount = [...dbLookup.keys()].filter((p) => apiPairs.has(p)).length
     if (matchedCount >= 3) {
-      // Enough matches to be confident we have the right event — prune wrong rows
+      // Enough matches to be confident we have the right event — prune wrong rows.
+      // IMPORTANT: skip fights where at least one fighter still appears in an API pair
+      // (e.g. Tuivasa vs Sutherland where RapidAPI says Tuivasa vs Sharaf).
+      // Those are fighter-replacement cases handled in step 3 — deleting them here
+      // would remove the fight row entirely rather than just swapping the opponent.
       const toDelete: string[] = []
       for (const [pair, dbId] of dbLookup) {
-        if (!apiPairs.has(pair)) toDelete.push(dbId)
+        if (!apiPairs.has(pair)) {
+          const [fn1, fn2] = pair.split(':')
+          const hasPartialMatch = apiNames.has(fn1) || apiNames.has(fn2)
+          if (!hasPartialMatch) toDelete.push(dbId)
+        }
       }
       if (toDelete.length > 0) {
         await supabase.from('predictions').delete().in('fight_id', toDelete)
