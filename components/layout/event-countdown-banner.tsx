@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, X } from 'lucide-react'
+import { Clock, Radio, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface EventCountdownBannerProps {
   eventName: string
-  /** ISO timestamp of the first upcoming fight */
+  /** ISO timestamp of the first upcoming fight (ignored when isLive=true) */
   fightTime: string
+  /** True when a live event is in progress — shows "LIVE NOW" instead of countdown */
+  isLive?: boolean
 }
 
 function getTimeLeft(target: Date) {
@@ -26,9 +28,9 @@ function storageKey(name: string) {
   return `cagepredict:banner-dismissed:${name}`
 }
 
-export function EventCountdownBanner({ eventName, fightTime }: EventCountdownBannerProps) {
+export function EventCountdownBanner({ eventName, fightTime, isLive = false }: EventCountdownBannerProps) {
   const target = new Date(fightTime)
-  const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(target))
+  const [timeLeft, setTimeLeft] = useState(() => isLive ? null : getTimeLeft(target))
   const [dismissed, setDismissed] = useState(false)
   const [mounted, setMounted] = useState(false)
 
@@ -41,9 +43,10 @@ export function EventCountdownBanner({ eventName, fightTime }: EventCountdownBan
   }, [eventName])
 
   useEffect(() => {
+    if (isLive) return
     const id = setInterval(() => setTimeLeft(getTimeLeft(target)), 1000)
     return () => clearInterval(id)
-  }, [fightTime])
+  }, [fightTime, isLive])
 
   function dismiss() {
     setDismissed(true)
@@ -52,16 +55,41 @@ export function EventCountdownBanner({ eventName, fightTime }: EventCountdownBan
 
   // Wait for client mount so dismissed state is accurate before first paint
   if (!mounted) return null
-  // Hide if dismissed, expired, or more than 7 days away
-  if (dismissed || !timeLeft || timeLeft.totalSecs > 7 * 24 * 3600) return null
+  if (dismissed) return null
+  // For countdown mode: hide if expired or more than 7 days away
+  if (!isLive && (!timeLeft || timeLeft.totalSecs > 7 * 24 * 3600)) return null
 
-  const isImminent = timeLeft.totalSecs < 3600 // < 1 hour
+  // ── Live mode ──────────────────────────────────────────────────────────────
+  if (isLive) {
+    return (
+      <div className="relative z-30 w-full border-b border-primary/30 bg-primary/10 px-4 py-2 text-center text-xs font-semibold">
+        <div className="flex items-center justify-center gap-2">
+          <Radio className="h-3.5 w-3.5 shrink-0 text-primary animate-pulse" />
+          <span>
+            <span className="text-primary font-black">🔴 LIVE NOW — </span>
+            <span className="text-foreground font-bold">{eventName}</span>
+            <span className="text-foreground-secondary font-normal"> · Results updating automatically</span>
+          </span>
+        </div>
+        <button
+          onClick={dismiss}
+          aria-label="Dismiss banner"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  // ── Countdown mode ─────────────────────────────────────────────────────────
+  const isImminent = timeLeft!.totalSecs < 3600 // < 1 hour
 
   const parts: string[] = []
-  if (timeLeft.days > 0) parts.push(`${timeLeft.days}d`)
-  if (timeLeft.hours > 0 || timeLeft.days > 0) parts.push(`${timeLeft.hours}h`)
-  parts.push(`${String(timeLeft.mins).padStart(2, '0')}m`)
-  if (timeLeft.days === 0) parts.push(`${String(timeLeft.secs).padStart(2, '0')}s`)
+  if (timeLeft!.days > 0) parts.push(`${timeLeft!.days}d`)
+  if (timeLeft!.hours > 0 || timeLeft!.days > 0) parts.push(`${timeLeft!.hours}h`)
+  parts.push(`${String(timeLeft!.mins).padStart(2, '0')}m`)
+  if (timeLeft!.days === 0) parts.push(`${String(timeLeft!.secs).padStart(2, '0')}s`)
   const countdownStr = parts.join(' ')
 
   return (

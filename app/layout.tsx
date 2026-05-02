@@ -68,20 +68,39 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     profile = data
   }
 
-  // Fetch the next upcoming fight for the countdown banner (shown site-wide)
-  const { data: nextFightRow } = await supabase
-    .from('fights')
-    .select('fight_time, events!inner(name, status)')
-    .in('events.status', ['upcoming', 'live'])
-    .neq('status', 'completed')
-    .not('fight_time', 'is', null)
-    .order('fight_time', { ascending: true })
+  // Banner: live event takes priority → show "LIVE NOW".
+  // Otherwise show a countdown to the earliest fight in the next upcoming event.
+  const { data: liveEventRow } = await supabase
+    .from('events')
+    .select('name')
+    .eq('status', 'live')
+    .order('date', { ascending: true })
     .limit(1)
     .maybeSingle()
 
-  const nextFight = nextFightRow as any
-  const bannerEventName = nextFight?.events?.name ?? null
-  const bannerFightTime = nextFight?.fight_time ?? null
+  let bannerEventName: string | null = null
+  let bannerFightTime: string | null = null
+  let bannerIsLive = false
+
+  if (liveEventRow) {
+    bannerEventName = (liveEventRow as any).name
+    bannerIsLive    = true
+  } else {
+    const { data: nextFightRow } = await supabase
+      .from('fights')
+      .select('fight_time, events!inner(name)')
+      .eq('events.status', 'upcoming')
+      .neq('status', 'completed')
+      .not('fight_time', 'is', null)
+      .gt('fight_time', new Date().toISOString())
+      .order('fight_time', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    const nextFight = nextFightRow as any
+    bannerEventName = nextFight?.events?.name ?? null
+    bannerFightTime = nextFight?.fight_time ?? null
+  }
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -90,10 +109,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SupabaseProvider>
           <StagingBanner />
           <Navbar profile={profile} isAuthenticated={!!user} />
-          {bannerEventName && bannerFightTime && (
+          {bannerEventName && (bannerIsLive || bannerFightTime) && (
             <EventCountdownBanner
               eventName={bannerEventName}
-              fightTime={bannerFightTime}
+              fightTime={bannerFightTime ?? ''}
+              isLive={bannerIsLive}
             />
           )}
           <main className="min-h-[calc(100vh-4rem)]">
