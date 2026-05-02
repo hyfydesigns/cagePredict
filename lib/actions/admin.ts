@@ -1659,6 +1659,66 @@ export async function updateFightMeta(
   return { success: true, message: 'Fight updated.' }
 }
 
+// ─── Set event fight times ───────────────────────────────────────────────────
+
+/**
+ * Set the start time for all fights in an event, staggered by card segment.
+ * mainCardISO is the advertised main-card start in ISO 8601 / UTC (e.g. "2026-05-02T08:00:00Z").
+ *
+ * Stagger offsets applied:
+ *   Main card    →  mainCardISO (as-is)
+ *   Prelims      →  mainCardISO − 90 minutes
+ *   Early prelims→  mainCardISO − 180 minutes
+ *   Uncategorised→  mainCardISO (safe default)
+ */
+export async function setEventFightTimes(
+  eventId: string,
+  mainCardISO: string,
+): Promise<ActionResult & { updated: number }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error, updated: 0 }
+
+  const mainCardMs = new Date(mainCardISO).getTime()
+  if (isNaN(mainCardMs)) return { error: 'Invalid datetime string', updated: 0 }
+
+  const supabase = createServiceClient()
+
+  const { data: fights, error: fErr } = await supabase
+    .from('fights')
+    .select('id, fight_type')
+    .eq('event_id', eventId)
+
+  if (fErr) return { error: fErr.message, updated: 0 }
+  if (!fights?.length) return { error: 'No fights found for this event', updated: 0 }
+
+  const offsetMs: Record<string, number> = {
+    maincard:     0,
+    prelims:      -90 * 60_000,
+    earlyprelims: -180 * 60_000,
+  }
+
+  let updated = 0
+  for (const fight of fights) {
+    const off = offsetMs[fight.fight_type ?? ''] ?? 0
+    const fightTimeISO = new Date(mainCardMs + off).toISOString()
+    const { error: upErr } = await supabase
+      .from('fights')
+      .update({ fight_time: fightTimeISO })
+      .eq('id', fight.id)
+    if (!upErr) updated++
+  }
+
+  // Also update the event's date to match the earliest fight time
+  const earliestMs = mainCardMs + (fights.some((f: { fight_type: string | null }) => f.fight_type === 'earlyprelims') ? -180 * 60_000
+    : fights.some((f: { fight_type: string | null }) => f.fight_type === 'prelims') ? -90 * 60_000 : 0)
+  await supabase.from('events').update({ date: new Date(earliestMs).toISOString() }).eq('id', eventId)
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+
+  return { success: true, message: `Updated ${updated} fight(s).`, updated }
+}
+
 export async function deleteFight(fightId: string): Promise<ActionResult> {
   const auth = await requireAdmin()
   if ('error' in auth) return { error: auth.error }

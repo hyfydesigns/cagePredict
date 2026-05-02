@@ -143,10 +143,10 @@ export function FightCard({
       className={cn(
         'rounded-2xl overflow-hidden border transition-all duration-300',
         fight.is_main_event
-          ? 'border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.08)]'
+          ? 'border-red-500/30 dark:shadow-[0_0_30px_rgba(239,68,68,0.08)]'
           : 'border-border/60',
-        isLive && 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.18)] animate-pulse-red',
-        isHappeningNow && 'border-amber-500/60 shadow-[0_0_24px_rgba(245,158,11,0.25)]',
+        isLive && 'border-red-500/50 dark:shadow-[0_0_20px_rgba(239,68,68,0.18)] animate-pulse-red',
+        isHappeningNow && 'border-amber-500/60 dark:shadow-[0_0_24px_rgba(245,158,11,0.25)]',
         isCompleted && pickCorrect  && 'border-emerald-500/40',
         isCompleted && pickIncorrect && 'border-red-500/20',
         !pickCorrect && !pickIncorrect && isCompleted && 'border-border/30 opacity-90',
