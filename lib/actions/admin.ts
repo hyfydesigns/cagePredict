@@ -282,10 +282,10 @@ async function syncFightMetaFromRapidApi(
 
     const apiFights: any[] = bestEntry.fights
 
-    // Fetch DB fights with fighter names
+    // Fetch DB fights with fighter names + current fight_time
     const { data: dbFights } = await supabase
       .from('fights')
-      .select('id, fighter1:fighters!fights_fighter1_id_fkey(id, name), fighter2:fighters!fights_fighter2_id_fkey(id, name)')
+      .select('id, fight_time, fighter1:fighters!fights_fighter1_id_fkey(id, name), fighter2:fighters!fights_fighter2_id_fkey(id, name)')
       .eq('event_id', eventId)
 
     if (!dbFights) return
@@ -356,6 +356,30 @@ async function syncFightMetaFromRapidApi(
       ? Math.max(...maincardFights.map((f: any) => (typeof f.order === 'number' ? f.order : 0)))
       : -1
 
+    // Auto-stagger fight_time by card segment when:
+    //   a) All API fights share the same startTimestamp (API gives one time for the whole event,
+    //      not individual per-fight times). That single timestamp is treated as the main card start.
+    //   b) All DB fights currently have the same fight_time (or none yet) — i.e. they haven't been
+    //      manually staggered by the admin. If times already differ, we leave them untouched.
+    // Offsets: maincard = 0, prelims = −90 min, earlyprelims = −180 min.
+    const apiTimestamps = apiFights
+      .map((f: any) => f.startTimestamp as number | undefined)
+      .filter((t): t is number => typeof t === 'number')
+    const uniqueApiTs = new Set(apiTimestamps)
+    const singleApiTs = uniqueApiTs.size === 1 ? [...uniqueApiTs][0] : null
+
+    const existingFightTimes = (dbFights as any[])
+      .map((f: any) => f.fight_time as string | null)
+      .filter(Boolean)
+    const uniqueDbTimes = new Set(existingFightTimes)
+    const dbTimesAreUniform = uniqueDbTimes.size <= 1  // all same, or none set yet
+
+    const SEGMENT_OFFSET_S: Record<string, number> = {
+      maincard:     0,
+      prelims:      -90  * 60,
+      earlyprelims: -180 * 60,
+    }
+
     for (const apiFight of apiFights) {
       const n1 = norm(apiFight.homeTeam?.name ?? '')
       const n2 = norm(apiFight.awayTeam?.name ?? '')
@@ -373,6 +397,14 @@ async function syncFightMetaFromRapidApi(
           updates.is_main_event = apiFight.order === maxOrder
         }
       }
+
+      // Stagger fight_time by segment when all fights share one API timestamp
+      // and the DB hasn't been manually staggered yet.
+      if (singleApiTs && dbTimesAreUniform) {
+        const off = SEGMENT_OFFSET_S[apiFight.fightType ?? ''] ?? 0
+        updates.fight_time = new Date((singleApiTs + off) * 1000).toISOString()
+      }
+
       if (Object.keys(updates).length > 0) {
         await supabase.from('fights').update(updates).eq('id', dbId)
       }
