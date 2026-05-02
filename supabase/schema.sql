@@ -213,13 +213,15 @@ create or replace function public.complete_fight(
 )
 returns void as $$
 declare
-  v_pred         record;
-  v_user_streak  integer;
-  v_new_streak   integer;
-  v_base_pts     integer;
-  v_streak_bonus integer;
-  v_total_pts    integer;
-  v_is_draw      boolean;
+  v_pred          record;
+  v_user_streak   integer;
+  v_new_streak    integer;
+  v_base_pts      integer;
+  v_streak_bonus  integer;
+  v_method_bonus  integer;
+  v_round_bonus   integer;
+  v_total_pts     integer;
+  v_is_draw       boolean;
 begin
   -- Idempotency guard: if the fight is already completed, do nothing.
   -- Prevents double-scoring when the admin panel and sync-results cron
@@ -270,7 +272,19 @@ begin
         else 0
       end;
 
-      v_total_pts := v_base_pts + v_streak_bonus;
+      -- Bonus: +5 for correct method, +5 for correct round (finishes only)
+      v_method_bonus := 0;
+      v_round_bonus  := 0;
+      if p_method is not null and v_pred.predicted_method = p_method then
+        v_method_bonus := 5;
+        if p_round is not null
+           and v_pred.predicted_round = p_round
+           and p_method <> 'decision' then
+          v_round_bonus := 5;
+        end if;
+      end if;
+
+      v_total_pts := v_base_pts + v_streak_bonus + v_method_bonus + v_round_bonus;
 
       update public.predictions
         set is_correct    = true,
