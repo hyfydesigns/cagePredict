@@ -13,6 +13,7 @@ import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { signOut } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils'
 import type { ProfileRow } from '@/types/database'
+import { useRealtimePoints } from '@/hooks/use-realtime-points'
 
 const NAV_LINKS = [
   { href: '/',            label: 'Fight Card',   icon: Swords },
@@ -29,6 +30,9 @@ interface NavbarProps {
 export function Navbar({ profile, isAuthenticated }: NavbarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Live-updating points — refreshes the moment a fight is scored
+  const livePoints = useRealtimePoints(profile?.id, profile?.total_points ?? 0)
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/90 backdrop-blur-md">
@@ -87,7 +91,7 @@ export function Navbar({ profile, isAuthenticated }: NavbarProps) {
               {/* Points badge */}
               <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-amber-600 dark:border-amber-500/30 bg-amber-500/10 px-3 py-1">
                 <Trophy className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-500 dark:text-amber-300">{profile.total_points} pts</span>
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-500 dark:text-amber-300">{livePoints} pts</span>
               </div>
 
               {/* Profile link */}
