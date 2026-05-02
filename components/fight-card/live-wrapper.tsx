@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Radio, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -25,6 +26,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [refreshError, setRefreshError] = useState(false)
   const [, startTransition] = useTransition()
+  const router = useRouter()
 
   // Live points_earned map — updated in realtime when predictions are scored.
   // Keyed by fight_id. Starts from the server-fetched values in userPicks.
@@ -97,6 +99,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'fights' },
         (payload) => {
+          const wasCompleted = payload.new.status === 'completed'
           setEvents((prev) =>
             prev.map((event) => ({
               ...event,
@@ -116,6 +119,11 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
             }))
           )
           setLastRefresh(new Date())
+          // When a fight completes, soft-refresh so server components
+          // (navbar points badge, profile stats) pick up the scored results.
+          if (wasCompleted) {
+            router.refresh()
+          }
         }
       )
       .subscribe()
@@ -144,6 +152,9 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
           const { fight_id, points_earned } = payload.new as { fight_id: string; points_earned: number }
           if (fight_id && points_earned != null) {
             setLiveEarned((prev) => ({ ...prev, [fight_id]: points_earned }))
+            // Soft-refresh server components (navbar points, profile page, dashboard)
+            // without unmounting the client tree — no flicker or loading states
+            router.refresh()
           }
         }
       )
