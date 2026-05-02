@@ -24,8 +24,7 @@ export async function upsertPrediction(
 
   const f = fight as any
   if (!f) return { error: 'Fight not found' }
-  if (f.status === 'completed') return { error: 'Fight is already completed' }
-  if (isFightLocked(f.fight_time)) return { error: 'Picks are locked for this fight' }
+  if (isFightLocked(f.fight_time, null, f.status)) return { error: 'Picks are locked for this fight' }
   if (predictedWinnerId !== f.fighter1_id && predictedWinnerId !== f.fighter2_id) {
     return { error: 'Invalid fighter selection' }
   }
@@ -71,8 +70,7 @@ export async function toggleConfidencePick(
 
   const f = fight as any
   if (!f) return { error: 'Fight not found' }
-  if (f.status === 'completed') return { error: 'Fight already completed' }
-  if (isFightLocked(f.fight_time)) return { error: 'Picks are locked for this fight' }
+  if (isFightLocked(f.fight_time, null, f.status)) return { error: 'Picks are locked for this fight' }
 
   // Enforce one confidence pick per event
   if (isConfidence) {

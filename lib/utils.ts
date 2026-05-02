@@ -61,7 +61,12 @@ export function timeUntil(dateStr: string): string {
 
 /** Is a fight locked (< 2 hours to start, or already past).
  *  Falls back to eventDate if fightTime is missing. */
-export function isFightLocked(fightTime: string | null, eventDate?: string | null): boolean {
+export function isFightLocked(
+  fightTime: string | null,
+  eventDate?: string | null,
+  status?: string | null,
+): boolean {
+  if (status === 'live' || status === 'completed' || status === 'cancelled') return true
   const ms = fightTime
     ? new Date(fightTime).getTime()
     : eventDate
