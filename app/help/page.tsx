@@ -64,7 +64,7 @@ export default function HelpPage() {
             Once per event you can mark one pick as your <strong className="text-amber-600 dark:text-amber-400">🔒 Confidence Pick</strong> — this doubles your points to 20 if correct. Choose wisely.
           </Step>
           <Step n={4} title="Picks lock before each fight">
-            Picks lock <strong className="text-foreground">2 hours before the scheduled fight time</strong>. You&apos;ll see a live countdown on each fight card showing when your window closes.
+            Picks lock <strong className="text-foreground">10 minutes before the scheduled fight time</strong>. You&apos;ll see a live countdown on each fight card showing when your window closes.
           </Step>
           <Step n={5} title="Results update automatically">
             Once a fight finishes, results are pulled in automatically and your score updates instantly. No manual refresh needed.
@@ -77,23 +77,50 @@ export default function HelpPage() {
 
       {/* Scoring */}
       <Section title="Scoring system">
+
+        {/* Base points */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
-            { label: 'Correct pick', pts: '+10 pts', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
-            { label: 'Confidence pick (correct)', pts: '+20 pts', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-600 dark:border-amber-500/20' },
-            { label: 'Wrong pick', pts: '0 pts', color: 'text-foreground-muted', bg: 'bg-surface-2/60 border-border/40' },
-            { label: 'Confidence pick (wrong)', pts: '0 pts', color: 'text-foreground-muted', bg: 'bg-surface-2/60 border-border/40' },
-          ].map(({ label, pts, color, bg }) => (
+            { label: 'Correct pick', pts: '+10 pts', sub: 'Base points', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
+            { label: '🔒 Confidence pick (correct)', pts: '+20 pts', sub: '2× base points', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-600 dark:border-amber-500/20' },
+            { label: 'Wrong pick', pts: '0 pts', sub: 'No penalty', color: 'text-foreground-muted', bg: 'bg-surface-2/60 border-border/40' },
+            { label: 'Draw / No Contest', pts: '0 pts', sub: 'Pick voided, streak kept', color: 'text-foreground-muted', bg: 'bg-surface-2/60 border-border/40' },
+          ].map(({ label, pts, sub, color, bg }) => (
             <div key={label} className={`rounded-xl border p-4 ${bg}`}>
               <p className="text-foreground-secondary text-sm">{label}</p>
               <p className={`text-2xl font-black mt-1 ${color}`}>{pts}</p>
+              <p className="text-foreground-muted text-[11px] mt-0.5">{sub}</p>
             </div>
           ))}
         </div>
 
-        <div className="rounded-xl border border-border bg-surface/60 p-4 mt-2">
-          <p className="font-semibold text-foreground text-sm mb-3">Streak bonuses</p>
-          <p className="text-foreground-muted text-xs mb-3">Get on a roll and earn bonus points per correct pick:</p>
+        {/* Bonus predictions */}
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <p className="font-semibold text-foreground text-sm mb-1">🎯 Bonus predictions</p>
+          <p className="text-foreground-muted text-xs mb-3">
+            After picking a winner, add a method and round prediction for extra points — only awarded if your winner pick is also correct.
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-center text-sm">
+            <div className="rounded-lg bg-surface-2/60 border border-border/40 p-3">
+              <p className="font-black text-blue-400">+5 pts</p>
+              <p className="text-foreground text-xs font-semibold mt-0.5">Correct method</p>
+              <p className="text-foreground-muted text-[10px] mt-0.5">KO/TKO, Submission, or Decision</p>
+            </div>
+            <div className="rounded-lg bg-surface-2/60 border border-border/40 p-3">
+              <p className="font-black text-blue-400">+5 pts</p>
+              <p className="text-foreground text-xs font-semibold mt-0.5">Correct round</p>
+              <p className="text-foreground-muted text-[10px] mt-0.5">KO/TKO &amp; Submission only</p>
+            </div>
+          </div>
+          <p className="text-foreground-muted text-[11px] mt-3 text-center">
+            Max per fight: <strong className="text-foreground">30 pts</strong> (🔒 confidence + correct method + correct round) — before streak bonus
+          </p>
+        </div>
+
+        {/* Streak bonuses */}
+        <div className="rounded-xl border border-border bg-surface/60 p-4">
+          <p className="font-semibold text-foreground text-sm mb-1">🔥 Streak bonuses</p>
+          <p className="text-foreground-muted text-xs mb-3">Get on a roll and earn bonus points added to each correct pick:</p>
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
             {[
               { streak: '3–4 in a row', bonus: '+5 pts', color: 'text-blue-400' },
@@ -107,9 +134,10 @@ export default function HelpPage() {
             ))}
           </div>
           <p className="text-foreground-muted text-xs mt-3">
-            Streak resets to 0 on any incorrect pick. Streak is tracked across all events.
+            Streak resets to 0 on any incorrect pick. Missing a fight (no pick) does not break your streak. Streak carries across all events.
           </p>
         </div>
+
       </Section>
 
       {/* Crews */}
@@ -137,7 +165,7 @@ export default function HelpPage() {
           </FAQ>
 
           <FAQ q="Can I change my pick after submitting?">
-            Yes, you can update your pick for any fight right up until the lock time (2 hours before the fight). Once locked, picks are final.
+            Yes, you can update your pick for any fight right up until the lock time (10 minutes before the fight). Once locked, picks are final.
           </FAQ>
 
           <FAQ q="What happens if a fight is cancelled or ruled a No Contest?">
