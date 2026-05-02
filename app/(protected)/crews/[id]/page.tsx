@@ -68,16 +68,44 @@ export default async function CrewDetailPage({ params }: Props) {
   const inviteUrl = crewInviteUrl(crew.invite_code)
   const memberCount = memberships.length
 
-  // Latest active event for "This Event" tab
-  const { data: latestEventRaw } = await supabase
+  // "This Event" tab — priority: live → nearest upcoming → most recent completed
+  let latestEvent: { id: string; name: string } | null = null
+
+  // 1. Live event takes absolute priority
+  const { data: liveEvt } = await supabase
     .from('events')
     .select('id, name')
-    .in('status', ['upcoming', 'live', 'completed'])
-    .order('date', { ascending: false })
+    .eq('status', 'live')
+    .order('date', { ascending: true })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  const latestEvent = latestEventRaw as { id: string; name: string } | null
+  if (liveEvt) {
+    latestEvent = liveEvt as { id: string; name: string }
+  } else {
+    // 2. Nearest upcoming (ascending so we get the soonest, not the furthest)
+    const { data: upcomingEvt } = await supabase
+      .from('events')
+      .select('id, name')
+      .eq('status', 'upcoming')
+      .order('date', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (upcomingEvt) {
+      latestEvent = upcomingEvt as { id: string; name: string }
+    } else {
+      // 3. Most recently completed
+      const { data: completedEvt } = await supabase
+        .from('events')
+        .select('id, name')
+        .eq('status', 'completed')
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      latestEvent = completedEvt as { id: string; name: string } | null
+    }
+  }
 
   // For each member, compute event-specific scores
   const memberEventScores: any[] = []
