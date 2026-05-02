@@ -10,6 +10,7 @@ import { Footer } from '@/components/layout/footer'
 import { EventCountdownBanner } from '@/components/layout/event-countdown-banner'
 import { StagingBanner } from '@/components/layout/staging-banner'
 import { RecoveryRedirect } from '@/components/auth/recovery-redirect'
+import { RealtimeRefresh } from '@/components/providers/realtime-refresh'
 import { createClient } from '@/lib/supabase/server'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-geist-sans' })
@@ -108,6 +109,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
         <SupabaseProvider>
           <StagingBanner />
+          {user && <RealtimeRefresh userId={user.id} />}
           <Navbar profile={profile} isAuthenticated={!!user} />
           {bannerEventName && (bannerIsLive || bannerFightTime) && (
             <EventCountdownBanner
