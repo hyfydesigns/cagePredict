@@ -70,19 +70,21 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     }
   }
 
-  // ── DB-authoritative stats (all events on page, all fight IDs) ──────────────
-  // Seeded from server-fetched initialDbStats so the strip is visible immediately
-  // on page load — no client-side loading delay. The useEffect keeps it fresh
-  // as fights complete during a live event.
+  // ── DB-authoritative stats scoped to the ACTIVE event only ──────────────────
+  // Using all-events fight IDs caused all-time stats to show when completed
+  // events were included in the list. Scoping to activeEvent ensures W/L/D
+  // always match "X fights done" (which is also per active event).
+  // Seeded from server-fetched initialDbStats (also scoped to active event in
+  // page.tsx) so the strip is visible immediately on page load with no delay.
   const [dbStats, setDbStats] = useState<EventStats | null>(initialDbStats ?? null)
-  const allFightIds  = events.flatMap((e) => e.fights.map((f) => f.id))
-  const completedAny = events.some((e) => e.fights.some((f: any) => f.status === 'completed'))
+  const activeEventFightIds  = (activeEvent?.fights ?? []).map((f: any) => f.id as string)
+  const activeEventCompleted = (activeEvent?.fights ?? []).some((f: any) => f.status === 'completed')
 
   useEffect(() => {
-    if (!userId || !completedAny) { setDbStats(null); return }
-    getPicksStats(allFightIds, userId).then(setDbStats)
+    if (!userId || !activeEventCompleted || !activeEvent) { setDbStats(null); return }
+    getPicksStats(activeEventFightIds, userId).then(setDbStats)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, completedAny, allFightIds.join(',')])
+  }, [userId, activeEvent?.id, activeEventCompleted, activeEventFightIds.join(',')])
 
   // Sync whenever initialEvents prop changes (e.g. after a server revalidation).
   useEffect(() => {

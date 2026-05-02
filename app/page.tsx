@@ -181,19 +181,24 @@ export default async function HomePage({
     })
   }
 
-  // Prefetch event stats server-side so the stats strip is populated immediately
-  // on page load (no client-side loading delay during live events).
+  // Prefetch event stats server-side for the ACTIVE event only.
+  // Using all events caused all-time stats to flash on load because the list
+  // includes recently-completed events. Scoping to the active event (live first,
+  // then nearest upcoming) matches exactly what the client-side useEffect computes.
   let initialDbStats: EventStats | null = null
   if (user) {
-    const completedFightIds = typedEvents
-      .flatMap((e) => e.fights)
-      .filter((f: any) => f.status === 'completed')
-      .map((f: any) => f.id as string)
-    if (completedFightIds.length > 0) {
-      initialDbStats = await getPicksStats(completedFightIds, user.id)
-      // Only pass non-empty stats (avoids rendering an empty strip on page load)
-      if (initialDbStats.correct + initialDbStats.wrong + initialDbStats.draws === 0) {
-        initialDbStats = null
+    const activeEvent =
+      typedEvents.find((e) => e.status === 'live') ??
+      typedEvents.find((e) => e.status === 'upcoming')
+    if (activeEvent) {
+      const completedFightIds = (activeEvent.fights as any[])
+        .filter((f: any) => f.status === 'completed')
+        .map((f: any) => f.id as string)
+      if (completedFightIds.length > 0) {
+        initialDbStats = await getPicksStats(completedFightIds, user.id)
+        if (initialDbStats.correct + initialDbStats.wrong + initialDbStats.draws === 0) {
+          initialDbStats = null
+        }
       }
     }
   }
