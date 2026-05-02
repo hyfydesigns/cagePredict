@@ -107,7 +107,7 @@ export function FightCard({
   const isCompleted  = fight.status === 'completed'
   const isLive       = fight.status === 'live'
   const isCancelled  = fight.status === 'cancelled'
-  const isLocked     = isFightLocked(fight.fight_time, eventDate)
+  const isLocked     = isFightLocked(fight.fight_time, eventDate, fight.status)
 
   const pickCorrect   = isCompleted && localPick !== null && localPick === fight.winner_id
   const pickIncorrect = isCompleted && localPick !== null && localPick !== fight.winner_id
