@@ -66,7 +66,7 @@ function PickButton({
       className={cn(
         'relative flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 py-3 font-bold text-sm transition-all duration-200',
         isSelected
-          ? 'border-blue-400 bg-blue-500/15 text-foreground shadow-[0_0_20px_rgba(96,165,250,0.3)] scale-[1.02]'
+          ? 'border-blue-400 bg-blue-500/15 text-foreground dark:shadow-[0_0_20px_rgba(96,165,250,0.3)] scale-[1.02]'
           : 'border-border bg-surface-2/50 text-foreground-secondary hover:border-border hover:bg-surface-3/50 hover:text-foreground',
       )}
     >

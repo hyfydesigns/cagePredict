@@ -5,12 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, CheckCircle, Trophy, Users, Swords,
   BarChart3, Loader2, ChevronDown, ChevronUp, AlertTriangle, Download, Trash2, TrendingUp, UserX, Search, Zap, Calendar, Radio,
-  ArrowUp, ArrowDown, Star
+  ArrowUp, ArrowDown, Star, Clock
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -25,6 +25,7 @@ interface AdminFight {
   winner_id: string | null
   fight_type: string | null
   display_order: number | null
+  fight_time: string | null
   fighter1: AdminFighter
   fighter2: AdminFighter
 }
@@ -76,6 +77,23 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [autoImportLog, setAutoImportLog]                = useState<string[] | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
   const [refreshingEventId, setRefreshingEventId] = useState<string | null>(null)
+  const [settingTimesEventId, setSettingTimesEventId] = useState<string | null>(null)
+  // eventStartTimes: eventId → "datetime-local" value (YYYY-MM-DDTHH:mm)
+  const [eventStartTimes, setEventStartTimes] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {}
+    for (const ev of events) {
+      // Pre-fill with the main card fight_time if available, else the event date
+      const mainCard = ev.fights?.find((f: AdminFight) => f.is_main_event && f.fight_time)
+      const rawISO = mainCard?.fight_time ?? ev.date
+      if (rawISO) {
+        // Convert to local datetime-local format (YYYY-MM-DDTHH:mm) in UTC
+        const d = new Date(rawISO)
+        const pad = (n: number) => String(n).padStart(2, '0')
+        init[ev.id] = `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+      }
+    }
+    return init
+  })
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
   const [deletedFightIds, setDeletedFightIds] = useState<Set<string>>(new Set())
@@ -231,6 +249,23 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       (u.display_name ?? '').toLowerCase().includes(q)
     )
   })
+
+  function handleSetStartTime(eventId: string) {
+    const localVal = eventStartTimes[eventId]
+    if (!localVal) { toast({ title: 'Set a date/time first', variant: 'destructive' }); return }
+    // datetime-local gives us YYYY-MM-DDTHH:mm in the local browser timezone.
+    // We treat it as UTC since admins should enter UTC times.
+    const mainCardISO = new Date(localVal + ':00Z').toISOString()
+    setSettingTimesEventId(eventId)
+    setEventFightTimes(eventId, mainCardISO).then((r) => {
+      setSettingTimesEventId(null)
+      toast({
+        title: r.error ? 'Failed' : `Updated ${(r as any).updated} fight(s)`,
+        description: r.error ?? `Main card: ${mainCardISO} UTC · Prelims −90min · Early prelims −180min`,
+        variant: r.error ? 'destructive' : 'default',
+      })
+    })
+  }
 
   function handleCompleteFight(fightId: string) {
     const winnerId = selectedWinners[fightId]
@@ -670,6 +705,47 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
                 </div>
               </button>
 
+              {/* Set fight start times (shown when expanded) */}
+              <AnimatePresence initial={false}>
+                {expandedEvent === event.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-5 pt-3 pb-2 border-b border-border/30 bg-surface-2/20">
+                      <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Main Card Start Time (UTC)
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input
+                          type="datetime-local"
+                          value={eventStartTimes[event.id] ?? ''}
+                          onChange={(e) => setEventStartTimes((prev) => ({ ...prev, [event.id]: e.target.value }))}
+                          className="text-xs bg-surface-2 border border-border rounded px-2 py-1 text-foreground focus:outline-none focus:border-primary"
+                        />
+                        <button
+                          onClick={() => handleSetStartTime(event.id)}
+                          disabled={settingTimesEventId === event.id}
+                          className="flex items-center gap-1 text-[11px] font-bold text-primary border border-primary/40 rounded px-2 py-1 hover:bg-primary/10 transition-colors disabled:opacity-50"
+                        >
+                          {settingTimesEventId === event.id
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Clock className="h-3 w-3" />
+                          }
+                          Set Times
+                        </button>
+                        <span className="text-[10px] text-foreground-muted">
+                          Prelims −90min · Early prelims −180min
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Fight rows */}
               <AnimatePresence initial={false}>
                 {expandedEvent === event.id && (
@@ -718,6 +794,16 @@ const SEGMENT_OPTIONS = [
   { value: 'prelims',     label: 'Prelims' },
   { value: 'earlyprelims', label: 'Early Prelims' },
 ]
+
+/** Format a UTC ISO string as "May 2, 08:00 UTC" */
+function fmtFightTime(iso: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return null
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
+}
 
 function FightResultRow({
   fight,
@@ -798,6 +884,12 @@ function FightResultRow({
           </div>
           {fight.weight_class && (
             <p className="text-foreground-muted text-xs mt-0.5">{fight.weight_class}</p>
+          )}
+          {fmtFightTime(fight.fight_time) && (
+            <p className="text-foreground-muted/70 text-[10px] mt-0.5 flex items-center gap-1">
+              <Clock className="h-2.5 w-2.5" />
+              {fmtFightTime(fight.fight_time)}
+            </p>
           )}
         </div>
 
