@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { LiveWrapper } from '@/components/fight-card/live-wrapper'
+import { getPicksStats, type EventStats } from '@/lib/actions/events'
 import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
 import type { PredictionMap } from '@/hooks/use-predictions'
@@ -180,6 +181,23 @@ export default async function HomePage({
     })
   }
 
+  // Prefetch event stats server-side so the stats strip is populated immediately
+  // on page load (no client-side loading delay during live events).
+  let initialDbStats: EventStats | null = null
+  if (user) {
+    const completedFightIds = typedEvents
+      .flatMap((e) => e.fights)
+      .filter((f: any) => f.status === 'completed')
+      .map((f: any) => f.id as string)
+    if (completedFightIds.length > 0) {
+      initialDbStats = await getPicksStats(completedFightIds, user.id)
+      // Only pass non-empty stats (avoids rendering an empty strip on page load)
+      if (initialDbStats.correct + initialDbStats.wrong + initialDbStats.draws === 0) {
+        initialDbStats = null
+      }
+    }
+  }
+
   // Fetch comments for all fights
   let commentsByFight: Record<string, CommentWithProfile[]> = {}
   if (typedEvents.length > 0) {
@@ -235,7 +253,7 @@ export default async function HomePage({
         </div>
       ) : (
         <div className="space-y-12">
-          <LiveWrapper initialEvents={typedEvents} userPicks={userPicks} userId={user?.id} commentsByFight={commentsByFight} />
+          <LiveWrapper initialEvents={typedEvents} userPicks={userPicks} userId={user?.id} commentsByFight={commentsByFight} initialDbStats={initialDbStats} />
         </div>
       )}
     </div>

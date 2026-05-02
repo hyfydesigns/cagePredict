@@ -19,9 +19,10 @@ interface LiveWrapperProps {
   userPicks: PredictionMap
   userId?: string
   commentsByFight?: Record<string, CommentWithProfile[]>
+  initialDbStats?: EventStats | null
 }
 
-export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight = {} }: LiveWrapperProps) {
+export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight = {}, initialDbStats = null }: LiveWrapperProps) {
   const [events, setEvents] = useState(initialEvents)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [refreshError, setRefreshError] = useState(false)
@@ -70,9 +71,10 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   }
 
   // ── DB-authoritative stats (all events on page, all fight IDs) ──────────────
-  // Queried by fight ID — not event_id — so prelim events stored under a
-  // different event_id in the DB are still included.
-  const [dbStats, setDbStats] = useState<EventStats | null>(null)
+  // Seeded from server-fetched initialDbStats so the strip is visible immediately
+  // on page load — no client-side loading delay. The useEffect keeps it fresh
+  // as fights complete during a live event.
+  const [dbStats, setDbStats] = useState<EventStats | null>(initialDbStats ?? null)
   const allFightIds  = events.flatMap((e) => e.fights.map((f) => f.id))
   const completedAny = events.some((e) => e.fights.some((f: any) => f.status === 'completed'))
 
