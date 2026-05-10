@@ -1267,41 +1267,31 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
     try {
       const ufc = await getUFCStatsData(fighter.name)
 
-      // Need at least career stats OR fight history to be worth updating
       const hasStats  = ufc.str_acc != null || ufc.slpm != null || ufc.td_avg != null || ufc.sub_avg != null
       const hasFights = ufc.fights.length > 0
 
-      if (!hasStats && !hasFights) {
-        // UFCStats had nothing — try ESPN as fallback
+      // Try ESPN whenever UFCStats is missing career stats (regardless of whether it
+      // found fight history). This covers two cases:
+      //   (a) UFCStats returned nothing at all — ESPN is the only source.
+      //   (b) UFCStats found fight history but the stats section was empty — ESPN
+      //       fills in striking_accuracy, sig_str_landed, td_avg, sub_avg.
+      let espnData: Awaited<ReturnType<typeof enrichFighterFromEspn>> = null
+      if (!hasStats) {
         try {
-          const espn = await enrichFighterFromEspn(fighter.name)
-          if (espn) {
-            const espnPatch: Record<string, unknown> = {
-              ...(espn.striking_accuracy != null ? { striking_accuracy: espn.striking_accuracy } : {}),
-              ...(espn.sig_str_landed    != null ? { sig_str_landed:    espn.sig_str_landed    } : {}),
-              ...(espn.td_avg            != null ? { td_avg:            espn.td_avg            } : {}),
-              ...(espn.sub_avg           != null ? { sub_avg:           espn.sub_avg           } : {}),
-              ...(espn.wins              != null ? { wins:              espn.wins              } : {}),
-              ...(espn.losses            != null ? { losses:            espn.losses            } : {}),
-              ...(espn.draws             != null ? { draws:             espn.draws             } : {}),
-              ...(espn.weight_class           ? { weight_class:      espn.weight_class      } : {}),
-              ...(espn.height_cm         != null ? { height_cm:         espn.height_cm         } : {}),
-              ...(espn.reach_cm          != null ? { reach_cm:          espn.reach_cm          } : {}),
-              ...(espn.image_url              ? { image_url:          espn.image_url         } : {}),
-            }
-            if (Object.keys(espnPatch).length > 0) {
-              const { error: upErr } = await supabase.from('fighters').update(espnPatch).eq('id', fighter.id)
-              if (upErr) { errors++; console.error(`ESPN backfill error (${fighter.name}):`, upErr.message) }
-              else updated++
-            }
-          }
+          espnData = await enrichFighterFromEspn(fighter.name)
         } catch (e) {
-          console.error(`ESPN backfill exception (${fighter.name}):`, e)
+          console.error(`ESPN lookup exception (${fighter.name}):`, e)
         }
-        continue
       }
 
-      const breakdown = calcWinBreakdown(ufc.fights)
+      // If neither source returned anything useful, skip this fighter
+      const espnHasStats = espnData && (
+        espnData.striking_accuracy != null || espnData.sig_str_landed != null ||
+        espnData.td_avg != null || espnData.sub_avg != null
+      )
+      if (!hasStats && !hasFights && !espnHasStats) continue
+
+      const breakdown = hasFights ? calcWinBreakdown(ufc.fights) : null
 
       const last_5_form = hasFights
         ? ufc.fights.slice(0, 5).map((f) =>
@@ -1310,18 +1300,31 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
         : null
 
       const patch: Record<string, unknown> = {
-        // Win breakdown (only write if we have fight history)
-        ...(hasFights ? breakdown : {}),
+        // Win breakdown (only write if we have UFCStats fight history)
+        ...(breakdown ? breakdown : {}),
         ...(last_5_form != null ? { last_5_form } : {}),
-        // Career striking / grappling stats
-        ...(ufc.str_acc  != null ? { striking_accuracy: ufc.str_acc  } : {}),
-        ...(ufc.slpm     != null ? { sig_str_landed:    ufc.slpm     } : {}),
-        ...(ufc.td_avg   != null ? { td_avg:            ufc.td_avg   } : {}),
-        ...(ufc.sub_avg  != null ? { sub_avg:           ufc.sub_avg  } : {}),
-        ...(ufc.height_cm != null ? { height_cm:        ufc.height_cm } : {}),
-        ...(ufc.reach_cm  != null ? { reach_cm:         ufc.reach_cm  } : {}),
+        // Career stats: prefer UFCStats, fall back to ESPN for any nulls
+        ...(ufc.str_acc  != null ? { striking_accuracy: ufc.str_acc  } :
+            espnData?.striking_accuracy != null ? { striking_accuracy: espnData.striking_accuracy } : {}),
+        ...(ufc.slpm     != null ? { sig_str_landed:    ufc.slpm     } :
+            espnData?.sig_str_landed    != null ? { sig_str_landed:    espnData.sig_str_landed    } : {}),
+        ...(ufc.td_avg   != null ? { td_avg:            ufc.td_avg   } :
+            espnData?.td_avg            != null ? { td_avg:            espnData.td_avg            } : {}),
+        ...(ufc.sub_avg  != null ? { sub_avg:           ufc.sub_avg  } :
+            espnData?.sub_avg           != null ? { sub_avg:           espnData.sub_avg           } : {}),
+        ...(ufc.height_cm != null ? { height_cm:        ufc.height_cm } :
+            espnData?.height_cm         != null ? { height_cm:         espnData.height_cm         } : {}),
+        ...(ufc.reach_cm  != null ? { reach_cm:         ufc.reach_cm  } :
+            espnData?.reach_cm          != null ? { reach_cm:          espnData.reach_cm          } : {}),
         ...(ufc.age       != null ? { age:              ufc.age       } : {}),
         ...(ufc.fighting_style != null ? { fighting_style: ufc.fighting_style } : {}),
+        // ESPN-only fields (no UFCStats equivalent)
+        ...(espnData?.image_url   ? { image_url:   espnData.image_url   } : {}),
+        ...(espnData?.weight_class ? { weight_class: espnData.weight_class } : {}),
+        // ESPN record — only use if UFCStats had no fight history to derive wins/losses from
+        ...(!hasFights && espnData?.wins   != null ? { wins:   espnData.wins   } : {}),
+        ...(!hasFights && espnData?.losses != null ? { losses: espnData.losses } : {}),
+        ...(!hasFights && espnData?.draws  != null ? { draws:  espnData.draws  } : {}),
       }
 
       if (Object.keys(patch).length === 0) continue
