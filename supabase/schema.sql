@@ -279,7 +279,7 @@ begin
         v_method_bonus := 5;
         if p_round is not null
            and v_pred.predicted_round = p_round
-           and p_method <> 'decision' then
+           and p_method not ilike '%decision%' then
           v_round_bonus := 5;
         end if;
       end if;

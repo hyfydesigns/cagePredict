@@ -461,7 +461,7 @@ async function syncFightMetaFromRapidApi(
           newFighterId = apiIdToUuid(newFighterApiId, 'fighter')
           await supabase.from('fighters').upsert({
             id: newFighterId, name: newFighterName,
-            wins: 0, losses: 0, draws: 0, record: '0-0-0',
+            wins: 0, losses: 0, draws: 0, record: '0-0-0', weight_class: '',
           } as any, { onConflict: 'id', ignoreDuplicates: true })
         }
 
@@ -486,13 +486,13 @@ async function syncFightMetaFromRapidApi(
       if (!f1rows?.[0] && apiFight.homeTeam?.name) {
         await supabase.from('fighters').upsert({
           id: f1id, name: apiFight.homeTeam.name,
-          wins: 0, losses: 0, draws: 0, record: '0-0-0',
+          wins: 0, losses: 0, draws: 0, record: '0-0-0', weight_class: '',
         } as any, { onConflict: 'id', ignoreDuplicates: true })
       }
       if (!f2rows?.[0] && apiFight.awayTeam?.name) {
         await supabase.from('fighters').upsert({
           id: f2id, name: apiFight.awayTeam.name,
-          wins: 0, losses: 0, draws: 0, record: '0-0-0',
+          wins: 0, losses: 0, draws: 0, record: '0-0-0', weight_class: '',
         } as any, { onConflict: 'id', ignoreDuplicates: true })
       }
 
@@ -1493,7 +1493,7 @@ export async function syncAllUpcomingCards(): Promise<{
   const { data: events } = await supabase
     .from('events')
     .select('id, name, date')
-    .eq('status', 'upcoming')
+    .in('status', ['upcoming', 'live'])
 
   const log: string[] = []
   const errors: string[] = []
