@@ -220,38 +220,47 @@ async function syncViaApiSports(
       // New format: fighters.first.winner / fighters.second.winner booleans
       // Legacy format: apiFight.winner object
       const resultType = apiFight.result?.type?.toLowerCase() ?? ''
-      const isDraw = resultType.includes('draw') || resultType.includes('no contest') ||
-        (!apiFight.fighters.first?.winner && !apiFight.fighters.second?.winner && !apiFight.winner)
+      // Only treat as draw when result type explicitly says so — never infer a draw
+      // from missing winner flags, which can happen when api-sports finishes indexing.
+      const isDraw = resultType.includes('draw') || resultType.includes('no contest')
 
       let winnerUuid: string | null = null
       if (!isDraw) {
         // New format: use winner boolean flags
         if (apiFight.fighters.first?.winner) {
           const apiWinnerName = apiFight.fighters.first.name
+          // Always resolve to a DB fighter UUID — never use an api-sports UUID as
+          // the winner, because fights imported from RapidAPI use a different UUID prefix
+          // and complete_fight() would mark the wrong winner.
           winnerUuid = norm(dbFight.fighter1?.name ?? '') === norm(apiWinnerName)
             ? dbFight.fighter1?.id
             : norm(dbFight.fighter2?.name ?? '') === norm(apiWinnerName)
               ? dbFight.fighter2?.id
-              : apiSportsIdToUuid(apiFight.fighters.first.id, 'fighter')
+              : dbFight.fighter1?.id  // positional fallback: first ≈ fighter1
         } else if (apiFight.fighters.second?.winner) {
           const apiWinnerName = apiFight.fighters.second.name
           winnerUuid = norm(dbFight.fighter2?.name ?? '') === norm(apiWinnerName)
             ? dbFight.fighter2?.id
             : norm(dbFight.fighter1?.name ?? '') === norm(apiWinnerName)
               ? dbFight.fighter1?.id
-              : apiSportsIdToUuid(apiFight.fighters.second.id, 'fighter')
+              : dbFight.fighter2?.id  // positional fallback: second ≈ fighter2
         } else if (apiFight.winner) {
           // Legacy format fallback
-          const apiWinnerId   = apiFight.winner.id
           const apiWinnerName = apiFight.winner.name
-          const apiWinnerUuid = apiSportsIdToUuid(apiWinnerId, 'fighter')
           if (norm(dbFight.fighter1?.name ?? '') === norm(apiWinnerName)) {
             winnerUuid = dbFight.fighter1?.id
           } else if (norm(dbFight.fighter2?.name ?? '') === norm(apiWinnerName)) {
             winnerUuid = dbFight.fighter2?.id
           } else {
-            winnerUuid = apiWinnerUuid
+            // Can't determine winner — skip and let next cron run retry
+            errors.push(`Cannot resolve winner for ${f1Name} vs ${f2Name}: api winner="${apiWinnerName}" doesn't match either DB fighter`)
+            continue
           }
+        } else {
+          // Winner flags not yet populated — api-sports may still be processing.
+          // Skip this fight; next cron run (2 min) will retry once flags are set.
+          log.push(`  ⏳ ${f1Name} vs ${f2Name} — finished but winner not yet determined, will retry`)
+          continue
         }
       }
 
@@ -399,10 +408,14 @@ async function syncViaRapidApi(
       }
 
       const winnerNorm = norm(winnerName)
+      // RapidAPI imports always set fighter1=homeTeam, fighter2=awayTeam, so
+      // winnerCode 1 (homeTeam) → fighter1, winnerCode 2 (awayTeam) → fighter2.
+      // Use this positional fallback instead of generating a new UUID that won't
+      // match any existing DB fighter and would cause everyone to score 0 pts.
       const winnerDbId =
         norm(dbFight.fighter1?.name ?? '') === winnerNorm ? dbFight.fighter1?.id :
         norm(dbFight.fighter2?.name ?? '') === winnerNorm ? dbFight.fighter2?.id :
-        rapidApiIdToUuid(winnerApiId, 'fighter')
+        apiFight.winnerCode === 1 ? dbFight.fighter1?.id : dbFight.fighter2?.id
 
       const { error: rpcErr } = await supabase.rpc('complete_fight', {
         p_fight_id:  dbFight.id,

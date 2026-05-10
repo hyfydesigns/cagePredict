@@ -40,7 +40,8 @@ export function FightCardSections({
   const earlyPrelims = fights.filter((f) =>
     (f as any).fight_type === 'earlyprelims' || (f as any).fight_type === 'early_prelims'
   )
-  const ungrouped = fights.filter((f) => !(f as any).fight_type)
+  const grouped = new Set([...maincard, ...prelims, ...earlyPrelims].map((f) => f.id))
+  const ungrouped = fights.filter((f) => !grouped.has(f.id))
 
   const hasSections = maincard.length > 0 || prelims.length > 0 || earlyPrelims.length > 0
   if (!hasSections) {
