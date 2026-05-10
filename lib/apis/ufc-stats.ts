@@ -105,21 +105,30 @@ function parseInches(s: string): number | null {
 // ─── Fighter search ───────────────────────────────────────────────────────────
 
 /**
+ * Normalise a name for comparison: strip diacritics, lowercase, keep letters+spaces only.
+ * "Álvarez" → "alvarez", "José" → "jose", "Da Silva" → "da silva"
+ */
+function normName(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
+/**
  * Find a fighter on ufcstats.com by full name.
  * Returns the detail-page URL (http://www.ufcstats.com/fighter-details/HEXID) or null.
  *
  * Strategy:
  *  1. Fetch /statistics/fighters?char={lastNameFirstLetter}&page=N&action=Search
- *  2. Scan rows for exact first+last name match (case-insensitive)
- *  3. Return the href from the first-name anchor tag
+ *     The letter is taken from the diacritic-stripped last name so "Álvarez" → char=a.
+ *  2. Scan rows for exact first+last name match (diacritic-stripped, case-insensitive).
+ *  3. Return the href from the first-name anchor tag.
  */
 export async function findFighterUrl(name: string): Promise<string | null> {
   const parts = name.trim().split(/\s+/)
   if (parts.length < 2) return null
 
-  const firstName = parts.slice(0, -1).join(' ').toLowerCase()
-  const lastName  = parts[parts.length - 1].toLowerCase()
-  const letter    = lastName[0]
+  const firstName = normName(parts.slice(0, -1).join(' '))
+  const lastName  = normName(parts[parts.length - 1])
+  const letter    = lastName[0]  // now always ASCII a-z
 
   for (let page = 1; page <= 25; page++) {
     const url  = `${BASE}/statistics/fighters?char=${letter}&page=${page}&action=Search`
@@ -144,8 +153,9 @@ export async function findFighterUrl(name: string): Promise<string | null> {
       const anchors = [...row.matchAll(/<a[^>]*>\s*([^<]*?)\s*<\/a>/g)].map((m) => m[1].trim())
       if (anchors.length < 2) continue
 
-      const rowFirst = anchors[0].toLowerCase()
-      const rowLast  = anchors[1].toLowerCase()
+      // Normalise row names the same way so diacritics match on either side
+      const rowFirst = normName(anchors[0])
+      const rowLast  = normName(anchors[1])
 
       if (rowFirst === firstName && rowLast === lastName) {
         return linkM[1]
