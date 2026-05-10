@@ -9,6 +9,7 @@ import { isAdmin } from '@/lib/auth/is-admin'
 import { runSyncResults } from '@/lib/sync-results'
 import { getUpcomingUFCEvents, parseTapologyDate, type TapologyEvent } from '@/lib/apis/tapology'
 import { getUFCStatsData, calcWinBreakdown } from '@/lib/apis/ufc-stats'
+import { enrichFighterFromEspn } from '@/lib/apis/espn'
 import {
   isConfigured as isApiSportsConfigured,
   getFightsByDate,
@@ -1270,7 +1271,35 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
       const hasStats  = ufc.str_acc != null || ufc.slpm != null || ufc.td_avg != null || ufc.sub_avg != null
       const hasFights = ufc.fights.length > 0
 
-      if (!hasStats && !hasFights) continue
+      if (!hasStats && !hasFights) {
+        // UFCStats had nothing — try ESPN as fallback
+        try {
+          const espn = await enrichFighterFromEspn(fighter.name)
+          if (espn) {
+            const espnPatch: Record<string, unknown> = {
+              ...(espn.striking_accuracy != null ? { striking_accuracy: espn.striking_accuracy } : {}),
+              ...(espn.sig_str_landed    != null ? { sig_str_landed:    espn.sig_str_landed    } : {}),
+              ...(espn.td_avg            != null ? { td_avg:            espn.td_avg            } : {}),
+              ...(espn.sub_avg           != null ? { sub_avg:           espn.sub_avg           } : {}),
+              ...(espn.wins              != null ? { wins:              espn.wins              } : {}),
+              ...(espn.losses            != null ? { losses:            espn.losses            } : {}),
+              ...(espn.draws             != null ? { draws:             espn.draws             } : {}),
+              ...(espn.weight_class           ? { weight_class:      espn.weight_class      } : {}),
+              ...(espn.height_cm         != null ? { height_cm:         espn.height_cm         } : {}),
+              ...(espn.reach_cm          != null ? { reach_cm:          espn.reach_cm          } : {}),
+              ...(espn.image_url              ? { image_url:          espn.image_url         } : {}),
+            }
+            if (Object.keys(espnPatch).length > 0) {
+              const { error: upErr } = await supabase.from('fighters').update(espnPatch).eq('id', fighter.id)
+              if (upErr) { errors++; console.error(`ESPN backfill error (${fighter.name}):`, upErr.message) }
+              else updated++
+            }
+          }
+        } catch (e) {
+          console.error(`ESPN backfill exception (${fighter.name}):`, e)
+        }
+        continue
+      }
 
       const breakdown = calcWinBreakdown(ufc.fights)
 
