@@ -1,19 +1,22 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
-import { formatRecord } from '@/lib/utils'
-import { BarChart2 } from 'lucide-react'
-import type { FighterRow } from '@/types/database'
+import { BarChart2, Trophy } from 'lucide-react'
+import { fetchUfcRankings } from '@/lib/apis/ufc-rankings'
+import type { UfcDivisionRankings } from '@/lib/apis/ufc-rankings'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Weight Class Standings | CagePredict',
-  description: 'Fighter standings grouped by weight class, ranked by wins.',
+  title: 'UFC Standings | CagePredict',
+  description: 'Official UFC fighter rankings by weight class.',
 }
 
-export const revalidate = 3600
+// Revalidate every 6 hours — rankings update weekly at most
+export const revalidate = 21600
 
-// Canonical order — unrecognised classes are appended after
-const WEIGHT_CLASS_ORDER = [
+// Canonical division display order
+const DIVISION_ORDER = [
+  "Men's Pound-for-Pound Top Rank",
   'Heavyweight',
   'Light Heavyweight',
   'Middleweight',
@@ -22,101 +25,67 @@ const WEIGHT_CLASS_ORDER = [
   'Featherweight',
   'Bantamweight',
   'Flyweight',
-  "Women's Strawweight",
-  "Women's Flyweight",
+  "Women's Pound-for-Pound Top Rank",
   "Women's Bantamweight",
+  "Women's Flyweight",
+  "Women's Strawweight",
 ]
 
-const TOP_N = 15
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function parseForm(form: string | null): Array<'W' | 'L' | 'D'> {
-  if (!form) return []
-  return form
-    .toUpperCase()
-    .split('')
-    .filter((c): c is 'W' | 'L' | 'D' => c === 'W' || c === 'L' || c === 'D')
+function normDiv(s: string) {
+  return s.toLowerCase().replace(/[^a-z]/g, '')
 }
 
-function formPillClass(letter: 'W' | 'L' | 'D'): string {
-  if (letter === 'W') return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-  if (letter === 'L') return 'bg-red-500/15 text-red-400 border border-red-500/25'
-  return 'bg-surface-3/50 text-foreground-muted border border-border/40'
-}
-
-function rankBadgeClass(rank: number): string {
-  if (rank === 1)  return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-600 dark:border-amber-500/30'
-  if (rank <= 3)   return 'bg-surface-3/60 text-foreground border-border/40'
-  return 'bg-transparent text-foreground-secondary border-border/50'
-}
-
-type WeightClassGroup = {
-  weightClass: string
-  fighters: FighterRow[]
-}
-
-function groupAndSort(fighters: FighterRow[]): WeightClassGroup[] {
-  const map = new Map<string, FighterRow[]>()
-
-  for (const f of fighters) {
-    const wc = f.weight_class ?? 'Unknown'
-    if (!map.has(wc)) map.set(wc, [])
-    map.get(wc)!.push(f)
-  }
-
-  // Sort each group by wins DESC, then losses ASC as tiebreaker
-  for (const [, group] of map) {
-    group.sort((a, b) => b.wins - a.wins || a.losses - b.losses)
-  }
-
-  // Order groups by canonical list
-  const ordered: WeightClassGroup[] = []
+function sortDivisions(divisions: UfcDivisionRankings[]): UfcDivisionRankings[] {
+  const ordered: UfcDivisionRankings[] = []
   const seen = new Set<string>()
 
-  for (const wc of WEIGHT_CLASS_ORDER) {
-    if (map.has(wc)) {
-      ordered.push({ weightClass: wc, fighters: map.get(wc)! })
-      seen.add(wc)
+  for (const canonical of DIVISION_ORDER) {
+    const match = divisions.find(
+      (d) => normDiv(d.division) === normDiv(canonical)
+    )
+    if (match) {
+      ordered.push(match)
+      seen.add(match.division)
     }
   }
 
-  // Append any unrecognised classes alphabetically
-  const extras = [...map.keys()].filter((k) => !seen.has(k)).sort()
-  for (const wc of extras) {
-    ordered.push({ weightClass: wc, fighters: map.get(wc)! })
-  }
+  // Append any unrecognised divisions alphabetically
+  const extras = divisions
+    .filter((d) => !seen.has(d.division))
+    .sort((a, b) => a.division.localeCompare(b.division))
+  ordered.push(...extras)
 
   return ordered
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
+function rankBadgeClass(rank: number, isChampion: boolean): string {
+  if (isChampion) return 'bg-amber-500/20 text-amber-500 border-amber-500/40'
+  if (rank === 1)  return 'bg-surface-3/60 text-foreground border-border/60'
+  return 'bg-transparent text-foreground-secondary border-border/40'
+}
+
+// Build a lookup: normalised name → internal fighter id
+function buildNameIndex(fighters: { id: string; name: string }[]): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const f of fighters) {
+    map.set(f.name.toLowerCase().trim(), f.id)
+  }
+  return map
+}
 
 export default async function StandingsPage() {
+  // Fetch UFC rankings + our DB fighters in parallel
   const supabase = await createClient()
 
-  const { data: rawFighters, error } = await supabase
-    .from('fighters')
-    .select('*')
-    .order('wins', { ascending: false })
+  const [divisions, { data: dbFighters }] = await Promise.all([
+    fetchUfcRankings(),
+    supabase.from('fighters').select('id, name'),
+  ])
 
-  if (error) {
-    return (
-      <div className="container mx-auto py-16 text-center">
-        <p className="text-foreground-secondary">Failed to load standings. Please try again later.</p>
-      </div>
-    )
-  }
+  const nameIndex = buildNameIndex((dbFighters ?? []) as { id: string; name: string }[])
+  const sorted = sortDivisions(divisions)
 
-  const fighters = ((rawFighters ?? []) as FighterRow[]).filter(
-    (f) => f.wins + f.losses > 0
-  )
-
-  const groups = groupAndSort(fighters)
+  const isEmpty = sorted.length === 0
 
   return (
     <div className="container mx-auto py-8 max-w-4xl space-y-10">
@@ -124,127 +93,146 @@ export default async function StandingsPage() {
       <div>
         <div className="flex items-center gap-3 mb-1">
           <BarChart2 className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-black text-foreground">Standings</h1>
+          <h1 className="text-3xl font-black text-foreground">UFC Standings</h1>
         </div>
         <p className="text-foreground-secondary text-sm pl-9">
-          Fighter rankings by weight class — sorted by wins
+          Official UFC rankings by weight class — updated weekly
         </p>
       </div>
 
-      {groups.length === 0 && (
+      {isEmpty && (
         <div className="text-center py-16 text-foreground-muted">
           <BarChart2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="font-semibold text-foreground-secondary">No fighter data available yet</p>
+          <p className="font-semibold text-foreground-secondary">Rankings unavailable right now</p>
+          <p className="text-sm mt-1">Could not reach ufc.com — try again shortly.</p>
         </div>
       )}
 
-      {/* Weight class sections */}
-      {groups.map(({ weightClass, fighters: groupFighters }) => {
-        const shown = groupFighters.slice(0, TOP_N)
+      {sorted.map(({ division, isPap, champion, ranked }) => (
+        <section key={division}>
+          {/* Section header */}
+          <div className="flex items-center gap-3 mb-3">
+            <h2 className="text-lg font-bold text-foreground">{division}</h2>
+            <Badge variant="outline" className="text-xs font-medium text-foreground-secondary">
+              {ranked.length + (champion ? 1 : 0)} fighter{(ranked.length + (champion ? 1 : 0)) !== 1 ? 's' : ''}
+            </Badge>
+          </div>
 
-        return (
-          <section key={weightClass}>
-            {/* Section header */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-bold text-foreground">{weightClass}</h2>
-                <Badge variant="outline" className="text-xs font-medium text-foreground-secondary">
-                  {groupFighters.length} fighter{groupFighters.length !== 1 ? 's' : ''}
-                </Badge>
-              </div>
-              {groupFighters.length > TOP_N && (
-                <span className="text-xs text-foreground-muted">
-                  Showing top {TOP_N} of {groupFighters.length}
-                </span>
-              )}
+          <div className="rounded-xl border border-border bg-surface/60 overflow-hidden">
+            {/* Table header */}
+            <div className="grid grid-cols-[2.5rem_1fr_auto] items-center gap-x-3 px-4 py-2.5 border-b border-border bg-surface">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">#</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Fighter</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted text-right">
+                {isPap ? 'P4P' : 'Division'}
+              </span>
             </div>
 
-            {/* Table */}
-            <div className="rounded-xl border border-border bg-surface/60 overflow-hidden">
-              {/* Table header */}
-              <div className="grid grid-cols-[2.5rem_1fr_auto_auto] md:grid-cols-[2.5rem_1fr_auto_auto_auto] items-center gap-x-3 px-4 py-2.5 border-b border-border bg-surface">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">#</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">Fighter</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted text-right">Record</span>
-                <span className="hidden md:block text-[10px] font-semibold uppercase tracking-wider text-foreground-muted text-right">Form</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted text-right">W</span>
-              </div>
+            {/* Champion row */}
+            {champion && (
+              <FighterRow
+                rank={0}
+                name={champion.name}
+                isChampion
+                isInterim={champion.isInterim}
+                isPap={isPap}
+                fighterId={nameIndex.get(champion.name.toLowerCase().trim())}
+              />
+            )}
 
-              {/* Rows */}
-              {shown.map((fighter, index) => {
-                const rank = index + 1
-                const form = parseForm(fighter.last_5_form)
-                const record = formatRecord(fighter.wins, fighter.losses, fighter.draws)
+            {/* Contender rows */}
+            {ranked.map((fighter) => (
+              <FighterRow
+                key={fighter.slug}
+                rank={fighter.rank}
+                name={fighter.name}
+                isChampion={false}
+                isInterim={false}
+                isPap={isPap}
+                fighterId={nameIndex.get(fighter.name.toLowerCase().trim())}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
 
-                return (
-                  <div
-                    key={fighter.id}
-                    className="grid grid-cols-[2.5rem_1fr_auto_auto] md:grid-cols-[2.5rem_1fr_auto_auto_auto] items-center gap-x-3 px-4 py-3 border-b border-border/60 last:border-b-0 hover:bg-surface-2/30 transition-colors"
-                  >
-                    {/* Rank */}
-                    <div className="flex items-center justify-center">
-                      <span
-                        className={[
-                          'inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold border',
-                          rankBadgeClass(rank),
-                        ].join(' ')}
-                      >
-                        {rank}
-                      </span>
-                    </div>
+// ---------------------------------------------------------------------------
+// Fighter row component
+// ---------------------------------------------------------------------------
 
-                    {/* Fighter name + nickname */}
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate leading-tight">
-                        {fighter.name}
-                      </p>
-                      {fighter.nickname && (
-                        <p className="text-[11px] text-foreground-secondary truncate leading-tight mt-0.5">
-                          &quot;{fighter.nickname}&quot;
-                        </p>
-                      )}
-                    </div>
+function FighterRow({
+  rank,
+  name,
+  isChampion,
+  isInterim,
+  isPap,
+  fighterId,
+}: {
+  rank:       number
+  name:       string
+  isChampion: boolean
+  isInterim:  boolean
+  isPap:      boolean
+  fighterId?: string
+}) {
+  const label = isChampion
+    ? isInterim ? 'IC' : 'C'
+    : String(rank)
 
-                    {/* Record */}
-                    <div className="text-right">
-                      <span className="text-sm font-mono font-medium text-foreground-secondary">
-                        {record}
-                      </span>
-                      <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                        <span className="text-[10px] text-foreground-muted">W-L{fighter.draws > 0 ? '-D' : ''}</span>
-                      </div>
-                    </div>
+  const nameEl = fighterId ? (
+    <Link
+      href={`/fighters/${fighterId}`}
+      className="text-sm font-semibold text-foreground truncate leading-tight hover:text-primary transition-colors"
+    >
+      {name}
+    </Link>
+  ) : (
+    <p className="text-sm font-semibold text-foreground truncate leading-tight">
+      {name}
+    </p>
+  )
 
-                    {/* Last 5 form — hidden on mobile */}
-                    <div className="hidden md:flex items-center justify-end gap-1">
-                      {form.length > 0 ? (
-                        form.map((letter, i) => (
-                          <span
-                            key={i}
-                            className={[
-                              'inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold',
-                              formPillClass(letter),
-                            ].join(' ')}
-                          >
-                            {letter}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-[11px] text-foreground-secondary">—</span>
-                      )}
-                    </div>
+  return (
+    <div className="grid grid-cols-[2.5rem_1fr_auto] items-center gap-x-3 px-4 py-3 border-b border-border/60 last:border-b-0 hover:bg-surface-2/30 transition-colors">
+      {/* Rank badge */}
+      <div className="flex items-center justify-center">
+        {isChampion ? (
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold border bg-amber-500/20 text-amber-500 border-amber-500/40">
+            {label}
+          </span>
+        ) : (
+          <span className={[
+            'inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold border',
+            rankBadgeClass(rank, false),
+          ].join(' ')}>
+            {label}
+          </span>
+        )}
+      </div>
 
-                    {/* Wins count */}
-                    <div className="text-right">
-                      <span className="text-sm font-bold text-emerald-400">{fighter.wins}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )
-      })}
+      {/* Name */}
+      <div className="min-w-0 flex items-center gap-2">
+        {nameEl}
+        {isChampion && (
+          <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+        )}
+      </div>
+
+      {/* Right label */}
+      <div className="text-right">
+        {isChampion ? (
+          <span className="text-xs font-semibold text-amber-500">
+            {isInterim ? 'Interim Champ' : isPap ? 'P4P #1' : 'Champion'}
+          </span>
+        ) : (
+          <span className="text-xs text-foreground-muted">
+            #{rank}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
