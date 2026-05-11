@@ -1272,13 +1272,13 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
       const hasStats  = ufc.str_acc != null || ufc.slpm != null || ufc.td_avg != null || ufc.sub_avg != null
       const hasFights = ufc.fights.length > 0
 
-      // Try ESPN whenever UFCStats is missing career stats (regardless of whether it
-      // found fight history). This covers two cases:
-      //   (a) UFCStats returned nothing at all — ESPN is the only source.
-      //   (b) UFCStats found fight history but the stats section was empty — ESPN
-      //       fills in striking_accuracy, sig_str_landed, td_avg, sub_avg.
+      // Try ESPN whenever UFCStats is missing career stats OR fight history.
+      // We need ESPN for two independent reasons:
+      //   (a) career stats (striking_accuracy, td_avg, etc.) — when UFCStats has none
+      //   (b) wins/losses/draws record — when UFCStats has no fight history
+      // Both conditions require a separate ESPN call, so try if either is missing.
       let espnData: Awaited<ReturnType<typeof enrichFighterFromEspn>> = null
-      if (!hasStats) {
+      if (!hasStats || !hasFights) {
         try {
           espnData = await enrichFighterFromEspn(fighter.name)
         } catch (e) {
@@ -1358,6 +1358,12 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
       errors++
       console.error(`backfill exception (${fighter.name}):`, e)
     }
+  }
+
+  if (updated > 0) {
+    revalidatePath('/fighters', 'layout')
+    revalidatePath('/events', 'layout')
+    revalidatePath('/standings')
   }
 
   return { updated, errors }
