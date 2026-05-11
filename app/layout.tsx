@@ -111,11 +111,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <StagingBanner />
           {user && <RealtimeRefresh userId={user.id} />}
           <Navbar profile={profile} isAuthenticated={!!user} />
-          {bannerEventName && (bannerIsLive || bannerFightTime) && (
+          {bannerEventName && !bannerIsLive && bannerFightTime && (
             <EventCountdownBanner
               eventName={bannerEventName}
               fightTime={bannerFightTime ?? ''}
-              isLive={bannerIsLive}
+              isLive={false}
             />
           )}
           <main className="min-h-[calc(100vh-4rem)]">
