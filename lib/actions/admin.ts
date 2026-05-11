@@ -1291,7 +1291,8 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
         espnData.striking_accuracy != null || espnData.sig_str_landed != null ||
         espnData.td_avg != null || espnData.sub_avg != null
       )
-      if (!hasStats && !hasFights && !espnHasStats) continue
+      const espnHasRecord = espnData && espnData.wins != null
+      if (!hasStats && !hasFights && !espnHasStats && !espnHasRecord) continue
 
       const breakdown = hasFights ? calcWinBreakdown(ufc.fights) : null
 
@@ -1301,10 +1302,29 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
           ).join('')
         : null
 
+      // Derive wins/losses/draws from UFCStats fight history when available,
+      // otherwise fall back to ESPN. This keeps the record text in sync too.
+      const ufcWins   = hasFights ? ufc.fights.filter((f) => f.result === 'W').length : null
+      const ufcLosses = hasFights ? ufc.fights.filter((f) => f.result === 'L').length : null
+      const ufcDraws  = hasFights ? ufc.fights.filter((f) => f.result === 'D').length : null
+
+      const newWins   = ufcWins   ?? (espnData?.wins   ?? null)
+      const newLosses = ufcLosses ?? (espnData?.losses ?? null)
+      const newDraws  = ufcDraws  ?? (espnData?.draws  ?? null)
+      // Sync the record text field whenever we have W/L data
+      const newRecord = newWins != null
+        ? `${newWins}-${newLosses ?? 0}-${newDraws ?? 0}`
+        : null
+
       const patch: Record<string, unknown> = {
         // Win breakdown (only write if we have UFCStats fight history)
         ...(breakdown ? breakdown : {}),
         ...(last_5_form != null ? { last_5_form } : {}),
+        // Record integers + text — UFCStats history takes precedence over ESPN
+        ...(newWins   != null ? { wins:   newWins   } : {}),
+        ...(newLosses != null ? { losses: newLosses } : {}),
+        ...(newDraws  != null ? { draws:  newDraws  } : {}),
+        ...(newRecord != null ? { record: newRecord } : {}),
         // Career stats: prefer UFCStats, fall back to ESPN for any nulls
         ...(ufc.str_acc  != null ? { striking_accuracy: ufc.str_acc  } :
             espnData?.striking_accuracy != null ? { striking_accuracy: espnData.striking_accuracy } : {}),
@@ -1321,12 +1341,8 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
         ...(ufc.age       != null ? { age:              ufc.age       } : {}),
         ...(ufc.fighting_style != null ? { fighting_style: ufc.fighting_style } : {}),
         // ESPN-only fields (no UFCStats equivalent)
-        ...(espnData?.image_url   ? { image_url:   espnData.image_url   } : {}),
+        ...(espnData?.image_url    ? { image_url:    espnData.image_url    } : {}),
         ...(espnData?.weight_class ? { weight_class: espnData.weight_class } : {}),
-        // ESPN record — only use if UFCStats had no fight history to derive wins/losses from
-        ...(!hasFights && espnData?.wins   != null ? { wins:   espnData.wins   } : {}),
-        ...(!hasFights && espnData?.losses != null ? { losses: espnData.losses } : {}),
-        ...(!hasFights && espnData?.draws  != null ? { draws:  espnData.draws  } : {}),
       }
 
       if (Object.keys(patch).length === 0) continue
