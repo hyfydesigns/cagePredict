@@ -1305,15 +1305,16 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
           ).join('')
         : null
 
-      // Derive wins/losses/draws from UFCStats fight history when available,
-      // otherwise fall back to ESPN. This keeps the record text in sync too.
+      // W-L-D record: prefer ESPN (full career across all promotions) over counting
+      // UFCStats fights (which only covers UFC bouts, not regional/pre-UFC history).
+      // Fall back to UFC fight counts only when ESPN has no record data.
       const ufcWins   = hasFights ? ufc.fights.filter((f) => f.result === 'W').length : null
       const ufcLosses = hasFights ? ufc.fights.filter((f) => f.result === 'L').length : null
       const ufcDraws  = hasFights ? ufc.fights.filter((f) => f.result === 'D').length : null
 
-      const newWins   = ufcWins   ?? (espnData?.wins   ?? null)
-      const newLosses = ufcLosses ?? (espnData?.losses ?? null)
-      const newDraws  = ufcDraws  ?? (espnData?.draws  ?? null)
+      const newWins   = espnData?.wins   ?? ufcWins
+      const newLosses = espnData?.losses ?? ufcLosses
+      const newDraws  = espnData?.draws  ?? ufcDraws
       // Sync the record text field whenever we have W/L data
       const newRecord = newWins != null
         ? `${newWins}-${newLosses ?? 0}-${newDraws ?? 0}`
@@ -1323,7 +1324,7 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
         // Win breakdown (only write if we have UFCStats fight history)
         ...(breakdown ? breakdown : {}),
         ...(last_5_form != null ? { last_5_form } : {}),
-        // Record integers + text — UFCStats history takes precedence over ESPN
+        // Record: ESPN full career takes priority; UFCStats counts are UFC-only fallback
         ...(newWins   != null ? { wins:   newWins   } : {}),
         ...(newLosses != null ? { losses: newLosses } : {}),
         ...(newDraws  != null ? { draws:  newDraws  } : {}),
