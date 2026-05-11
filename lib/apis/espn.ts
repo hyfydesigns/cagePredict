@@ -51,15 +51,15 @@ export async function findEspnAthleteId(name: string): Promise<{ id: string; ima
    *   1. Full name — exact match preferred.
    *   2. Last name only — catches nickname mismatches; verified against last name.
    */
-  async function search(query: string): Promise<any[]> {
-    const data = await safeFetch(`${SEARCH_URL}?query=${encodeURIComponent(query)}&limit=10`)
+  async function search(query: string, limit = 10): Promise<any[]> {
+    const data = await safeFetch(`${SEARCH_URL}?query=${encodeURIComponent(query)}&limit=${limit}`)
     return data?.results?.find((r: any) => r.type === 'player')?.contents ?? []
   }
 
   const normTarget  = norm(name)
   const normLast    = norm(lastName)
 
-  for (const players of [await search(name), await search(lastName)]) {
+  for (const players of [await search(name), await search(lastName, 50)]) {
     if (!players.length) continue
 
     // Prefer exact full-name MMA match, then any MMA player whose last name matches,
