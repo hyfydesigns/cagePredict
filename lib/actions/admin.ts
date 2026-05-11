@@ -1245,11 +1245,13 @@ export async function forceSyncResults(): Promise<ActionResult & { log?: string[
  * (win breakdown OR striking/grappling career stats), fetches everything
  * in one scrape call per fighter, and updates the fighters table.
  * Safe to run multiple times — only touches rows that have at least one null column.
+ *
+ * Uses the service role client so it works from both the admin panel (authenticated)
+ * and the cron job (no user session).
  */
-export async function backfillWinBreakdown(): Promise<{ updated: number; errors: number }> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !isAdmin(user)) return { updated: 0, errors: 0 }
+async function runBackfillStats(): Promise<{ updated: number; errors: number }> {
+  // Always use the service client — bypasses RLS and works in cron context (no user session)
+  const supabase = createServiceClient()
 
   // Fetch fighters missing any of the UFCStats-backed columns
   const { data: fighters, error } = await supabase
@@ -1343,6 +1345,18 @@ export async function backfillWinBreakdown(): Promise<{ updated: number; errors:
   }
 
   return { updated, errors }
+}
+
+/** Admin panel entry point — enforces admin auth before delegating to core logic. */
+export async function backfillWinBreakdown(): Promise<{ updated: number; errors: number }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { updated: 0, errors: 0 }
+  return runBackfillStats()
+}
+
+/** Cron entry point — caller already validated CRON_SECRET; no user session available. */
+export async function backfillStatsForCron(): Promise<{ updated: number; errors: number }> {
+  return runBackfillStats()
 }
 
 // ─── Refresh missing fights for an existing event ────────────────────────────
