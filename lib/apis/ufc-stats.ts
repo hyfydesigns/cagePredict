@@ -112,19 +112,28 @@ function normName(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
+/** Common name suffixes that UFCStats never includes in the last-name cell. */
+const NAME_SUFFIXES = new Set(['jr', 'sr', 'ii', 'iii', 'iv', 'v'])
+
 /**
  * Find a fighter on ufcstats.com by full name.
  * Returns the detail-page URL (http://www.ufcstats.com/fighter-details/HEXID) or null.
  *
  * Strategy:
- *  1. Fetch /statistics/fighters?char={lastNameFirstLetter}&page=N&action=Search
+ *  1. Strip common suffixes (Jr., Sr., II, III) from the name — UFCStats never indexes by these.
+ *  2. Fetch /statistics/fighters?char={lastNameFirstLetter}&page=N&action=Search
  *     The letter is taken from the diacritic-stripped last name so "Álvarez" → char=a.
- *  2. Scan rows for exact first+last name match (diacritic-stripped, case-insensitive).
- *  3. Return the href from the first-name anchor tag.
+ *  3. Scan rows for exact first+last name match (diacritic-stripped, case-insensitive).
+ *  4. Return the href from the first-name anchor tag.
  */
 export async function findFighterUrl(name: string): Promise<string | null> {
-  const parts = name.trim().split(/\s+/)
+  let parts = name.trim().split(/\s+/)
   if (parts.length < 2) return null
+
+  // Drop trailing suffixes so "John Smith Jr." → ["John", "Smith"]
+  while (parts.length > 2 && NAME_SUFFIXES.has(normName(parts[parts.length - 1]).replace(/\./g, ''))) {
+    parts = parts.slice(0, -1)
+  }
 
   const firstName = normName(parts.slice(0, -1).join(' '))
   const lastName  = normName(parts[parts.length - 1])
