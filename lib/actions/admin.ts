@@ -1253,17 +1253,51 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
   // Always use the service client — bypasses RLS and works in cron context (no user session)
   const supabase = createServiceClient()
 
-  // Fetch fighters missing any stats OR whose record is still the import default.
-  // record='0-0-0' catches fighters whose stats columns were filled by a previous
-  // partial run but whose wins/losses were never written (e.g. UFCStats had career
-  // stats but no fight history so ESPN was never tried for the record).
-  const { data: fighters, error } = await supabase
-    .from('fighters')
-    .select('id, name')
-    .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null,last_5_form.is.null,record.eq.0-0-0')
-    .order('name')
+  // Two pools of fighters to process:
+  // 1. Fighters missing any stats column (standard backfill)
+  // 2. Fighters in upcoming/live events — always refresh these from ESPN so their
+  //    full career record is current even if they were partially synced before
+  //    (e.g. got UFC-only 1-0-0 instead of full career 15-1-1).
+  const [{ data: missingStats }, { data: activeRows }] = await Promise.all([
+    supabase
+      .from('fighters')
+      .select('id, name')
+      .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null,last_5_form.is.null,record.eq.0-0-0'),
+    supabase
+      .from('fights')
+      .select('fighter1_id, fighter2_id, events!inner(status)')
+      .in('events.status' as any, ['upcoming', 'live']),
+  ])
 
-  if (error || !fighters?.length) return { updated: 0, errors: 0 }
+  // Build deduplicated list — active fighters first so they get refreshed even
+  // if their stats columns appear complete.
+  const seen = new Set<string>()
+  const fighters: { id: string; name: string }[] = []
+
+  // Collect active fighter IDs from upcoming/live fights
+  const activeFighterIds = new Set<string>()
+  for (const row of activeRows ?? []) {
+    if (row.fighter1_id) activeFighterIds.add(row.fighter1_id)
+    if (row.fighter2_id) activeFighterIds.add(row.fighter2_id)
+  }
+
+  // Fetch names for active fighters if we have any
+  if (activeFighterIds.size > 0) {
+    const { data: activeNames } = await supabase
+      .from('fighters')
+      .select('id, name')
+      .in('id', [...activeFighterIds])
+    for (const f of activeNames ?? []) {
+      if (!seen.has(f.id)) { seen.add(f.id); fighters.push(f) }
+    }
+  }
+
+  // Then add fighters with missing stats that aren't already queued
+  for (const f of missingStats ?? []) {
+    if (!seen.has(f.id)) { seen.add(f.id); fighters.push(f) }
+  }
+
+  if (fighters.length === 0) return { updated: 0, errors: 0 }
 
   let updated = 0
   let errors  = 0
@@ -1275,18 +1309,13 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
       const hasStats  = ufc.str_acc != null || ufc.slpm != null || ufc.td_avg != null || ufc.sub_avg != null
       const hasFights = ufc.fights.length > 0
 
-      // Try ESPN whenever UFCStats is missing career stats OR fight history.
-      // We need ESPN for two independent reasons:
-      //   (a) career stats (striking_accuracy, td_avg, etc.) — when UFCStats has none
-      //   (b) wins/losses/draws record — when UFCStats has no fight history
-      // Both conditions require a separate ESPN call, so try if either is missing.
+      // Always call ESPN — it has the full career record across all promotions.
+      // UFCStats only covers UFC bouts so we can't use it for wins/losses/draws.
       let espnData: Awaited<ReturnType<typeof enrichFighterFromEspn>> = null
-      if (!hasStats || !hasFights) {
-        try {
-          espnData = await enrichFighterFromEspn(fighter.name)
-        } catch (e) {
-          console.error(`ESPN lookup exception (${fighter.name}):`, e)
-        }
+      try {
+        espnData = await enrichFighterFromEspn(fighter.name)
+      } catch (e) {
+        console.error(`ESPN lookup exception (${fighter.name}):`, e)
       }
 
       // If neither source returned anything useful, skip this fighter
@@ -1305,16 +1334,12 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
           ).join('')
         : null
 
-      // W-L-D record: prefer ESPN (full career across all promotions) over counting
-      // UFCStats fights (which only covers UFC bouts, not regional/pre-UFC history).
-      // Fall back to UFC fight counts only when ESPN has no record data.
-      const ufcWins   = hasFights ? ufc.fights.filter((f) => f.result === 'W').length : null
-      const ufcLosses = hasFights ? ufc.fights.filter((f) => f.result === 'L').length : null
-      const ufcDraws  = hasFights ? ufc.fights.filter((f) => f.result === 'D').length : null
-
-      const newWins   = espnData?.wins   ?? ufcWins
-      const newLosses = espnData?.losses ?? ufcLosses
-      const newDraws  = espnData?.draws  ?? ufcDraws
+      // W-L-D: always use ESPN (full career across all promotions).
+      // Never count UFC fight history for this — UFCStats only covers UFC bouts
+      // and would give wrong totals for fighters with significant pre-UFC records.
+      const newWins   = espnData?.wins   ?? null
+      const newLosses = espnData?.losses ?? null
+      const newDraws  = espnData?.draws  ?? null
       // Sync the record text field whenever we have W/L data
       const newRecord = newWins != null
         ? `${newWins}-${newLosses ?? 0}-${newDraws ?? 0}`
