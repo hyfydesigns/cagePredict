@@ -1261,8 +1261,8 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
   const [{ data: missingStats }, { data: activeRows }] = await Promise.all([
     supabase
       .from('fighters')
-      .select('id, name')
-      .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null,last_5_form.is.null,record.eq.0-0-0'),
+      .select('id, name, image_url')
+      .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null,last_5_form.is.null,record.eq.0-0-0,image_url.is.null'),
     supabase
       .from('fights')
       .select('fighter1_id, fighter2_id, events!inner(status)')
@@ -1272,7 +1272,7 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
   // Build deduplicated list — active fighters first so they get refreshed even
   // if their stats columns appear complete.
   const seen = new Set<string>()
-  const fighters: { id: string; name: string }[] = []
+  const fighters: { id: string; name: string; image_url: string | null }[] = []
 
   // Collect active fighter IDs from upcoming/live fights
   const activeFighterIds = new Set<string>()
@@ -1285,7 +1285,7 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
   if (activeFighterIds.size > 0) {
     const { data: activeNames } = await supabase
       .from('fighters')
-      .select('id, name')
+      .select('id, name, image_url')
       .in('id', [...activeFighterIds])
     for (const f of activeNames ?? []) {
       if (!seen.has(f.id)) { seen.add(f.id); fighters.push(f) }
@@ -1370,7 +1370,8 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
         ...(ufc.age       != null ? { age:              ufc.age       } : {}),
         ...(ufc.fighting_style != null ? { fighting_style: ufc.fighting_style } : {}),
         // ESPN-only fields (no UFCStats equivalent)
-        ...(espnData?.image_url    ? { image_url:    espnData.image_url    } : {}),
+        // Only write image_url when the fighter has none — don't overwrite a custom image
+        ...(!fighter.image_url && espnData?.image_url ? { image_url: espnData.image_url } : {}),
         ...(espnData?.weight_class ? { weight_class: espnData.weight_class } : {}),
       }
 

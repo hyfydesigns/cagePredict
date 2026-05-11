@@ -130,7 +130,9 @@ export async function getEspnFighterById(espnId: string): Promise<EspnFighterDat
     weight_class:      weightClass,
     height_cm:         heightCm,
     reach_cm:          reachCm,
-    image_url:         profile.images?.[0]?.href ?? null,
+    // Prefer the consistent full-headshot URL (predictable from ID) over whatever
+    // images[0] returns (often the stance image, not the headshot).
+    image_url:         `https://a.espncdn.com/i/headshots/mma/players/full/${espnId}.png`,
   }
 }
 
