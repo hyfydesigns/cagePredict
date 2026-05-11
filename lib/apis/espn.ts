@@ -39,35 +39,49 @@ async function safeFetch(url: string): Promise<any | null> {
 
 /** Find an ESPN athlete ID by fighter name. Returns null if not found. */
 export async function findEspnAthleteId(name: string): Promise<{ id: string; imageUrl: string | null } | null> {
-  const data = await safeFetch(
-    `${SEARCH_URL}?query=${encodeURIComponent(name)}&limit=5&type=player`,
-  )
-  if (!data) return null
-
-  const players = data.results?.find((r: any) => r.type === 'player')?.contents ?? []
-  if (!players.length) return null
-
   // Normalise names for matching — strip diacritics, lowercase, letters only
   const norm = (s: string) =>
     s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
 
-  const target = norm(name)
+  const lastName = name.trim().split(/\s+/).pop() ?? name
 
-  // Prefer an exact normalised match; fall back to the first MMA result
-  const best =
-    players.find((p: any) => norm(p.displayName ?? '') === target && p.sport === 'mma') ??
-    players.find((p: any) => p.sport === 'mma') ??
-    players[0]
+  /**
+   * ESPN sometimes stores a nickname/shortened first name (e.g. "Timmy Cuamba"
+   * instead of "Timothy Cuamba"). Search twice:
+   *   1. Full name — exact match preferred.
+   *   2. Last name only — catches nickname mismatches; verified against last name.
+   */
+  async function search(query: string): Promise<any[]> {
+    const data = await safeFetch(`${SEARCH_URL}?query=${encodeURIComponent(query)}&limit=10`)
+    return data?.results?.find((r: any) => r.type === 'player')?.contents ?? []
+  }
 
-  if (!best) return null
+  const normTarget  = norm(name)
+  const normLast    = norm(lastName)
 
-  // uid format: "s:3301~a:4684751" — extract the numeric part after ~a:
-  const uid: string = best.uid ?? ''
-  const id = uid.split('~a:')[1] ?? null
-  if (!id) return null
+  for (const players of [await search(name), await search(lastName)]) {
+    if (!players.length) continue
 
-  const imageUrl: string | null = best.image?.default ?? null
-  return { id, imageUrl }
+    // Prefer exact full-name MMA match, then any MMA player whose last name matches,
+    // then any MMA player, then first result regardless of sport.
+    const best =
+      players.find((p: any) => norm(p.displayName ?? '') === normTarget && p.sport === 'mma') ??
+      players.find((p: any) => norm(p.displayName ?? '').endsWith(normLast)  && p.sport === 'mma') ??
+      players.find((p: any) => p.sport === 'mma') ??
+      null  // don't fall back to non-MMA players — too risky
+
+    if (!best) continue
+
+    // uid format: "s:3301~a:4684751" — extract the numeric part after ~a:
+    const uid: string = best.uid ?? ''
+    const id = uid.split('~a:')[1] ?? null
+    if (!id) continue
+
+    const imageUrl: string | null = best.image?.default ?? null
+    return { id, imageUrl }
+  }
+
+  return null
 }
 
 /** Fetch full fighter data from ESPN given a numeric athlete ID. */
