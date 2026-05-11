@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
       { protocol: 'https', hostname: 'i.ytimg.com' },
       { protocol: 'https', hostname: 'img.youtube.com' },
+      // ESPN fighter headshots
+      { protocol: 'https', hostname: 'a.espncdn.com' },
+      // api-sports fighter images
+      { protocol: 'https', hostname: 'media.api-sports.io' },
     ],
   },
   experimental: {
