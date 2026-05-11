@@ -1253,11 +1253,14 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
   // Always use the service client — bypasses RLS and works in cron context (no user session)
   const supabase = createServiceClient()
 
-  // Fetch fighters missing any of the UFCStats-backed columns
+  // Fetch fighters missing any stats OR whose record is still the import default.
+  // record='0-0-0' catches fighters whose stats columns were filled by a previous
+  // partial run but whose wins/losses were never written (e.g. UFCStats had career
+  // stats but no fight history so ESPN was never tried for the record).
   const { data: fighters, error } = await supabase
     .from('fighters')
     .select('id, name')
-    .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null,last_5_form.is.null')
+    .or('ko_tko_wins.is.null,striking_accuracy.is.null,sig_str_landed.is.null,td_avg.is.null,sub_avg.is.null,last_5_form.is.null,record.eq.0-0-0')
     .order('name')
 
   if (error || !fighters?.length) return { updated: 0, errors: 0 }
