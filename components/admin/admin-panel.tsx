@@ -10,7 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -98,6 +98,7 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
   const [isMvpSeedPending, startMvpSeedTransition]           = useTransition()
   const [isMvpUndercardPending, startMvpUndercardTransition] = useTransition()
+  const [isMvpOrderPending, startMvpOrderTransition]         = useTransition()
   const [deletedFightIds, setDeletedFightIds] = useState<Set<string>>(new Set())
   const [fetchDate, setFetchDate] = useState(() => {
     const d = new Date()
@@ -170,6 +171,17 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
         toast({ title: 'MVP seed failed', description: result.error, variant: 'destructive' })
       } else {
         toast({ title: 'MVP MMA event added!', description: result.message })
+      }
+    })
+  }
+
+  function handleMvpFixOrder() {
+    startMvpOrderTransition(async () => {
+      const result = await fixMvpFightOrder()
+      if (result.error) {
+        toast({ title: 'Fix order failed', description: result.error, variant: 'destructive' })
+      } else {
+        toast({ title: 'Fight order fixed!', description: result.message })
       }
     })
   }
@@ -440,12 +452,20 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             Netflix × Jake Paul — May 16 2026, Intuit Dome. Seeds all 10 fights and 20 fighters (Rousey, Carano, Ngannou, Diaz, Perry, JDS + more) with real odds. Safe to re-run.
           </p>
         </div>
-        <Button onClick={handleMvpSeed} disabled={isMvpSeedPending} variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
-          {isMvpSeedPending
-            ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Seeding…</>
-            : <><Download className="h-4 w-4 mr-1.5" />Seed Full MVP MMA Card</>
-          }
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleMvpSeed} disabled={isMvpSeedPending} variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
+            {isMvpSeedPending
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Seeding…</>
+              : <><Download className="h-4 w-4 mr-1.5" />Seed Full MVP MMA Card</>
+            }
+          </Button>
+          <Button onClick={handleMvpFixOrder} disabled={isMvpOrderPending} variant="outline" className="border-red-500/20 text-red-300 hover:bg-red-500/10" title="Fix fight display order so main event shows first">
+            {isMvpOrderPending
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Fixing…</>
+              : <><ArrowUp className="h-4 w-4 mr-1.5" />Fix Fight Order</>
+            }
+          </Button>
+        </div>
       </div>
 
       {/* Deduplicate Fights */}

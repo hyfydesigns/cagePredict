@@ -1899,16 +1899,18 @@ const MVP_FIGHTERS: Record<string, { id: string; name: string; nickname?: string
 // Fight card: [fighter1Key, fighter2Key, weightClass, isMain, isTitleFight, oddsF1, oddsF2, displayOrder]
 type MvpFightRow = [string, string, string, boolean, boolean, number, number, number]
 const MVP_FIGHTS: MvpFightRow[] = [
-  ['rousey',   'carano',    "Women's Catchweight", true,  false, -480,  365,  1],
-  ['perry',    'diaz',      'Welterweight',         false, false, -213,  165,  2],
-  ['ngannou',  'lins',      'Heavyweight',          false, false, -1000, 650,  3],
-  ['moraes',   'mokaev',    'Flyweight',            false, false, -150,  120,  4],
-  ['cross',    'parnasse',  'Lightweight',          false, false, -110, -110,  5],
-  ['jds',      'despaigne', 'Heavyweight',          false, false, -130,  105,  6],
-  ['babian',   'fazil',     'Featherweight',        false, false, -150,  120,  7],
-  ['morales',  'mgoyan',    'Bantamweight',         false, false, -130,  105,  8],
-  ['apereira', 'masson',    "Women's Flyweight",    false, false, -200,  160,  9],
-  ['jenkins',  'avila',     'Lightweight',          false, false, -150,  120, 10],
+  // display_order is descending (10 = main event, 1 = opening fight)
+  // to match the page.tsx sort: b.display_order - a.display_order
+  ['rousey',   'carano',    "Women's Catchweight", true,  false, -480,  365,  10],
+  ['perry',    'diaz',      'Welterweight',         false, false, -213,  165,   9],
+  ['ngannou',  'lins',      'Heavyweight',          false, false, -1000, 650,   8],
+  ['moraes',   'mokaev',    'Flyweight',            false, false, -150,  120,   7],
+  ['cross',    'parnasse',  'Lightweight',          false, false, -110, -110,   6],
+  ['jds',      'despaigne', 'Heavyweight',          false, false, -130,  105,   5],
+  ['babian',   'fazil',     'Featherweight',        false, false, -150,  120,   4],
+  ['morales',  'mgoyan',    'Bantamweight',         false, false, -130,  105,   3],
+  ['apereira', 'masson',    "Women's Flyweight",    false, false, -200,  160,   2],
+  ['jenkins',  'avila',     'Lightweight',          false, false, -150,  120,   1],
 ]
 
 export async function seedMvpMmaEvent(): Promise<ActionResult> {
@@ -2023,6 +2025,51 @@ export async function seedMvpMmaEvent(): Promise<ActionResult> {
 
   const fightCount = MVP_FIGHTS.length
   return { success: true, message: `MVP MMA 1 seeded: ${Object.keys(MVP_FIGHTERS).length} fighters, ${fightCount} fights.` }
+}
+
+/**
+ * Patch the display_order of existing MVP MMA 1 fights to match the corrected
+ * MVP_FIGHTS array (main event = 10, opening fight = 1). Safe to call multiple
+ * times — skips fights whose order is already correct.
+ */
+export async function fixMvpFightOrder(): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+  const supabase = createServiceClient()
+
+  // Fetch existing MVP fights
+  const { data: fights, error: fetchErr } = await supabase
+    .from('fights')
+    .select('id, fighter1_id, fighter2_id, display_order')
+    .eq('event_id', MVP_EVENT_ID)
+
+  if (fetchErr || !fights?.length) return { error: fetchErr?.message ?? 'No MVP MMA fights found' }
+
+  // Build id→key lookup from fighter names
+  const fighterIds = [...new Set(fights.flatMap((f: any) => [f.fighter1_id, f.fighter2_id]))]
+  const { data: dbFighters } = await supabase.from('fighters').select('id, name').in('id', fighterIds)
+  const idToKey = new Map<string, string>()
+  for (const [key, spec] of Object.entries(MVP_FIGHTERS)) {
+    const row = (dbFighters ?? []).find((f: any) => f.name.toLowerCase() === spec.name.toLowerCase())
+    if (row) idToKey.set(row.id, key)
+  }
+
+  let updated = 0
+  for (const fight of fights as any[]) {
+    const k1 = idToKey.get(fight.fighter1_id)
+    const k2 = idToKey.get(fight.fighter2_id)
+    if (!k1 || !k2) continue
+    const row = MVP_FIGHTS.find(([a, b]) => (a === k1 && b === k2) || (a === k2 && b === k1))
+    if (!row) continue
+    const newOrder = row[7]
+    if (fight.display_order === newOrder) continue
+    await supabase.from('fights').update({ display_order: newOrder }).eq('id', fight.id)
+    updated++
+  }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/events', 'layout')
+  return { success: true, message: `Fixed display order for ${updated} MVP MMA fight${updated !== 1 ? 's' : ''}.` }
 }
 
 // ─── Fetch full MVP MMA undercard from Tapology ──────────────────────────────
