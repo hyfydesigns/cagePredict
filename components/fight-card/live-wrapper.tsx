@@ -58,6 +58,26 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   const hasPrev = activeIndex > 0
   const hasNext = activeIndex < events.length - 1
 
+  // ── Same-day double-header detection ────────────────────────────────────────
+  // Group events by calendar date so we can render side-by-side tabs when two
+  // or more events fall on the same day (e.g. UFC Fight Night + MVP MMA 1).
+  const dateGroups = useMemo(() => {
+    const g: Record<string, EventWithFights[]> = {}
+    for (const ev of events) {
+      const d = format(new Date(ev.date), 'yyyy-MM-dd')
+      ;(g[d] ??= []).push(ev)
+    }
+    return g
+  }, [events])
+
+  const activeEventDateKey = activeEvent ? format(new Date(activeEvent.date), 'yyyy-MM-dd') : null
+  const sameDayEvents      = activeEventDateKey ? (dateGroups[activeEventDateKey] ?? []) : []
+  const isDoubleHeader     = sameDayEvents.length > 1
+  // Events on other dates — used to show cross-day arrows underneath the tabs
+  const hasCrossDayEvents  = activeEventDateKey
+    ? events.some(e => format(new Date(e.date), 'yyyy-MM-dd') !== activeEventDateKey)
+    : false
+
   // Helper: update events + snap to live if one exists, otherwise keep current selection.
   const applyFreshEvents = (fresh: EventWithFights[]) => {
     setEvents(fresh)
@@ -205,50 +225,133 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         </div>
       )}
 
-      {/* Event navigation — arrows on each side, event name + date in centre */}
+      {/* Event navigation */}
       {events.length > 1 && (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveEventId(events[Math.max(0, activeIndex - 1)]?.id ?? activeEventId)}
-            disabled={!hasPrev}
-            aria-label="Previous event"
-            className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
+        isDoubleHeader ? (
+          /* ── Double-header: flame banner + side-by-side tabs ─────────────── */
+          <div className="space-y-2">
+            {/* Banner */}
+            <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-primary/10 to-amber-500/10 border border-amber-500/20">
+              <span className="text-sm" role="img" aria-label="fire">🔥</span>
+              <span className="text-xs font-black text-foreground tracking-widest uppercase">Double Header</span>
+              <span className="w-px h-3 bg-border/60" />
+              <span className="text-xs text-foreground-muted">
+                {format(new Date(activeEvent.date), 'MMMM d, yyyy')}
+              </span>
+            </div>
 
-          <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
-            {activeEvent.status === 'live' && (
-              <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse-red shrink-0" />
+            {/* Side-by-side event selector tabs */}
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${sameDayEvents.length}, 1fr)` }}
+            >
+              {sameDayEvents.map((ev) => {
+                const isActive = ev.id === activeEventId
+                return (
+                  <button
+                    key={ev.id}
+                    onClick={() => setActiveEventId(ev.id)}
+                    className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all min-w-0 ${
+                      isActive
+                        ? 'bg-surface-2 border-primary/40 text-foreground shadow-sm'
+                        : 'bg-surface/40 border-border/60 text-foreground-muted hover:text-foreground hover:bg-surface/80 hover:border-border'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0 w-full justify-center">
+                      {ev.status === 'live' && (
+                        <span className="shrink-0 h-2 w-2 rounded-full bg-primary animate-pulse-red" />
+                      )}
+                      <span className="truncate font-bold">{ev.name.split(':')[0].trim()}</span>
+                    </div>
+                    {ev.name.includes(':') && (
+                      <span className="text-[10px] text-foreground-muted truncate w-full text-center leading-none px-1">
+                        {ev.name.split(':').slice(1).join(':').trim()}
+                      </span>
+                    )}
+                    <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                      ev.status === 'live'
+                        ? 'bg-primary/20 text-primary'
+                        : ev.status === 'completed'
+                        ? 'bg-surface-3 text-foreground-muted'
+                        : isActive
+                        ? 'bg-primary/10 text-primary/80'
+                        : 'bg-surface-2 text-foreground-muted'
+                    }`}>
+                      {ev.status === 'live' ? '🔴 LIVE' : ev.status === 'completed' ? 'Completed' : 'Upcoming'}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Cross-day arrows — only if there are events on other dates too */}
+            {hasCrossDayEvents && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveEventId(events[Math.max(0, activeIndex - 1)]?.id ?? activeEventId)}
+                  disabled={!hasPrev}
+                  aria-label="Previous event"
+                  className="shrink-0 h-7 w-7 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <span className="flex-1 text-center text-[11px] text-foreground-muted">
+                  More events ({activeIndex + 1}/{events.length})
+                </span>
+                <button
+                  onClick={() => setActiveEventId(events[Math.min(events.length - 1, activeIndex + 1)]?.id ?? activeEventId)}
+                  disabled={!hasNext}
+                  aria-label="Next event"
+                  className="shrink-0 h-7 w-7 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
             )}
-            <span className="text-sm font-semibold text-foreground truncate">
-              {activeEvent.name.split(':')[0].trim()}
-            </span>
-            <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-              activeEvent.status === 'live'
-                ? 'bg-primary/20 text-primary'
-                : activeEvent.status === 'completed'
-                ? 'bg-surface-2 text-foreground-muted'
-                : 'bg-surface-2/80 text-foreground-muted'
-            }`}>
-              {activeEvent.status === 'live' ? 'LIVE' : format(new Date(activeEvent.date), 'MMM d')}
-            </span>
-            {events.length > 1 && (
+          </div>
+        ) : (
+          /* ── Default: arrows with event name + date in centre ───────────── */
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveEventId(events[Math.max(0, activeIndex - 1)]?.id ?? activeEventId)}
+              disabled={!hasPrev}
+              aria-label="Previous event"
+              className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+              {activeEvent.status === 'live' && (
+                <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse-red shrink-0" />
+              )}
+              <span className="text-sm font-semibold text-foreground truncate">
+                {activeEvent.name.split(':')[0].trim()}
+              </span>
+              <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                activeEvent.status === 'live'
+                  ? 'bg-primary/20 text-primary'
+                  : activeEvent.status === 'completed'
+                  ? 'bg-surface-2 text-foreground-muted'
+                  : 'bg-surface-2/80 text-foreground-muted'
+              }`}>
+                {activeEvent.status === 'live' ? 'LIVE' : format(new Date(activeEvent.date), 'MMM d')}
+              </span>
               <span className="shrink-0 text-[10px] text-foreground-muted">
                 {activeIndex + 1}/{events.length}
               </span>
-            )}
-          </div>
+            </div>
 
-          <button
-            onClick={() => setActiveEventId(events[Math.min(events.length - 1, activeIndex + 1)]?.id ?? activeEventId)}
-            disabled={!hasNext}
-            aria-label="Next event"
-            className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+            <button
+              onClick={() => setActiveEventId(events[Math.min(events.length - 1, activeIndex + 1)]?.id ?? activeEventId)}
+              disabled={!hasNext}
+              aria-label="Next event"
+              className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )
       )}
 
       {/* Active event */}
