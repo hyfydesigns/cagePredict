@@ -83,7 +83,12 @@ async function syncViaApiSports(
     const d     = new Date(event.date)
     const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 
-    log.push(`[api-sports] Checking ${event.name} (${dbFights.length} DB fights) for ${dateStr}`)
+    // Determine whether this is a UFC event so we can apply the right filter.
+    // Non-UFC events (e.g. MVP MMA, Bellator) are matched against ALL fights
+    // returned for that date — api-sports covers all MMA organisations.
+    const isUfcEvent = /ufc/i.test(event.name)
+
+    log.push(`[api-sports] Checking ${event.name} (${dbFights.length} DB fights) for ${dateStr} [${isUfcEvent ? 'UFC' : 'non-UFC — all orgs'}]`)
 
     let apiFights: Awaited<ReturnType<typeof getFightsByDate>>
     try {
@@ -94,25 +99,45 @@ async function syncViaApiSports(
 
       for (const tryDate of datesToTry) {
         const allFights = await getFightsByDate(tryDate, false)
-        const ufcFights = allFights.filter(
-          (f: any) =>
-            f.league?.id === UFC_LEAGUE_ID ||
-            f.league?.name?.toLowerCase().includes('ufc') ||
-            f.event?.name?.toLowerCase().includes('ufc') ||
-            f.slug?.toLowerCase().includes('ufc') ||       // new api-sports format
-            f.competition?.name?.toLowerCase().includes('ufc') ||
-            f.tournament?.name?.toLowerCase().includes('ufc') ||
-            // Last resort: if no discriminating field at all, include everything
-            (!f.league && !f.event && !f.slug)
-        )
-        log.push(`  [${tryDate}] ${allFights.length} total, ${ufcFights.length} UFC`)
-        if (allFights.length > 0 && ufcFights.length === 0) {
-          const sample = allFights[0]
-          log.push(`  Sample fight keys: ${Object.keys(sample).join(', ')}`)
-          log.push(`  Sample event: ${JSON.stringify((sample as any).event ?? (sample as any).competition ?? (sample as any).tournament ?? 'none')}`)
+
+        let relevantFights: typeof allFights
+        if (isUfcEvent) {
+          // UFC: filter to UFC bouts only to avoid false name matches from other orgs on same day
+          relevantFights = allFights.filter(
+            (f: any) =>
+              f.league?.id === UFC_LEAGUE_ID ||
+              f.league?.name?.toLowerCase().includes('ufc') ||
+              f.event?.name?.toLowerCase().includes('ufc') ||
+              f.slug?.toLowerCase().includes('ufc') ||
+              f.competition?.name?.toLowerCase().includes('ufc') ||
+              f.tournament?.name?.toLowerCase().includes('ufc') ||
+              // Last resort: if no discriminating field at all, include everything
+              (!f.league && !f.event && !f.slug)
+          )
+          log.push(`  [${tryDate}] ${allFights.length} total, ${relevantFights.length} UFC`)
+        } else {
+          // Non-UFC: use all fights — then name-match against this event's DB fighters
+          // to avoid picking up UFC bouts that happen on the same day.
+          const dbNames = new Set(
+            dbFights.flatMap((f: any) => [
+              norm(f.fighter1?.name ?? ''),
+              norm(f.fighter2?.name ?? ''),
+            ]).filter(Boolean)
+          )
+          relevantFights = allFights.filter((f: any) => {
+            const n1 = norm(f.fighters?.first?.name  ?? '')
+            const n2 = norm(f.fighters?.second?.name ?? '')
+            return dbNames.has(n1) || dbNames.has(n2)
+          })
+          log.push(`  [${tryDate}] ${allFights.length} total, ${relevantFights.length} matched to ${event.name}`)
+          if (allFights.length > 0 && relevantFights.length === 0) {
+            const sample = allFights[0]
+            log.push(`  Sample fight: ${sample.fighters?.first?.name} vs ${sample.fighters?.second?.name} | slug=${sample.slug ?? 'none'}`)
+          }
         }
-        if (ufcFights.length > 0) {
-          foundFights = ufcFights
+
+        if (relevantFights.length > 0) {
+          foundFights = relevantFights
           break
         }
       }
@@ -312,6 +337,14 @@ async function syncViaRapidApi(
     const day   = d.getUTCDate()
     const month = d.getUTCMonth() + 1
     const year  = d.getUTCFullYear()
+
+    // RapidAPI (mmaapi.p.rapidapi.com) only covers UFC via tournament 19906.
+    // Skip non-UFC events and log clearly so ops can see it in the cron output.
+    const isUfcEvent = /ufc/i.test(event.name)
+    if (!isUfcEvent) {
+      skipped.push(`[rapidapi] ${event.name} — RapidAPI is UFC-only; use api-sports for non-UFC events`)
+      continue
+    }
 
     log.push(`[rapidapi] Checking ${event.name} (${dbFights.length} DB fights) for ${year}-${month}-${day}`)
 
