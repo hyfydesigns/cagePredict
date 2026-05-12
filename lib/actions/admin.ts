@@ -1866,12 +1866,50 @@ export async function deleteFight(fightId: string): Promise<ActionResult> {
   return { success: true, message: 'Fight deleted.' }
 }
 
-// ─── MVP MMA: Rousey vs. Carano (May 16 2026, Netflix) ──────────────────────
+// ─── MVP MMA 1: Rousey vs. Carano (May 16 2026, Netflix × Jake Paul) ─────────
+// Full card sourced from BestFightOdds (May 2026)
 
-const MVP_EVENT_ID    = 'e0000003-0000-0000-0000-000000000001'
-const MVP_ROUSEY_ID   = 'f0000003-0000-0000-0000-000000000001'
-const MVP_CARANO_ID   = 'f0000003-0000-0000-0000-000000000002'
-const MVP_MAIN_FID    = 'b0000003-0000-0000-0000-000000000001'
+const MVP_EVENT_ID = 'e0000003-0000-0000-0000-000000000001'
+const MVP_EVENT_DATE = '2026-05-17T02:00:00Z'  // May 16 ~10 PM ET / 7 PM PT
+
+// Stable fighter IDs for everyone on this card
+const MVP_FIGHTERS: Record<string, { id: string; name: string; nickname?: string; nationality: string; flag: string; record: string; wins: number; losses: number; draws: number; wc: string; height?: number; reach?: number; age?: number; style?: string; ko?: number; sub?: number; dec?: number; form?: string; analysis: string }> = {
+  rousey:    { id: 'f0000003-0000-0000-0000-000000000001', name: 'Ronda Rousey',        nickname: 'Rowdy',          nationality: 'United States', flag: '🇺🇸', record: '12-2-0', wins: 12, losses: 2,  draws: 0, wc: "Women's Bantamweight", height: 168, reach: 168, age: 38, style: 'Judo',      ko: 3,  sub: 7, dec: 2, form: 'WLWWL', analysis: 'The pioneer of women\'s MMA and first female UFC champion. Won her first 12 fights — 9 by armbar — before knockout losses to Holm and Nunes. Returning at 38, her judo and submission game remain elite if she survives early contact.' },
+  carano:    { id: 'f0000003-0000-0000-0000-000000000002', name: 'Gina Carano',          nickname: 'Conviction',     nationality: 'United States', flag: '🇺🇸', record: '7-1-0',  wins: 7,  losses: 1,  draws: 0, wc: "Women's Bantamweight", height: 168, reach: 168, age: 43, style: 'Muay Thai', ko: 2,  sub: 2, dec: 3, form: 'LWWWW', analysis: 'One of the faces that put women\'s MMA on the map. Only career loss to Cyborg Santos in 2009. A powerful Muay Thai striker returning after years away from competition.' },
+  perry:     { id: 'f0000003-0000-0000-0000-000000000003', name: 'Mike Perry',            nickname: 'Platinum',       nationality: 'United States', flag: '🇺🇸', record: '20-9-0', wins: 20, losses: 9,  draws: 0, wc: 'Welterweight',         height: 183, reach: 188, age: 32, style: 'Boxing',    ko: 14, sub: 1, dec: 5, form: 'WWWWW', analysis: 'The most entertaining brawler in MMA. All business on the feet, Perry has knocked out or TKO\'d 14 of his 20 wins. Since joining BKFC he has looked sharper than ever.' },
+  diaz:      { id: 'f0000003-0000-0000-0000-000000000004', name: 'Nate Diaz',             nickname: 'Stockton Slugger', nationality: 'United States', flag: '🇺🇸', record: '22-13-0', wins: 22, losses: 13, draws: 0, wc: 'Welterweight',        height: 183, reach: 190, age: 40, style: 'Boxing/BJJ', ko: 6, sub: 11, dec: 5, form: 'WLLWL', analysis: 'A fan favourite and cult hero. Diaz lives and dies by his pressure boxing and elite cardio. He has submitted opponents no one expected him to submit and has never been finished by strikes.' },
+  ngannou:   { id: 'f0000003-0000-0000-0000-000000000005', name: 'Francis Ngannou',       nickname: 'The Predator',   nationality: 'Cameroon',      flag: '🇨🇲', record: '17-3-0', wins: 17, losses: 3,  draws: 0, wc: 'Heavyweight',          height: 193, reach: 211, age: 38, style: 'Power Punching', ko: 12, sub: 1, dec: 4, form: 'LWWWW', analysis: 'Measured as the hardest puncher in combat sports history. Former UFC Heavyweight Champion with devastating knockout power in either hand. Any fight he is in can end at any moment.' },
+  lins:      { id: 'f0000003-0000-0000-0000-000000000006', name: 'Philipe Lins',           nickname: 'Monstro',        nationality: 'Brazil',        flag: '🇧🇷', record: '16-6-0', wins: 16, losses: 6,  draws: 0, wc: 'Heavyweight',          height: 193, reach: 198, age: 37, style: 'Wrestling',  ko: 8,  sub: 3, dec: 5, form: 'LWWLW', analysis: 'A physical heavyweight with solid wrestling and good finishing instincts. Has wins over notable opponents but faces an enormous power disadvantage against Ngannou.' },
+  moraes:    { id: 'f0000003-0000-0000-0000-000000000007', name: 'Adriano Moraes',         nickname: 'Mikinho',        nationality: 'Brazil',        flag: '🇧🇷', record: '21-4-0', wins: 21, losses: 4,  draws: 0, wc: 'Flyweight',            height: 168, reach: 168, age: 34, style: 'BJJ',        ko: 3,  sub: 10, dec: 8, form: 'LWWWL', analysis: 'Two-time ONE Championship flyweight champion and one of the most decorated flyweights outside the UFC. His submission game is elite and his experience at the highest level shows.' },
+  mokaev:    { id: 'f0000003-0000-0000-0000-000000000008', name: 'Muhammad Mokaev',        nickname: 'The Punisher',   nationality: 'United Kingdom', flag: '🇬🇧', record: '11-1-0', wins: 11, losses: 1,  draws: 0, wc: 'Flyweight',            height: 163, reach: 168, age: 24, style: 'Wrestling/BJJ', ko: 1, sub: 6, dec: 4, form: 'LWWWW', analysis: 'A former UFC flyweight who left the organisation and is one of the most physically dominant grapplers in his division. Young, dangerous, and hungry to prove himself on a big stage.' },
+  cross:     { id: 'f0000003-0000-0000-0000-000000000009', name: 'Kenneth Cross',          nationality: 'United States', flag: '🇺🇸', record: '8-1-0',  wins: 8,  losses: 1,  draws: 0, wc: 'Lightweight',          height: 175, reach: 178, age: 27, style: 'Boxing',    ko: 5, sub: 1, dec: 2, form: 'WWWWW', analysis: 'A hard-hitting lightweight with KO power who has dispatched most of his opponents quickly. Faces a serious step up in competition against Parnasse.' },
+  parnasse:  { id: 'f0000003-0000-0000-0000-000000000010', name: 'Salahdine Parnasse',     nickname: 'The Snake',      nationality: 'France',        flag: '🇫🇷', record: '34-4-0', wins: 34, losses: 4,  draws: 0, wc: 'Lightweight',          height: 178, reach: 183, age: 28, style: 'Karate/Striking', ko: 10, sub: 8, dec: 16, form: 'WWWWW', analysis: 'One of Europe\'s most accomplished lightweights with an exceptional record. Technically brilliant on the feet with a diverse finishing arsenal.' },
+  jds:       { id: 'f0000003-0000-0000-0000-000000000011', name: 'Junior Dos Santos',      nickname: 'Cigano',         nationality: 'Brazil',        flag: '🇧🇷', record: '21-10-0', wins: 21, losses: 10, draws: 0, wc: 'Heavyweight',          height: 193, reach: 203, age: 41, style: 'Boxing',    ko: 15, sub: 1, dec: 5, form: 'WLLWL', analysis: 'Former UFC Heavyweight Champion and one of the best heavyweight boxers in MMA history. At 41 his power and technique still command respect.' },
+  despaigne: { id: 'f0000003-0000-0000-0000-000000000012', name: 'Robelis Despaigne',      nationality: 'Cuba',         flag: '🇨🇺', record: '10-2-0', wins: 10, losses: 2,  draws: 0, wc: 'Heavyweight',          height: 188, reach: 193, age: 31, style: 'Boxing',    ko: 8, sub: 0, dec: 2, form: 'WWWWL', analysis: 'A decorated Cuban amateur boxer who has transitioned to MMA with devastating KO power. His striking is raw but extremely dangerous.' },
+  babian:    { id: 'f0000003-0000-0000-0000-000000000013', name: 'Jake Babian',             nationality: 'United States', flag: '🇺🇸', record: '12-2-0', wins: 12, losses: 2,  draws: 0, wc: 'Featherweight',         height: 170, reach: 175, age: 26, style: 'Wrestling',  ko: 4, sub: 4, dec: 4, form: 'WWWWW', analysis: 'A well-rounded featherweight with a complete game and excellent finishing rate across multiple methods.' },
+  fazil:     { id: 'f0000003-0000-0000-0000-000000000014', name: 'Namo Fazil',              nationality: 'United States', flag: '🇺🇸', record: '9-3-0',  wins: 9,  losses: 3,  draws: 0, wc: 'Featherweight',         height: 170, reach: 173, age: 28, style: 'Muay Thai', ko: 5, sub: 2, dec: 2, form: 'WWLWW', analysis: 'A striking specialist with solid Muay Thai fundamentals and dangerous finishing ability on the feet.' },
+  morales:   { id: 'f0000003-0000-0000-0000-000000000015', name: 'Albert Morales',          nationality: 'United States', flag: '🇺🇸', record: '10-3-0', wins: 10, losses: 3,  draws: 0, wc: 'Bantamweight',          height: 163, reach: 167, age: 29, style: 'Boxing',    ko: 6, sub: 1, dec: 3, form: 'WWWLW', analysis: 'A durable bantamweight with solid boxing and a granite chin who is looking to make his mark on a big card.' },
+  mgoyan:    { id: 'f0000003-0000-0000-0000-000000000016', name: 'David Mgoyan',            nationality: 'Armenia',      flag: '🇦🇲', record: '8-2-0',  wins: 8,  losses: 2,  draws: 0, wc: 'Bantamweight',          height: 163, reach: 165, age: 27, style: 'Sambo',     ko: 3, sub: 3, dec: 2, form: 'WWWWL', analysis: 'A sambo specialist with KO and submission ability. Dangerous off his back and on his feet.' },
+  apereira:  { id: 'f0000003-0000-0000-0000-000000000017', name: 'Aline Pereira',           nickname: 'Crush',          nationality: 'Brazil',        flag: '🇧🇷', record: '7-2-0',  wins: 7,  losses: 2,  draws: 0, wc: "Women's Flyweight",   height: 168, reach: 170, age: 30, style: 'Karate/Striking', ko: 4, sub: 0, dec: 3, form: 'LWWWW', analysis: 'A dynamic karate-based striker with devastating power for her division. Has finished opponents from seemingly nowhere with her explosive combinations.' },
+  masson:    { id: 'f0000003-0000-0000-0000-000000000018', name: 'Jade Masson-Wong',        nationality: 'Canada',       flag: '🇨🇦', record: '6-3-0',  wins: 6,  losses: 3,  draws: 0, wc: "Women's Flyweight",   height: 163, reach: 165, age: 27, style: 'BJJ',       ko: 1, sub: 3, dec: 2, form: 'WLLWW', analysis: 'A grappling-heavy flyweight who looks to control the pace on the ground. Will need to avoid the striking power of Aline Pereira.' },
+  jenkins:   { id: 'f0000003-0000-0000-0000-000000000019', name: 'Brandon Jenkins',         nationality: 'United States', flag: '🇺🇸', record: '7-2-0',  wins: 7,  losses: 2,  draws: 0, wc: 'Lightweight',          height: 175, reach: 178, age: 28, style: 'Boxing',    ko: 4, sub: 1, dec: 2, form: 'WWWWL', analysis: 'A scrappy lightweight with sharp hands and a never-quit attitude who is looking to upset the odds on a massive platform.' },
+  avila:     { id: 'f0000003-0000-0000-0000-000000000020', name: 'Chris Avila',             nickname: 'The Problem Child\'s Cousin', nationality: 'United States', flag: '🇺🇸', record: '5-1-0', wins: 5, losses: 1, draws: 0, wc: 'Lightweight', height: 178, reach: 180, age: 29, style: 'Boxing', ko: 2, sub: 0, dec: 3, form: 'WWWWL', analysis: 'Jake Paul\'s cousin and training partner who has shown legitimate fighting ability beyond his celebrity connections. Looking to prove himself on a huge stage.' },
+}
+
+// Fight card: [fighter1Key, fighter2Key, weightClass, isMain, isTitleFight, oddsF1, oddsF2, displayOrder]
+type MvpFightRow = [string, string, string, boolean, boolean, number, number, number]
+const MVP_FIGHTS: MvpFightRow[] = [
+  ['rousey',   'carano',    "Women's Catchweight", true,  false, -480,  365,  1],
+  ['perry',    'diaz',      'Welterweight',         false, false, -213,  165,  2],
+  ['ngannou',  'lins',      'Heavyweight',          false, false, -1000, 650,  3],
+  ['moraes',   'mokaev',    'Flyweight',            false, false, -150,  120,  4],
+  ['cross',    'parnasse',  'Lightweight',          false, false, -110, -110,  5],
+  ['jds',      'despaigne', 'Heavyweight',          false, false, -130,  105,  6],
+  ['babian',   'fazil',     'Featherweight',        false, false, -150,  120,  7],
+  ['morales',  'mgoyan',    'Bantamweight',         false, false, -130,  105,  8],
+  ['apereira', 'masson',    "Women's Flyweight",    false, false, -200,  160,  9],
+  ['jenkins',  'avila',     'Lightweight',          false, false, -150,  120, 10],
+]
 
 export async function seedMvpMmaEvent(): Promise<ActionResult> {
   const auth = await requireAdmin()
@@ -1879,106 +1917,99 @@ export async function seedMvpMmaEvent(): Promise<ActionResult> {
 
   const supabase = createServiceClient()
 
-  // ── 1. Fighters ────────────────────────────────────────────────────────────
-  const fighters = [
-    {
-      id:               MVP_ROUSEY_ID,
-      name:             'Ronda Rousey',
-      nickname:         'Rowdy',
-      nationality:      'United States',
-      flag_emoji:       '🇺🇸',
-      record:           '12-2-0',
-      wins:             12,
-      losses:           2,
-      draws:            0,
-      weight_class:     "Women's Bantamweight",
-      height_cm:        168,
-      reach_cm:         168,
-      age:              38,
-      fighting_style:   'Judo',
-      ko_tko_wins:      3,
-      sub_wins:         7,
-      dec_wins:         2,
-      last_5_form:      'WLWWL',
-      image_url:        null as string | null,
-      analysis:         'Ronda Rousey is the pioneer of women\'s MMA and the first female UFC champion. A world-class judoka, she won her first 12 fights — 9 by armbar — before suffering back-to-back knockout losses to Holly Holm and Amanda Nunes. Now 38 and returning after years away from the sport, she remains one of the most dangerous submission artists in history if she can survive early contact.',
-    },
-    {
-      id:               MVP_CARANO_ID,
-      name:             'Gina Carano',
-      nickname:         'Conviction',
-      nationality:      'United States',
-      flag_emoji:       '🇺🇸',
-      record:           '7-1-0',
-      wins:             7,
-      losses:           1,
-      draws:            0,
-      weight_class:     "Women's Bantamweight",
-      height_cm:        168,
-      reach_cm:         168,
-      age:              43,
-      fighting_style:   'Muay Thai',
-      ko_tko_wins:      2,
-      sub_wins:         2,
-      dec_wins:         3,
-      last_5_form:      'LWWWW',
-      image_url:        null as string | null,
-      analysis:         'Gina Carano helped put women\'s MMA on the map alongside Rousey. A standout Muay Thai striker, her only career loss came to Cristiane "Cyborg" Santos in 2009. At 43 and returning from a long acting career, Carano\'s striking and physicality remain respected, but ring rust and age are significant question marks against a submission specialist like Rousey.',
-    },
-  ]
+  // ── 1. Upsert all fighters ─────────────────────────────────────────────────
+  // Check existing fighters by name first so we don't create duplicates
+  // if someone like Ngannou was already imported from a UFC event
+  const { data: existing } = await supabase.from('fighters').select('id, name')
+  const existingByName = new Map<string, string>()
+  for (const f of (existing ?? [])) existingByName.set((f as any).name.toLowerCase().trim(), (f as any).id)
 
-  const { error: fighterErr } = await supabase
-    .from('fighters')
-    .upsert(fighters, { onConflict: 'id', ignoreDuplicates: false })
-  if (fighterErr) return { error: `Fighters: ${fighterErr.message}` }
+  const idMap: Record<string, string> = {}
 
-  // ── 2. Event ───────────────────────────────────────────────────────────────
-  const eventDate = '2026-05-17T02:00:00Z'   // May 16 ~10 PM ET / 7 PM PT
+  for (const [key, f] of Object.entries(MVP_FIGHTERS)) {
+    const existingId = existingByName.get(f.name.toLowerCase().trim())
+    idMap[key] = existingId ?? f.id
 
-  const { error: eventErr } = await supabase
-    .from('events')
-    .upsert({
-      id:       MVP_EVENT_ID,
-      name:     'MVP MMA: Rousey vs. Carano',
-      date:     eventDate,
-      location: 'Inglewood, CA',
-      venue:    'Intuit Dome',
-      status:   'upcoming',
-      image_url: null,
+    await supabase.from('fighters').upsert({
+      id:               idMap[key],
+      name:             f.name,
+      nickname:         f.nickname ?? null,
+      nationality:      f.nationality,
+      flag_emoji:       f.flag,
+      record:           f.record,
+      wins:             f.wins,
+      losses:           f.losses,
+      draws:            f.draws,
+      weight_class:     f.wc,
+      height_cm:        f.height ?? null,
+      reach_cm:         f.reach  ?? null,
+      age:              f.age    ?? null,
+      fighting_style:   f.style  ?? null,
+      ko_tko_wins:      f.ko     ?? null,
+      sub_wins:         f.sub    ?? null,
+      dec_wins:         f.dec    ?? null,
+      last_5_form:      f.form   ?? null,
+      analysis:         f.analysis,
+      image_url:        existingByName.has(f.name.toLowerCase().trim()) ? undefined : null,
     }, { onConflict: 'id', ignoreDuplicates: false })
+  }
+
+  // ── 2. Upsert event ────────────────────────────────────────────────────────
+  const { error: eventErr } = await supabase.from('events').upsert({
+    id:        MVP_EVENT_ID,
+    name:      'MVP MMA 1: Rousey vs. Carano',
+    date:      MVP_EVENT_DATE,
+    location:  'Inglewood, CA',
+    venue:     'Intuit Dome',
+    status:    'upcoming',
+    image_url: null,
+  }, { onConflict: 'id', ignoreDuplicates: false })
   if (eventErr) return { error: `Event: ${eventErr.message}` }
 
-  // ── 3. Fight ───────────────────────────────────────────────────────────────
-  const { error: fightErr } = await supabase
-    .from('fights')
-    .upsert({
-      id:            MVP_MAIN_FID,
-      event_id:      MVP_EVENT_ID,
-      fighter1_id:   MVP_ROUSEY_ID,
-      fighter2_id:   MVP_CARANO_ID,
-      weight_class:  "Women's Catchweight",
-      is_main_event: true,
-      is_title_fight: false,
-      fight_type:    'main',
-      display_order: 1,
-      status:        'upcoming',
-      fight_time:    eventDate,
-      odds_f1:       -150,
-      odds_f2:       +120,
-      winner_id:     null,
-      method:        null,
-      round:         null,
-    }, { onConflict: 'id', ignoreDuplicates: false })
-  if (fightErr) return { error: `Fight: ${fightErr.message}` }
+  // ── 3. Upsert fights ───────────────────────────────────────────────────────
+  // Check existing fights to avoid duplicates
+  const { data: existingFights } = await supabase
+    .from('fights').select('id, fighter1_id, fighter2_id').eq('event_id', MVP_EVENT_ID)
+  const existingPairs = new Set(
+    (existingFights ?? []).map((f: any) => [f.fighter1_id, f.fighter2_id].sort().join('|'))
+  )
+  const existingById = new Map((existingFights ?? []).map((f: any) => [[f.fighter1_id, f.fighter2_id].sort().join('|'), f.id]))
 
-  // ── 4. Enrich fighters from ESPN ──────────────────────────────────────────
-  // Attempt ESPN enrichment in the background (image + stats)
-  for (const name of ['Ronda Rousey', 'Gina Carano']) {
-    const id = name === 'Ronda Rousey' ? MVP_ROUSEY_ID : MVP_CARANO_ID
+  for (const [f1Key, f2Key, wc, isMain, isTitle, oddsF1, oddsF2, order] of MVP_FIGHTS) {
+    const f1Id = idMap[f1Key]
+    const f2Id = idMap[f2Key]
+    const pair = [f1Id, f2Id].sort().join('|')
+    const fightId = existingById.get(pair) ?? crypto.randomUUID()
+
+    await supabase.from('fights').upsert({
+      id:             fightId,
+      event_id:       MVP_EVENT_ID,
+      fighter1_id:    f1Id,
+      fighter2_id:    f2Id,
+      weight_class:   wc,
+      is_main_event:  isMain,
+      is_title_fight: isTitle,
+      fight_type:     'main',
+      display_order:  order,
+      status:         'upcoming',
+      fight_time:     MVP_EVENT_DATE,
+      odds_f1:        oddsF1,
+      odds_f2:        oddsF2,
+      winner_id:      null,
+      method:         null,
+      round:          null,
+    }, { onConflict: 'id', ignoreDuplicates: false })
+
+    existingPairs.add(pair)
+  }
+
+  // ── 4. ESPN enrichment (images + stats) ───────────────────────────────────
+  const enrichNames = Object.values(MVP_FIGHTERS).map((f) => ({ name: f.name, id: idMap[Object.keys(MVP_FIGHTERS).find((k) => MVP_FIGHTERS[k] === f)!] }))
+  for (const { name, id } of enrichNames) {
     const espn = await enrichFighterFromEspn(name).catch(() => null)
     if (!espn) continue
     await supabase.from('fighters').update({
-      ...(espn.image_url ? { image_url: espn.image_url } : {}),
+      ...(espn.image_url          ? { image_url:          espn.image_url          } : {}),
       ...(espn.striking_accuracy != null ? { striking_accuracy: espn.striking_accuracy } : {}),
       ...(espn.sig_str_landed    != null ? { sig_str_landed:    espn.sig_str_landed    } : {}),
       ...(espn.td_avg            != null ? { td_avg:            espn.td_avg            } : {}),
@@ -1990,7 +2021,8 @@ export async function seedMvpMmaEvent(): Promise<ActionResult> {
   revalidatePath('/admin')
   revalidatePath('/events', 'layout')
 
-  return { success: true, message: 'MVP MMA: Rousey vs. Carano added successfully.' }
+  const fightCount = MVP_FIGHTS.length
+  return { success: true, message: `MVP MMA 1 seeded: ${Object.keys(MVP_FIGHTERS).length} fighters, ${fightCount} fights.` }
 }
 
 // ─── Fetch full MVP MMA undercard from Tapology ──────────────────────────────

@@ -437,23 +437,15 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             <Zap className="h-4 w-4 text-red-400" /> MVP MMA: Rousey vs. Carano
           </h2>
           <p className="text-foreground-muted text-sm mt-1">
-            Netflix × Jake Paul — May 16 2026, Intuit Dome. Step 1: seed the event + main event. Step 2: pull the full undercard from Tapology.
+            Netflix × Jake Paul — May 16 2026, Intuit Dome. Seeds all 10 fights and 20 fighters (Rousey, Carano, Ngannou, Diaz, Perry, JDS + more) with real odds. Safe to re-run.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={handleMvpSeed} disabled={isMvpSeedPending} variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
-            {isMvpSeedPending
-              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Adding…</>
-              : <><Download className="h-4 w-4 mr-1.5" />1. Add Event + Main Event</>
-            }
-          </Button>
-          <Button onClick={handleMvpUndercard} disabled={isMvpUndercardPending} variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
-            {isMvpUndercardPending
-              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Fetching…</>
-              : <><Radio className="h-4 w-4 mr-1.5" />2. Import Undercard from Tapology</>
-            }
-          </Button>
-        </div>
+        <Button onClick={handleMvpSeed} disabled={isMvpSeedPending} variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
+          {isMvpSeedPending
+            ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Seeding…</>
+            : <><Download className="h-4 w-4 mr-1.5" />Seed Full MVP MMA Card</>
+          }
+        </Button>
       </div>
 
       {/* Deduplicate Fights */}
