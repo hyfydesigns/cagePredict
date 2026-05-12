@@ -2010,14 +2010,30 @@ export async function fetchMvpMmaUndercard(): Promise<ActionResult & { added?: n
 
   if (!mvpEvent) return { error: 'MVP MMA event not found. Run "Add MVP MMA Event" first.' }
 
-  // Search Tapology for the event
-  const events = await searchUpcomingEvents('MVP')
-  const mvpTap = events.find((e) =>
-    /rousey/i.test(e.organization) || /carano/i.test(e.organization) ||
-    /rousey/i.test(e.main_event)   || /carano/i.test(e.main_event)
+  // Search Tapology under several possible org names / keywords
+  const searches = await Promise.all([
+    searchUpcomingEvents('MVP'),
+    searchUpcomingEvents('Most Valuable'),
+    searchUpcomingEvents('Rousey'),
+  ])
+  const allEvents = searches.flat()
+
+  // Also try fetching all upcoming events (no org filter) — up to 3 pages
+  const { getUpcomingEventsByOrg } = await import('@/lib/apis/tapology')
+  const allUpcoming = await getUpcomingEventsByOrg('')
+  allEvents.push(...allUpcoming)
+
+  const mvpTap = allEvents.find((e) =>
+    /rousey/i.test(e.organization)  || /carano/i.test(e.organization)  ||
+    /rousey/i.test(e.main_event)    || /carano/i.test(e.main_event)    ||
+    /most.?valuable/i.test(e.organization) || /mvp.?mma/i.test(e.organization)
   )
 
-  if (!mvpTap) return { error: 'MVP MMA event not found on Tapology yet. Try again closer to the event.' }
+  if (!mvpTap) {
+    // Return the org names we found so we can diagnose
+    const found = [...new Set(allEvents.map((e) => e.organization))].slice(0, 20).join(', ')
+    return { error: `MVP MMA event not found on Tapology. Events found: ${found || 'none'}` }
+  }
 
   const fightCard = mvpTap.fight_card
   if (!fightCard || !Object.keys(fightCard).length) {
