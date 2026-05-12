@@ -10,7 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard } from '@/lib/actions/admin'
 import { syncEventOdds } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -96,7 +96,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   })
   const [completingFight, setCompletingFight] = useState<string | null>(null)
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({})
-  const [isMvpSeedPending, startMvpSeedTransition] = useTransition()
+  const [isMvpSeedPending, startMvpSeedTransition]           = useTransition()
+  const [isMvpUndercardPending, startMvpUndercardTransition] = useTransition()
   const [deletedFightIds, setDeletedFightIds] = useState<Set<string>>(new Set())
   const [fetchDate, setFetchDate] = useState(() => {
     const d = new Date()
@@ -169,6 +170,17 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
         toast({ title: 'MVP seed failed', description: result.error, variant: 'destructive' })
       } else {
         toast({ title: 'MVP MMA event added!', description: result.message })
+      }
+    })
+  }
+
+  function handleMvpUndercard() {
+    startMvpUndercardTransition(async () => {
+      const result = await fetchMvpMmaUndercard()
+      if (result.error) {
+        toast({ title: 'Undercard fetch failed', description: result.error, variant: 'destructive' })
+      } else {
+        toast({ title: 'Undercard imported!', description: result.message })
       }
     })
   }
@@ -425,15 +437,23 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
             <Zap className="h-4 w-4 text-red-400" /> MVP MMA: Rousey vs. Carano
           </h2>
           <p className="text-foreground-muted text-sm mt-1">
-            Add the Netflix × Jake Paul MVP MMA main event (May 16 2026, Intuit Dome) — Ronda Rousey vs. Gina Carano. Safe to run again (upsert).
+            Netflix × Jake Paul — May 16 2026, Intuit Dome. Step 1: seed the event + main event. Step 2: pull the full undercard from Tapology.
           </p>
         </div>
-        <Button onClick={handleMvpSeed} disabled={isMvpSeedPending} variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
-          {isMvpSeedPending
-            ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Adding…</>
-            : <><Download className="h-4 w-4 mr-1.5" />Add MVP MMA Event</>
-          }
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleMvpSeed} disabled={isMvpSeedPending} variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
+            {isMvpSeedPending
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Adding…</>
+              : <><Download className="h-4 w-4 mr-1.5" />1. Add Event + Main Event</>
+            }
+          </Button>
+          <Button onClick={handleMvpUndercard} disabled={isMvpUndercardPending} variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
+            {isMvpUndercardPending
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Fetching…</>
+              : <><Radio className="h-4 w-4 mr-1.5" />2. Import Undercard from Tapology</>
+            }
+          </Button>
+        </div>
       </div>
 
       {/* Deduplicate Fights */}

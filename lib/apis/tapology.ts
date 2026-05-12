@@ -36,21 +36,19 @@ export function parseTapologyDate(datetime: string): { month: number; day: numbe
   return month ? { month, day } : null
 }
 
-/**
- * Fetch all upcoming UFC events from the Tapology API.
- * Returns an empty array if RAPIDAPI_KEY is not configured or the request fails.
- */
-export async function getUpcomingUFCEvents(): Promise<TapologyEvent[]> {
+async function fetchTapologyEvents(params: Record<string, string>): Promise<TapologyEvent[]> {
   const key = process.env.RAPIDAPI_KEY
   if (!key) return []
 
-  const url =
-    `https://${HOST}/api/v2/events` +
-    `?fields=organization%2Cmain_event%2Cdatetime%2Cfight_card` +
-    `&organization=UFC&past=false&page=1`
+  const qs = new URLSearchParams({
+    fields: 'organization,main_event,datetime,fight_card',
+    past: 'false',
+    page: '1',
+    ...params,
+  }).toString()
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(`https://${HOST}/api/v2/events?${qs}`, {
       headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': HOST },
       cache: 'no-store',
     })
@@ -60,4 +58,58 @@ export async function getUpcomingUFCEvents(): Promise<TapologyEvent[]> {
   } catch {
     return []
   }
+}
+
+/**
+ * Fetch all upcoming UFC events from the Tapology API.
+ * Returns an empty array if RAPIDAPI_KEY is not configured or the request fails.
+ */
+export async function getUpcomingUFCEvents(): Promise<TapologyEvent[]> {
+  return fetchTapologyEvents({ organization: 'UFC' })
+}
+
+/**
+ * Fetch upcoming events for any organization (e.g. "MVP MMA", "Bellator").
+ * Pass an empty string to get all upcoming events across all orgs.
+ */
+export async function getUpcomingEventsByOrg(organization: string): Promise<TapologyEvent[]> {
+  return fetchTapologyEvents(organization ? { organization } : {})
+}
+
+/**
+ * Search upcoming events for a keyword in the organization/event name.
+ * Fetches up to 3 pages and returns events whose org name contains the keyword (case-insensitive).
+ */
+export async function searchUpcomingEvents(keyword: string): Promise<TapologyEvent[]> {
+  const key = process.env.RAPIDAPI_KEY
+  if (!key) return []
+
+  const results: TapologyEvent[] = []
+  const norm = keyword.toLowerCase()
+
+  for (let page = 1; page <= 3; page++) {
+    const qs = new URLSearchParams({
+      fields: 'organization,main_event,datetime,fight_card',
+      past: 'false',
+      page: String(page),
+    }).toString()
+
+    try {
+      const res = await fetch(`https://${HOST}/api/v2/events?${qs}`, {
+        headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': HOST },
+        cache: 'no-store',
+      })
+      if (!res.ok) break
+      const data = await res.json()
+      const events: TapologyEvent[] = data.events ?? []
+      if (!events.length) break
+      for (const ev of events) {
+        if (ev.organization.toLowerCase().includes(norm)) results.push(ev)
+      }
+    } catch {
+      break
+    }
+  }
+
+  return results
 }

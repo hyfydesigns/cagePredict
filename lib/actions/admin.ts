@@ -7,7 +7,7 @@ import { SEED_EVENTS, SEED_FIGHTERS } from '@/seeds/seed-data'
 import { sendCardLiveEmails } from '@/lib/actions/emails'
 import { isAdmin } from '@/lib/auth/is-admin'
 import { runSyncResults } from '@/lib/sync-results'
-import { getUpcomingUFCEvents, parseTapologyDate, type TapologyEvent } from '@/lib/apis/tapology'
+import { getUpcomingUFCEvents, searchUpcomingEvents, parseTapologyDate, type TapologyEvent } from '@/lib/apis/tapology'
 import { getUFCStatsData, calcWinBreakdown } from '@/lib/apis/ufc-stats'
 import { enrichFighterFromEspn } from '@/lib/apis/espn'
 import {
@@ -1989,4 +1989,140 @@ export async function seedMvpMmaEvent(): Promise<ActionResult> {
   revalidatePath('/events', 'layout')
 
   return { success: true, message: 'MVP MMA: Rousey vs. Carano added successfully.' }
+}
+
+// ─── Fetch full MVP MMA undercard from Tapology ──────────────────────────────
+
+export async function fetchMvpMmaUndercard(): Promise<ActionResult & { added?: number }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+
+  // Find the MVP event in our DB first
+  const { data: mvpEvent } = await supabase
+    .from('events')
+    .select('id, name')
+    .eq('id', MVP_EVENT_ID)
+    .maybeSingle()
+
+  if (!mvpEvent) return { error: 'MVP MMA event not found. Run "Add MVP MMA Event" first.' }
+
+  // Search Tapology for the event
+  const events = await searchUpcomingEvents('MVP')
+  const mvpTap = events.find((e) =>
+    /rousey/i.test(e.organization) || /carano/i.test(e.organization) ||
+    /rousey/i.test(e.main_event)   || /carano/i.test(e.main_event)
+  )
+
+  if (!mvpTap) return { error: 'MVP MMA event not found on Tapology yet. Try again closer to the event.' }
+
+  const fightCard = mvpTap.fight_card
+  if (!fightCard || !Object.keys(fightCard).length) {
+    return { error: 'Tapology returned the event but the fight card is empty.' }
+  }
+
+  // Get existing fighters to resolve names → IDs
+  const { data: existingFighters } = await supabase.from('fighters').select('id, name')
+  const fighterByName = new Map<string, string>()
+  for (const f of (existingFighters ?? [])) {
+    fighterByName.set((f as any).name.toLowerCase().trim(), (f as any).id)
+  }
+
+  // Get existing fights for this event to avoid duplicates
+  const { data: existingFights } = await supabase
+    .from('fights')
+    .select('fighter1_id, fighter2_id')
+    .eq('event_id', MVP_EVENT_ID)
+  const existingPairs = new Set(
+    (existingFights ?? []).map((f: any) => [f.fighter1_id, f.fighter2_id].sort().join('|'))
+  )
+
+  const eventDate = '2026-05-17T02:00:00Z'
+  let added = 0
+  let displayOrder = 2   // main event is 1
+
+  const norm = (s: string) => s.toLowerCase().trim()
+
+  for (const [, fight] of Object.entries(fightCard)) {
+    // "Fighter1 vs. Fighter2" or "Fighter1 vs Fighter2"
+    const parts = fight.fight.split(/\s+vs\.?\s+/i)
+    if (parts.length < 2) continue
+    const [name1Raw, name2Raw] = parts
+    const name1 = name1Raw.trim()
+    const name2 = name2Raw.trim()
+
+    // Upsert fighters if not already in DB
+    let f1Id = fighterByName.get(norm(name1))
+    let f2Id = fighterByName.get(norm(name2))
+
+    if (!f1Id) {
+      f1Id = crypto.randomUUID()
+      const espn1 = await enrichFighterFromEspn(name1).catch(() => null)
+      await supabase.from('fighters').upsert({
+        id: f1Id, name: name1,
+        wins: espn1?.wins ?? 0, losses: espn1?.losses ?? 0, draws: espn1?.draws ?? 0,
+        record: espn1?.wins != null ? `${espn1.wins}-${espn1.losses ?? 0}-${espn1.draws ?? 0}` : '0-0-0',
+        weight_class: fight.weight_class ?? null,
+        image_url: espn1?.image_url ?? null,
+        striking_accuracy: espn1?.striking_accuracy ?? null,
+        sig_str_landed: espn1?.sig_str_landed ?? null,
+        td_avg: espn1?.td_avg ?? null,
+        sub_avg: espn1?.sub_avg ?? null,
+      }, { onConflict: 'id' })
+      fighterByName.set(norm(name1), f1Id)
+    }
+
+    if (!f2Id) {
+      f2Id = crypto.randomUUID()
+      const espn2 = await enrichFighterFromEspn(name2).catch(() => null)
+      await supabase.from('fighters').upsert({
+        id: f2Id, name: name2,
+        wins: espn2?.wins ?? 0, losses: espn2?.losses ?? 0, draws: espn2?.draws ?? 0,
+        record: espn2?.wins != null ? `${espn2.wins}-${espn2.losses ?? 0}-${espn2.draws ?? 0}` : '0-0-0',
+        weight_class: fight.weight_class ?? null,
+        image_url: espn2?.image_url ?? null,
+        striking_accuracy: espn2?.striking_accuracy ?? null,
+        sig_str_landed: espn2?.sig_str_landed ?? null,
+        td_avg: espn2?.td_avg ?? null,
+        sub_avg: espn2?.sub_avg ?? null,
+      }, { onConflict: 'id' })
+      fighterByName.set(norm(name2), f2Id)
+    }
+
+    // Skip if this matchup already exists
+    const pair = [f1Id, f2Id].sort().join('|')
+    if (existingPairs.has(pair)) continue
+    existingPairs.add(pair)
+
+    // Skip the main event (already seeded)
+    const isMainEvent = /rousey/i.test(name1) || /rousey/i.test(name2)
+    if (isMainEvent) continue
+
+    const fightId = crypto.randomUUID()
+    await supabase.from('fights').insert({
+      id:            fightId,
+      event_id:      MVP_EVENT_ID,
+      fighter1_id:   f1Id,
+      fighter2_id:   f2Id,
+      weight_class:  fight.weight_class ?? null,
+      is_main_event: false,
+      is_title_fight: fight.title_bout ?? false,
+      fight_type:    'main',
+      display_order: displayOrder++,
+      status:        'upcoming',
+      fight_time:    eventDate,
+      winner_id:     null,
+      method:        null,
+      round:         null,
+    })
+
+    added++
+  }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  revalidatePath('/events', 'layout')
+
+  return { success: true, message: `Added ${added} undercard fight(s) from Tapology.`, added }
 }
