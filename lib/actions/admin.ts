@@ -1865,3 +1865,128 @@ export async function deleteFight(fightId: string): Promise<ActionResult> {
   revalidatePath('/admin')
   return { success: true, message: 'Fight deleted.' }
 }
+
+// ─── MVP MMA: Rousey vs. Carano (May 16 2026, Netflix) ──────────────────────
+
+const MVP_EVENT_ID    = 'e0000003-0000-0000-0000-000000000001'
+const MVP_ROUSEY_ID   = 'f0000003-0000-0000-0000-000000000001'
+const MVP_CARANO_ID   = 'f0000003-0000-0000-0000-000000000002'
+const MVP_MAIN_FID    = 'b0000003-0000-0000-0000-000000000001'
+
+export async function seedMvpMmaEvent(): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+
+  // ── 1. Fighters ────────────────────────────────────────────────────────────
+  const fighters = [
+    {
+      id:               MVP_ROUSEY_ID,
+      name:             'Ronda Rousey',
+      nickname:         'Rowdy',
+      nationality:      'United States',
+      flag_emoji:       '🇺🇸',
+      record:           '12-2-0',
+      wins:             12,
+      losses:           2,
+      draws:            0,
+      weight_class:     "Women's Bantamweight",
+      height_cm:        168,
+      reach_cm:         168,
+      age:              38,
+      fighting_style:   'Judo',
+      ko_tko_wins:      3,
+      sub_wins:         7,
+      dec_wins:         2,
+      last_5_form:      'WLWWL',
+      image_url:        null as string | null,
+      analysis:         'Ronda Rousey is the pioneer of women\'s MMA and the first female UFC champion. A world-class judoka, she won her first 12 fights — 9 by armbar — before suffering back-to-back knockout losses to Holly Holm and Amanda Nunes. Now 38 and returning after years away from the sport, she remains one of the most dangerous submission artists in history if she can survive early contact.',
+    },
+    {
+      id:               MVP_CARANO_ID,
+      name:             'Gina Carano',
+      nickname:         'Conviction',
+      nationality:      'United States',
+      flag_emoji:       '🇺🇸',
+      record:           '7-1-0',
+      wins:             7,
+      losses:           1,
+      draws:            0,
+      weight_class:     "Women's Bantamweight",
+      height_cm:        168,
+      reach_cm:         168,
+      age:              43,
+      fighting_style:   'Muay Thai',
+      ko_tko_wins:      2,
+      sub_wins:         2,
+      dec_wins:         3,
+      last_5_form:      'LWWWW',
+      image_url:        null as string | null,
+      analysis:         'Gina Carano helped put women\'s MMA on the map alongside Rousey. A standout Muay Thai striker, her only career loss came to Cristiane "Cyborg" Santos in 2009. At 43 and returning from a long acting career, Carano\'s striking and physicality remain respected, but ring rust and age are significant question marks against a submission specialist like Rousey.',
+    },
+  ]
+
+  const { error: fighterErr } = await supabase
+    .from('fighters')
+    .upsert(fighters, { onConflict: 'id', ignoreDuplicates: false })
+  if (fighterErr) return { error: `Fighters: ${fighterErr.message}` }
+
+  // ── 2. Event ───────────────────────────────────────────────────────────────
+  const eventDate = '2026-05-17T02:00:00Z'   // May 16 ~10 PM ET / 7 PM PT
+
+  const { error: eventErr } = await supabase
+    .from('events')
+    .upsert({
+      id:       MVP_EVENT_ID,
+      name:     'MVP MMA: Rousey vs. Carano',
+      date:     eventDate,
+      location: 'Inglewood, CA',
+      venue:    'Intuit Dome',
+      status:   'upcoming',
+      image_url: null,
+    }, { onConflict: 'id', ignoreDuplicates: false })
+  if (eventErr) return { error: `Event: ${eventErr.message}` }
+
+  // ── 3. Fight ───────────────────────────────────────────────────────────────
+  const { error: fightErr } = await supabase
+    .from('fights')
+    .upsert({
+      id:            MVP_MAIN_FID,
+      event_id:      MVP_EVENT_ID,
+      fighter1_id:   MVP_ROUSEY_ID,
+      fighter2_id:   MVP_CARANO_ID,
+      weight_class:  "Women's Catchweight",
+      is_main_event: true,
+      is_title_fight: false,
+      fight_type:    'main',
+      display_order: 1,
+      status:        'upcoming',
+      fight_time:    eventDate,
+      winner_id:     null,
+      method:        null,
+      round:         null,
+    }, { onConflict: 'id', ignoreDuplicates: false })
+  if (fightErr) return { error: `Fight: ${fightErr.message}` }
+
+  // ── 4. Enrich fighters from ESPN ──────────────────────────────────────────
+  // Attempt ESPN enrichment in the background (image + stats)
+  for (const name of ['Ronda Rousey', 'Gina Carano']) {
+    const id = name === 'Ronda Rousey' ? MVP_ROUSEY_ID : MVP_CARANO_ID
+    const espn = await enrichFighterFromEspn(name).catch(() => null)
+    if (!espn) continue
+    await supabase.from('fighters').update({
+      ...(espn.image_url ? { image_url: espn.image_url } : {}),
+      ...(espn.striking_accuracy != null ? { striking_accuracy: espn.striking_accuracy } : {}),
+      ...(espn.sig_str_landed    != null ? { sig_str_landed:    espn.sig_str_landed    } : {}),
+      ...(espn.td_avg            != null ? { td_avg:            espn.td_avg            } : {}),
+      ...(espn.sub_avg           != null ? { sub_avg:           espn.sub_avg           } : {}),
+    }).eq('id', id)
+  }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  revalidatePath('/events', 'layout')
+
+  return { success: true, message: 'MVP MMA: Rousey vs. Carano added successfully.' }
+}
