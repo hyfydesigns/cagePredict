@@ -7,6 +7,14 @@ import {
   uuidToApiSportsId,
   UFC_LEAGUE_ID,
 } from '@/lib/apis/api-sports'
+import { fetchWikipediaFightResults } from '@/lib/apis/wikipedia-mma'
+
+// ─── Wikipedia event map ──────────────────────────────────────────────────────
+// Maps DB event IDs to Wikipedia article titles for promotions not covered by
+// api-sports or RapidAPI. Add entries here as new non-UFC events are seeded.
+const WIKIPEDIA_EVENT_MAP: Record<string, string> = {
+  'e0000003-0000-0000-0000-000000000001': 'MVP_MMA:_Rousey_vs._Carano',
+}
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -471,6 +479,112 @@ async function syncViaRapidApi(
   return synced
 }
 
+// ─── Wikipedia sync (fallback for non-UFC events not covered by api-sports) ───
+
+async function syncViaWikipedia(
+  liveEvents: any[],
+  supabase: ReturnType<typeof createServiceClient>,
+  log: string[],
+  errors: string[],
+  skipped: string[],
+): Promise<number> {
+  let synced = 0
+
+  for (const event of liveEvents) {
+    const articleTitle = WIKIPEDIA_EVENT_MAP[event.id]
+    if (!articleTitle) continue  // no Wikipedia mapping for this event
+
+    const dbFights: any[] = (event as any).fights ?? []
+    log.push(`[wikipedia] Checking ${event.name} via "${articleTitle}"`)
+
+    const wikiResults = await fetchWikipediaFightResults(articleTitle)
+    if (!wikiResults.length) {
+      log.push(`  No completed fights found on Wikipedia yet`)
+      continue
+    }
+
+    log.push(`  ${wikiResults.length} completed fight(s) found`)
+
+    for (const result of wikiResults) {
+      if (result.isDraw) {
+        // Draw — match by either fighter name
+        const dbFight = dbFights.find((f: any) => {
+          const d1 = norm(f.fighter1?.name ?? '')
+          const d2 = norm(f.fighter2?.name ?? '')
+          const w  = norm(result.winnerName)
+          const l  = norm(result.loserName)
+          return (d1 === w && d2 === l) || (d1 === l && d2 === w)
+        })
+        if (!dbFight) { skipped.push(`[wikipedia] No DB match for draw: ${result.winnerName} vs ${result.loserName}`); continue }
+        if (dbFight.status === 'completed') { log.push(`  ⏭ ${result.winnerName} vs ${result.loserName} already completed`); continue }
+
+        const { error } = await supabase.rpc('complete_fight', {
+          p_fight_id:  dbFight.id,
+          p_winner_id: null,
+          p_method:    result.method ?? 'Draw',
+          p_round:     result.round,
+          p_time:      result.time,
+        } as any)
+        if (error) errors.push(`complete_fight draw(${dbFight.id}): ${error.message}`)
+        else { synced++; log.push(`🤝 ${result.winnerName} vs ${result.loserName} → Draw (${result.method ?? 'Draw'})`) }
+        continue
+      }
+
+      const winnerNorm = norm(result.winnerName)
+      const loserNorm  = norm(result.loserName)
+
+      // Match by full name first, then last-name fallback (single candidate only)
+      let dbFight = dbFights.find((f: any) => {
+        const d1 = norm(f.fighter1?.name ?? '')
+        const d2 = norm(f.fighter2?.name ?? '')
+        return (d1 === winnerNorm && d2 === loserNorm) || (d1 === loserNorm && d2 === winnerNorm)
+      })
+
+      if (!dbFight) {
+        const lastName = (s: string) => norm(s.trim().split(/\s+/).pop() ?? s)
+        const wl = lastName(result.winnerName)
+        const ll = lastName(result.loserName)
+        const candidates = dbFights.filter((f: any) => {
+          const d1l = lastName(f.fighter1?.name ?? '')
+          const d2l = lastName(f.fighter2?.name ?? '')
+          return (d1l === wl && d2l === ll) || (d1l === ll && d2l === wl)
+        })
+        if (candidates.length === 1) {
+          dbFight = candidates[0]
+          log.push(`  Last-name-matched ${result.winnerName} vs ${result.loserName} → DB fight ${dbFight.id}`)
+        }
+      }
+
+      if (!dbFight) { skipped.push(`[wikipedia] No DB match for ${result.winnerName} vs ${result.loserName}`); continue }
+      if (dbFight.status === 'completed') { log.push(`  ⏭ ${result.winnerName} vs ${result.loserName} already completed`); continue }
+
+      // Resolve winner to DB fighter ID
+      const winnerDbId =
+        norm(dbFight.fighter1?.name ?? '') === winnerNorm ? dbFight.fighter1?.id :
+        norm(dbFight.fighter2?.name ?? '') === winnerNorm ? dbFight.fighter2?.id :
+        // Positional fallback — Wikipedia lists winner first
+        dbFight.fighter1?.id
+
+      const { error } = await supabase.rpc('complete_fight', {
+        p_fight_id:  dbFight.id,
+        p_winner_id: winnerDbId,
+        p_method:    result.method,
+        p_round:     result.round,
+        p_time:      result.time,
+      } as any)
+
+      if (error) {
+        errors.push(`complete_fight(${dbFight.id}): ${error.message}`)
+      } else {
+        synced++
+        log.push(`✓ ${result.winnerName} def. ${result.loserName} (${result.method ?? 'unknown'}, R${result.round ?? '?'} ${result.time ?? ''})`)
+      }
+    }
+  }
+
+  return synced
+}
+
 // ─── Public entry point ───────────────────────────────────────────────────────
 
 export async function runSyncResults(): Promise<SyncResultsOutput> {
@@ -522,6 +636,14 @@ export async function runSyncResults(): Promise<SyncResultsOutput> {
     }
   } else {
     synced = await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
+  }
+
+  // Wikipedia fallback — for live events that have a Wikipedia mapping and
+  // are not covered by api-sports / RapidAPI (e.g. MVP MMA, Bellator, PFL).
+  const wikiEvents = liveEvents.filter((e: any) => WIKIPEDIA_EVENT_MAP[e.id])
+  if (wikiEvents.length > 0) {
+    log.push(`[wikipedia] Running for ${wikiEvents.length} event(s) with Wikipedia mapping`)
+    synced += await syncViaWikipedia(wikiEvents, supabase, log, errors, skipped)
   }
 
   if (synced > 0) {
