@@ -485,25 +485,27 @@ export function FightMatchupTabs({
       <TabsContent value="odds" className="mt-0">
         <div>
           {(() => {
-            // Build the bookmaker rows first so we can decide what to render
+            // Build the bookmaker rows — deduplicate by display name so regional
+            // variants (unibet/unibet_uk/unibet_se) only appear once.
             const bookRows: { key: string; name: string; url: string; o1: number; o2: number }[] = []
+            const seenNames = new Set<string>()
+
+            function addRow(key: string, name: string, url: string, o1: number, o2: number) {
+              if (seenNames.has(name)) return
+              seenNames.add(name)
+              bookRows.push({ key, name, url, o1, o2 })
+            }
 
             if (oddsByBook && Object.keys(oddsByBook).length > 0) {
-              // Show books in our preferred order, only those with lines
               for (const bm of BOOKMAKERS) {
                 const line = oddsByBook[bm.key]
-                if (line) bookRows.push({ key: bm.key, name: bm.name, url: bm.url, o1: line.odds_f1, o2: line.odds_f2 })
+                if (line) addRow(bm.key, bm.name, bm.url, line.odds_f1, line.odds_f2)
               }
-              // Also include any books returned by the API that aren't in our config list
               for (const [k, line] of Object.entries(oddsByBook)) {
-                if (!bookRows.find(r => r.key === k)) {
-                  const bm = getBookmaker(k)
-                  bookRows.push({ key: k, name: bm?.name ?? k, url: bm?.url ?? '#', o1: line.odds_f1, o2: line.odds_f2 })
-                }
+                if (!BOOKMAKERS.find(b => b.key === k)) addRow(k, k, '#', line.odds_f1, line.odds_f2)
               }
             } else if (odds1 && odds2) {
-              // odds default to 0 in the DB — only show fallback when there's a real line
-              bookRows.push({ key: DEFAULT_BOOKMAKER.key, name: DEFAULT_BOOKMAKER.name, url: DEFAULT_BOOKMAKER.url, o1: odds1, o2: odds2 })
+              addRow(DEFAULT_BOOKMAKER.key, DEFAULT_BOOKMAKER.name, DEFAULT_BOOKMAKER.url, odds1, odds2)
             }
 
             if (bookRows.length === 0) {

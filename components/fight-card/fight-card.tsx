@@ -31,23 +31,32 @@ function BookmakerOddsStrip({
   f1Name: string
   f2Name: string
 }) {
-  // Build rows: prefer per-book data; fall back to single best-book line
+  // Build rows: prefer per-book data; fall back to single best-book line.
+  // Deduplicate by display name so regional variants (unibet, unibet_uk, unibet_se)
+  // only appear once — we keep whichever variant is listed first in BOOKMAKERS.
   const rows: { key: string; name: string; url: string; o1: number; o2: number }[] = []
+  const seenNames = new Set<string>()
+
+  function addRow(key: string, name: string, url: string, o1: number, o2: number) {
+    if (seenNames.has(name)) return
+    seenNames.add(name)
+    rows.push({ key, name, url, o1, o2 })
+  }
 
   if (oddsByBook && Object.keys(oddsByBook).length > 0) {
+    // Show books in our preferred order
     for (const bm of BOOKMAKERS) {
       const line = oddsByBook[bm.key]
-      if (line) rows.push({ key: bm.key, name: bm.name, url: bm.url, o1: line.odds_f1, o2: line.odds_f2 })
+      if (line) addRow(bm.key, bm.name, bm.url, line.odds_f1, line.odds_f2)
     }
-    // Any books from the API not in our config list
+    // Any books from the API not in our config list (show raw key as name)
     for (const [k, line] of Object.entries(oddsByBook)) {
-      if (!rows.find(r => r.key === k)) {
-        const bm = getBookmaker(k)
-        rows.push({ key: k, name: bm?.name ?? k, url: bm?.url ?? '#', o1: line.odds_f1, o2: line.odds_f2 })
+      if (!BOOKMAKERS.find(b => b.key === k)) {
+        addRow(k, k, '#', line.odds_f1, line.odds_f2)
       }
     }
   } else if (odds1 && odds2) {
-    rows.push({ key: DEFAULT_BOOKMAKER.key, name: DEFAULT_BOOKMAKER.name, url: DEFAULT_BOOKMAKER.url, o1: odds1, o2: odds2 })
+    addRow(DEFAULT_BOOKMAKER.key, DEFAULT_BOOKMAKER.name, DEFAULT_BOOKMAKER.url, odds1, odds2)
   }
 
   if (rows.length === 0) return null

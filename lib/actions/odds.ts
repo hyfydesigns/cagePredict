@@ -167,9 +167,11 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
   if (!fights || fights.length === 0) return { error: 'No active fights found for this event' }
 
   // 2. Fetch odds from The Odds API
+  // Use all regions so we capture UK/EU/AU books too — important for non-UFC events
+  // (MVP MMA, Bellator, PFL) where US bookmakers often don't offer lines.
   const url = new URL('https://api.the-odds-api.com/v4/sports/mma_mixed_martial_arts/odds/')
   url.searchParams.set('apiKey', apiKey)
-  url.searchParams.set('regions', 'us')
+  url.searchParams.set('regions', 'us,uk,eu,au')
   url.searchParams.set('markets', 'h2h')
   url.searchParams.set('oddsFormat', 'american')
 
