@@ -3,10 +3,9 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Crown, TrendingUp, ExternalLink } from 'lucide-react'
+import { Crown, TrendingUp } from 'lucide-react'
 import { cn, formatOdds, oddsToImplied } from '@/lib/utils'
 import type { FighterRow } from '@/types/database'
-import { DEFAULT_BOOKMAKER } from '@/lib/affiliates'
 
 interface FighterPortraitProps {
   fighter: FighterRow
@@ -118,32 +117,17 @@ export function FighterPortrait({
           <span className="text-foreground-secondary text-[11px] font-medium">{fighter.record}</span>
         </div>
 
-        {/* Odds — only render when there's a real line (0 = no data) */}
+        {/* Implied probability — shown when there's a real line; odds themselves are in the strip below */}
         {odds !== 0 && (
           <div className={cn('flex items-center gap-1 mt-1.5', isLeft ? '' : 'justify-end')}>
-            <a
-              href={DEFAULT_BOOKMAKER.url}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-              className="flex items-center gap-0.5 group"
-              title={`Bet at ${DEFAULT_BOOKMAKER.name}`}
-            >
-              <span className={cn(
-                'text-sm font-black leading-none group-hover:underline underline-offset-2',
-                isFav ? 'text-green-400' : 'text-red-400'
-              )}>
-                {formatOdds(odds)}
+            <span className={cn('text-sm font-black leading-none', isFav ? 'text-emerald-400' : 'text-red-400')}>
+              {formatOdds(odds)}
+            </span>
+            {arrow && (
+              <span className={cn('text-[10px] font-bold leading-none', arrow === '↑' ? 'text-emerald-400' : 'text-red-400')}>
+                {arrow}
               </span>
-              {arrow && (
-                <span className={cn(
-                  'text-[10px] font-bold leading-none',
-                  arrow === '↑' ? 'text-green-400' : 'text-red-400'
-                )}>
-                  {arrow}
-                </span>
-              )}
-              <ExternalLink className="h-2.5 w-2.5 text-foreground-muted opacity-0 group-hover:opacity-70 transition-opacity" />
-            </a>
+            )}
             <span className="text-foreground-muted text-[10px] leading-none">{implied}%</span>
           </div>
         )}

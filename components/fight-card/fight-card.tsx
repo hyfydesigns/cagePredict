@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useAnimate } from 'framer-motion'
-import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare, Swords } from 'lucide-react'
+import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare, Swords, ExternalLink } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { FighterPortrait } from './fighter-portrait'
 import { PredictionPicker } from './prediction-picker'
@@ -11,8 +11,99 @@ import { FightStatusBadge } from './fight-status-badge'
 import { FightComments } from './fight-comments'
 import { PickDistribution } from './pick-distribution'
 import { FightMatchupTabs } from './fight-matchup-tabs'
-import { cn, isFightLocked } from '@/lib/utils'
+import { cn, isFightLocked, formatOdds } from '@/lib/utils'
 import type { FightWithDetails, CommentWithProfile } from '@/types/database'
+import { BOOKMAKERS, getBookmaker, DEFAULT_BOOKMAKER } from '@/lib/affiliates'
+import type { BookOdds } from '@/lib/actions/odds'
+
+// ── Bookmaker odds strip ──────────────────────────────────────────────────────
+
+function BookmakerOddsStrip({
+  oddsByBook,
+  odds1,
+  odds2,
+  f1Name,
+  f2Name,
+}: {
+  oddsByBook?: Record<string, BookOdds> | null
+  odds1: number
+  odds2: number
+  f1Name: string
+  f2Name: string
+}) {
+  // Build rows: prefer per-book data; fall back to single best-book line
+  const rows: { key: string; name: string; url: string; o1: number; o2: number }[] = []
+
+  if (oddsByBook && Object.keys(oddsByBook).length > 0) {
+    for (const bm of BOOKMAKERS) {
+      const line = oddsByBook[bm.key]
+      if (line) rows.push({ key: bm.key, name: bm.name, url: bm.url, o1: line.odds_f1, o2: line.odds_f2 })
+    }
+    // Any books from the API not in our config list
+    for (const [k, line] of Object.entries(oddsByBook)) {
+      if (!rows.find(r => r.key === k)) {
+        const bm = getBookmaker(k)
+        rows.push({ key: k, name: bm?.name ?? k, url: bm?.url ?? '#', o1: line.odds_f1, o2: line.odds_f2 })
+      }
+    }
+  } else if (odds1 && odds2) {
+    rows.push({ key: DEFAULT_BOOKMAKER.key, name: DEFAULT_BOOKMAKER.name, url: DEFAULT_BOOKMAKER.url, o1: odds1, o2: odds2 })
+  }
+
+  if (rows.length === 0) return null
+
+  const f1Last = f1Name.split(' ').pop() ?? f1Name
+  const f2Last = f2Name.split(' ').pop() ?? f2Name
+
+  return (
+    <div className="border-t border-border/40 px-3 py-2">
+      {/* Column headers — only shown when there are multiple books */}
+      {rows.length > 1 && (
+        <div className="flex items-center gap-2 mb-1.5 px-0.5">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-foreground-muted flex-1">Odds</span>
+          <span className="text-[9px] font-bold uppercase tracking-widest text-red-400 w-14 text-center">{f1Last}</span>
+          <span className="text-[9px] font-bold uppercase tracking-widest text-blue-400 w-14 text-center">{f2Last}</span>
+          <span className="w-3" />
+        </div>
+      )}
+
+      {/* Scrollable book rows */}
+      <div className="flex flex-col gap-0.5 max-h-[140px] overflow-y-auto">
+        {rows.map(({ key, name, url, o1, o2 }) => (
+          <a
+            key={key}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-2/60 transition-colors group"
+          >
+            <span className="flex-1 text-[11px] font-semibold text-foreground-secondary group-hover:text-foreground transition-colors">
+              {name}
+            </span>
+            <span className={cn(
+              'w-14 text-center text-[12px] font-black tabular-nums',
+              o1 < 0 ? 'text-emerald-400' : 'text-red-400',
+            )}>
+              {formatOdds(o1)}
+            </span>
+            <span className={cn(
+              'w-14 text-center text-[12px] font-black tabular-nums',
+              o2 < 0 ? 'text-emerald-400' : 'text-red-400',
+            )}>
+              {formatOdds(o2)}
+            </span>
+            <ExternalLink className="h-3 w-3 text-foreground-muted opacity-0 group-hover:opacity-60 transition-opacity shrink-0" />
+          </a>
+        ))}
+      </div>
+
+      {/* Disclaimer */}
+      <p className="text-[8px] text-foreground-muted mt-1.5 text-center">
+        Must be 21+ · Gambling problem? 1-800-GAMBLER
+      </p>
+    </div>
+  )
+}
 
 function cmToFtIn(cm: number): string {
   const totalIn = cm / 2.54
@@ -229,6 +320,17 @@ export function FightCard({
           oddsOpen={fight.odds_f2_open}
         />
       </div>
+
+      {/* Bookmaker odds strip — always visible, each row links to that sportsbook */}
+      {!isCompleted && !isCancelled && (
+        <BookmakerOddsStrip
+          oddsByBook={(fight as any).odds_by_book as Record<string, BookOdds> | null}
+          odds1={fight.odds_f1}
+          odds2={fight.odds_f2}
+          f1Name={fight.fighter1.name}
+          f2Name={fight.fighter2.name}
+        />
+      )}
 
       {/* Expand toggles */}
       <div className="border-t border-border/40">
