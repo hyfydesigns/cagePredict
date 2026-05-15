@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useAnimate } from 'framer-motion'
-import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare, Swords, ExternalLink } from 'lucide-react'
+import { Trophy, CheckCircle, XCircle, ChevronDown, ChevronUp, MessageSquare, Swords, ExternalLink, DollarSign } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { FighterPortrait } from './fighter-portrait'
 import { PredictionPicker } from './prediction-picker'
@@ -16,9 +16,9 @@ import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 import { BOOKMAKERS, getBookmaker, DEFAULT_BOOKMAKER } from '@/lib/affiliates'
 import type { BookOdds } from '@/lib/actions/odds'
 
-// ── Bookmaker odds strip ──────────────────────────────────────────────────────
+// ── Bookmaker odds content (rendered inside the collapsible) ─────────────────
 
-function BookmakerOddsStrip({
+function BookmakerOddsContent({
   oddsByBook,
   odds1,
   odds2,
@@ -31,9 +31,6 @@ function BookmakerOddsStrip({
   f1Name: string
   f2Name: string
 }) {
-  // Build rows: prefer per-book data; fall back to single best-book line.
-  // Deduplicate by display name so regional variants (unibet, unibet_uk, unibet_se)
-  // only appear once — we keep whichever variant is listed first in BOOKMAKERS.
   const rows: { key: string; name: string; url: string; o1: number; o2: number }[] = []
   const seenNames = new Set<string>()
 
@@ -44,74 +41,75 @@ function BookmakerOddsStrip({
   }
 
   if (oddsByBook && Object.keys(oddsByBook).length > 0) {
-    // Show books in our preferred order
     for (const bm of BOOKMAKERS) {
       const line = oddsByBook[bm.key]
       if (line) addRow(bm.key, bm.name, bm.url, line.odds_f1, line.odds_f2)
     }
-    // Any books from the API not in our config list (show raw key as name)
     for (const [k, line] of Object.entries(oddsByBook)) {
-      if (!BOOKMAKERS.find(b => b.key === k)) {
-        addRow(k, k, '#', line.odds_f1, line.odds_f2)
-      }
+      if (!BOOKMAKERS.find(b => b.key === k)) addRow(k, k, '#', line.odds_f1, line.odds_f2)
     }
   } else if (odds1 && odds2) {
     addRow(DEFAULT_BOOKMAKER.key, DEFAULT_BOOKMAKER.name, DEFAULT_BOOKMAKER.url, odds1, odds2)
   }
 
-  if (rows.length === 0) return null
+  if (rows.length === 0) {
+    return <p className="text-xs text-foreground-muted text-center py-2">No odds available yet</p>
+  }
 
   const f1Last = f1Name.split(' ').pop() ?? f1Name
   const f2Last = f2Name.split(' ').pop() ?? f2Name
 
   return (
-    <div className="border-t border-border/40 px-3 py-2">
-      {/* Column headers — only shown when there are multiple books */}
-      {rows.length > 1 && (
-        <div className="flex items-center gap-2 mb-1.5 px-0.5">
-          <span className="text-[9px] font-bold uppercase tracking-widest text-foreground-muted flex-1">Odds</span>
-          <span className="text-[9px] font-bold uppercase tracking-widest text-red-400 w-14 text-center">{f1Last}</span>
-          <span className="text-[9px] font-bold uppercase tracking-widest text-blue-400 w-14 text-center">{f2Last}</span>
-          <span className="w-3" />
-        </div>
-      )}
+    <div className="space-y-1">
+      {/* Column headers */}
+      <div className="flex items-center gap-2 px-2 pb-1">
+        <span className="flex-1 text-[9px] font-bold uppercase tracking-widest text-foreground-muted">Book</span>
+        <span className="w-14 text-center text-[9px] font-bold uppercase tracking-widest text-red-400">{f1Last}</span>
+        <span className="w-14 text-center text-[9px] font-bold uppercase tracking-widest text-blue-400">{f2Last}</span>
+        <span className="w-3.5" />
+      </div>
 
-      {/* Scrollable book rows */}
-      <div className="flex flex-col gap-0.5 max-h-[140px] overflow-y-auto">
+      {/* Book rows */}
+      <div className="flex flex-col gap-0.5">
         {rows.map(({ key, name, url, o1, o2 }) => (
           <a
             key={key}
             href={url}
             target="_blank"
             rel="noopener noreferrer sponsored"
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-2/60 transition-colors group"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-emerald-500/5 border border-transparent hover:border-emerald-500/20 transition-all group"
           >
-            <span className="flex-1 text-[11px] font-semibold text-foreground-secondary group-hover:text-foreground transition-colors">
+            <span className="flex-1 text-[12px] font-semibold text-foreground-secondary group-hover:text-foreground transition-colors">
               {name}
             </span>
             <span className={cn(
-              'w-14 text-center text-[12px] font-black tabular-nums',
+              'w-14 text-center text-[13px] font-black tabular-nums',
               o1 < 0 ? 'text-emerald-400' : 'text-red-400',
             )}>
               {formatOdds(o1)}
             </span>
             <span className={cn(
-              'w-14 text-center text-[12px] font-black tabular-nums',
+              'w-14 text-center text-[13px] font-black tabular-nums',
               o2 < 0 ? 'text-emerald-400' : 'text-red-400',
             )}>
               {formatOdds(o2)}
             </span>
-            <ExternalLink className="h-3 w-3 text-foreground-muted opacity-0 group-hover:opacity-60 transition-opacity shrink-0" />
+            <ExternalLink className="h-3 w-3 text-foreground-muted opacity-0 group-hover:opacity-70 transition-opacity shrink-0" />
           </a>
         ))}
       </div>
 
-      {/* Disclaimer */}
-      <p className="text-[8px] text-foreground-muted mt-1.5 text-center">
+      <p className="text-[8px] text-foreground-muted text-center pt-1">
         Must be 21+ · Gambling problem? 1-800-GAMBLER
       </p>
     </div>
   )
+}
+
+/** Returns true when there are any odds to show (used to hide the Bet toggle entirely) */
+function hasBookOdds(oddsByBook: Record<string, BookOdds> | null | undefined, odds1: number, odds2: number) {
+  if (oddsByBook && Object.keys(oddsByBook).length > 0) return true
+  return !!(odds1 && odds2)
 }
 
 function cmToFtIn(cm: number): string {
@@ -197,6 +195,7 @@ export function FightCard({
   userId, isPending = false, isHappeningNow = false, initialComments = [], onPredict, onToggleLock,
 }: FightCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [showBet, setShowBet] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [localPick, setLocalPick]     = useState<string | null>(userPick   ?? null)
   const [localMethod, setLocalMethod] = useState<string | null>(userMethod ?? null)
@@ -330,35 +329,33 @@ export function FightCard({
         />
       </div>
 
-      {/* Bookmaker odds strip — always visible, each row links to that sportsbook */}
-      {!isCompleted && !isCancelled && (
-        <BookmakerOddsStrip
-          oddsByBook={(fight as any).odds_by_book as Record<string, BookOdds> | null}
-          odds1={fight.odds_f1}
-          odds2={fight.odds_f2}
-          f1Name={fight.fighter1.name}
-          f2Name={fight.fighter2.name}
-        />
-      )}
-
       {/* Expand toggles */}
-      <div className="border-t border-border/40">
+      <div className="border-t border-border/40 flex items-stretch divide-x divide-border/40">
         <button
-          onClick={() => { setExpanded(!expanded); setShowComments(false) }}
-          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-foreground-muted hover:text-foreground-secondary transition-colors"
+          onClick={() => { setExpanded(!expanded); setShowComments(false); setShowBet(false) }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-foreground-muted hover:text-foreground-secondary transition-colors"
         >
           {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           Stats & Analysis
         </button>
-        {/* Chat button hidden — re-enable when chat is ready
-        <button
-          onClick={() => { setShowComments(!showComments); setExpanded(false) }}
-          className="flex items-center justify-center gap-1.5 py-2 text-xs text-foreground-muted hover:text-foreground-secondary transition-colors"
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-          {showComments ? 'Hide' : `Chat${initialComments.length > 0 ? ` (${initialComments.length})` : ''}`}
-        </button>
-        */}
+        {!isCompleted && !isCancelled && hasBookOdds(
+          (fight as any).odds_by_book as Record<string, BookOdds> | null,
+          fight.odds_f1,
+          fight.odds_f2,
+        ) && (
+          <button
+            onClick={() => { setShowBet(!showBet); setExpanded(false); setShowComments(false) }}
+            className={cn(
+              'flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-all',
+              showBet
+                ? 'bg-emerald-500/15 text-emerald-400'
+                : 'text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400',
+            )}
+          >
+            <DollarSign className="h-3.5 w-3.5" />
+            Bet
+          </button>
+        )}
       </div>
 
       {/* Expandable stats + analysis */}
@@ -454,6 +451,30 @@ export function FightCard({
                   )}
                 </div>
               )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Collapsible Bet / bookmaker odds section */}
+      <AnimatePresence initial={false}>
+        {showBet && (
+          <motion.div
+            key="bet"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-3 border-t border-emerald-500/20 bg-emerald-500/[0.03]">
+              <BookmakerOddsContent
+                oddsByBook={(fight as any).odds_by_book as Record<string, BookOdds> | null}
+                odds1={fight.odds_f1}
+                odds2={fight.odds_f2}
+                f1Name={fight.fighter1.name}
+                f2Name={fight.fighter2.name}
+              />
             </div>
           </motion.div>
         )}
