@@ -417,6 +417,11 @@ async function syncFightMetaFromRapidApi(
     //      Detect by checking if either fighter appears in an existing DB fight, then update
     //      that fight's fighter column to the new opponent.
     //   b) Genuinely new fight — neither fighter appears in any DB fight; insert fresh row.
+    //
+    // SAFETY: if matchedCount is 0, the API response doesn't correspond to this event
+    // (wrong promotion / wrong date). Skip step 3 entirely to avoid inserting fights
+    // from a completely unrelated card into this event.
+    if (matchedCount === 0 && dbFights.length > 0) return
 
     // Build single-fighter index for replacement detection: norm name → { fightId, f1n, f2n }
     const dbFighterIndex = new Map<string, { fightId: string; f1n: string; f2n: string }>()
@@ -1444,7 +1449,12 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
   // causing fights from a different event to get stamped with forceEventUuid.
   // The RapidAPI reconciliation is authoritative: it matches by event name, deletes
   // wrong fights, inserts missing ones, and sets correct fight_type/display_order.
-  if (process.env.RAPIDAPI_KEY) {
+  //
+  // IMPORTANT: RapidAPI tournament 19906 is UFC-only. Never run it against non-UFC
+  // events — it will match/insert UFC fights under the wrong promotion's event_id.
+  const isUfcEvent = /ufc/i.test(event.name)
+
+  if (process.env.RAPIDAPI_KEY && isUfcEvent) {
     await syncFightMetaFromRapidApi(eventId, day, month, year)
 
     // Cross-check against Tapology and correct any fighter mismatches
@@ -1463,10 +1473,11 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
     return { success: true, message: 'Fights reconciled from RapidAPI + Tapology.' }
   }
 
-  // Fallback: api-sports only (no RapidAPI key configured)
+  // Non-UFC events are not covered by RapidAPI — fall back to api-sports if available.
+  // (RAPIDAPI_KEY may be set but the endpoint is UFC-only, so we skip it for non-UFC.)
   const result = isApiSportsConfigured()
     ? await fetchEventByDateApiSports(day, month, year, { skipAI: true, skipUFCStats: true, forceEventUuid: eventId })
-    : { error: 'No API source configured (set RAPIDAPI_KEY or APISPORTS_KEY)' }
+    : { error: 'No API source configured for non-UFC events (set APISPORTS_KEY)' }
 
   if (result.error) return { error: result.error }
 
@@ -1610,15 +1621,24 @@ export async function syncAllUpcomingCards(): Promise<{
     const eventMonth = d.getUTCMonth() + 1
     const eventDay   = d.getUTCDate()
 
+    // RapidAPI tournament 19906 is UFC-only — skip non-UFC events to prevent
+    // UFC fights from being incorrectly inserted into other promotions' cards.
+    const isUfcEvent = /ufc/i.test(event.name)
+
     try {
       // Step 1 — RapidAPI sync (fight order, segments, insertions, deletions)
-      await syncFightMetaFromRapidApi(
-        event.id,
-        eventDay,
-        eventMonth,
-        d.getUTCFullYear(),
-      )
-      log.push(`[rapidapi] ✓ ${event.name}`)
+      // Only run for UFC events since the RapidAPI endpoint is UFC-specific.
+      if (isUfcEvent) {
+        await syncFightMetaFromRapidApi(
+          event.id,
+          eventDay,
+          eventMonth,
+          d.getUTCFullYear(),
+        )
+        log.push(`[rapidapi] ✓ ${event.name}`)
+      } else {
+        log.push(`[rapidapi] Skipped ${event.name} — not a UFC event (RapidAPI is UFC-only)`)
+      }
 
       // Step 2 — Tapology reconciliation (fighter name corrections)
       const tapEvent = tapologyEvents.find((te) => {

@@ -319,6 +319,7 @@ export function FightCard({
                 odds2={fight.odds_f2}
                 odds1Open={fight.odds_f1_open}
                 odds2Open={fight.odds_f2_open}
+                oddsByBook={(fight as any).odds_by_book as Record<string, { odds_f1: number; odds_f2: number }> | null}
               />
 
               {/* Analysis */}

@@ -1,8 +1,11 @@
 'use client'
 
+import { ExternalLink as ExternalLinkIcon } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import type { FighterRow } from '@/types/database'
+import { BOOKMAKERS, getBookmaker, DEFAULT_BOOKMAKER } from '@/lib/affiliates'
+import type { BookOdds } from '@/lib/actions/odds'
 
 // ── Converters ─────────────────────────────────────────────────
 function cmToFtIn(cm: number): string {
@@ -190,6 +193,8 @@ interface FightMatchupTabsProps {
   odds2?: number | null
   odds1Open?: number | null
   odds2Open?: number | null
+  /** Per-bookmaker lines from fights.odds_by_book */
+  oddsByBook?: Record<string, BookOdds> | null
 }
 
 export function FightMatchupTabs({
@@ -199,6 +204,7 @@ export function FightMatchupTabs({
   odds2,
   odds1Open,
   odds2Open,
+  oddsByBook,
 }: FightMatchupTabsProps) {
   const f1Form = fighter1.last_5_form
   const f2Form = fighter2.last_5_form
@@ -209,7 +215,8 @@ export function FightMatchupTabs({
                     || fighter1.sig_str_landed      != null || fighter2.sig_str_landed      != null
   const hasGrappling = fighter1.td_avg != null || fighter2.td_avg != null
                     || fighter1.sub_avg != null || fighter2.sub_avg != null
-  const hasOdds = odds1 != null || odds2 != null
+  // odds_f1/odds_f2 default to 0 in the DB when no line exists — treat 0 as "no odds"
+  const hasOdds = !!(odds1) || !!(odds2)
 
   return (
     <Tabs defaultValue="matchup" className="w-full">
@@ -477,73 +484,105 @@ export function FightMatchupTabs({
       {/* ── ODDS ────────────────────────────────────────────────── */}
       <TabsContent value="odds" className="mt-0">
         <div>
-          <div className="grid grid-cols-[1fr,7rem,1fr] items-center gap-2 pb-2 mb-1 border-b border-border/60">
-            <span className="text-[11px] font-black text-red-400 uppercase tracking-wide">{f1LastName}</span>
-            <span />
-            <span className="text-[11px] font-black text-blue-400 uppercase tracking-wide text-right">{f2LastName}</span>
-          </div>
+          {(() => {
+            // Build the bookmaker rows first so we can decide what to render
+            const bookRows: { key: string; name: string; url: string; o1: number; o2: number }[] = []
 
-          {hasOdds ? (
-            <div className="space-y-0">
-              {(odds1 != null || odds2 != null) && (
-                <StatRow
-                  f1={
-                    odds1 != null ? (
-                      <span className={odds1 < 0 ? 'text-emerald-400' : 'text-foreground-secondary'}>
-                        {formatOdds(odds1)}
-                      </span>
-                    ) : '—'
-                  }
-                  label="Moneyline"
-                  f2={
-                    odds2 != null ? (
-                      <span className={odds2 < 0 ? 'text-emerald-400' : 'text-foreground-secondary'}>
-                        {formatOdds(odds2)}
-                      </span>
-                    ) : '—'
-                  }
-                />
-              )}
+            if (oddsByBook && Object.keys(oddsByBook).length > 0) {
+              // Show books in our preferred order, only those with lines
+              for (const bm of BOOKMAKERS) {
+                const line = oddsByBook[bm.key]
+                if (line) bookRows.push({ key: bm.key, name: bm.name, url: bm.url, o1: line.odds_f1, o2: line.odds_f2 })
+              }
+              // Also include any books returned by the API that aren't in our config list
+              for (const [k, line] of Object.entries(oddsByBook)) {
+                if (!bookRows.find(r => r.key === k)) {
+                  const bm = getBookmaker(k)
+                  bookRows.push({ key: k, name: bm?.name ?? k, url: bm?.url ?? '#', o1: line.odds_f1, o2: line.odds_f2 })
+                }
+              }
+            } else if (odds1 && odds2) {
+              // odds default to 0 in the DB — only show fallback when there's a real line
+              bookRows.push({ key: DEFAULT_BOOKMAKER.key, name: DEFAULT_BOOKMAKER.name, url: DEFAULT_BOOKMAKER.url, o1: odds1, o2: odds2 })
+            }
 
-              {(odds1 != null || odds2 != null) && (
-                <StatRow
-                  f1={odds1 != null ? `${impliedProb(odds1)}%` : '—'}
-                  label="Implied Prob."
-                  f2={odds2 != null ? `${impliedProb(odds2)}%` : '—'}
-                  f1Edge={odds1 != null && odds2 != null && impliedProb(odds1) > impliedProb(odds2)}
-                  f2Edge={odds1 != null && odds2 != null && impliedProb(odds2) > impliedProb(odds1)}
-                />
-              )}
+            if (bookRows.length === 0) {
+              return <p className="text-center text-foreground-muted text-xs py-6">No odds available yet</p>
+            }
 
-              {(odds1Open != null || odds2Open != null) && (
-                <StatRow
-                  f1={odds1Open != null ? formatOdds(odds1Open) : '—'}
-                  label="Opening"
-                  f2={odds2Open != null ? formatOdds(odds2Open) : '—'}
-                />
-              )}
-
-              {/* Probability bar */}
-              {odds1 != null && odds2 != null && (() => {
-                const p1 = impliedProb(odds1)
-                const p2 = impliedProb(odds2)
-                return (
-                  <div className="pt-4">
-                    <div className="flex h-3 rounded-full overflow-hidden gap-px">
-                      <div className="h-full bg-red-500 transition-all" style={{ width: `${p1}%` }} />
-                      <div className="h-full bg-blue-500 transition-all" style={{ width: `${p2}%` }} />
-                    </div>
-                    <div className="flex justify-between mt-1.5 text-[10px] text-foreground-muted">
-                      <span>{p1}% {f1LastName}</span>
-                      <span>{f2LastName} {p2}%</span>
-                    </div>
+            return (
+              <div className="space-y-3 pt-1">
+                {/* Per-bookmaker table */}
+                <div className="rounded-xl overflow-hidden border border-border/50">
+                  {/* Header */}
+                  <div className="grid grid-cols-[1fr,auto,auto] items-center gap-2 px-3 py-2 bg-surface-2/60 border-b border-border/50">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Book</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-red-400 w-16 text-center">{f1LastName}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400 w-16 text-center">{f2LastName}</span>
                   </div>
-                )
-              })()}
-            </div>
-          ) : (
-            <p className="text-center text-foreground-muted text-xs py-6">No odds available yet</p>
-          )}
+
+                  {bookRows.map(({ key, name, url, o1, o2 }) => (
+                    <a
+                      key={key}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                      className="grid grid-cols-[1fr,auto,auto] items-center gap-2 px-3 py-2.5 border-b border-border/30 last:border-0 hover:bg-surface-2/50 transition-colors group"
+                    >
+                      <span className="text-[12px] font-semibold text-foreground-secondary group-hover:text-foreground transition-colors flex items-center gap-1">
+                        {name}
+                        <ExternalLinkIcon className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                      </span>
+                      <span className={cn(
+                        'w-16 text-center text-[13px] font-black',
+                        o1 < 0 ? 'text-emerald-400' : 'text-red-400',
+                      )}>
+                        {formatOdds(o1)}
+                      </span>
+                      <span className={cn(
+                        'w-16 text-center text-[13px] font-black',
+                        o2 < 0 ? 'text-emerald-400' : 'text-red-400',
+                      )}>
+                        {formatOdds(o2)}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+
+                {/* Opening odds */}
+                {(odds1Open || odds2Open) && (
+                  <div className="flex items-center justify-between px-1 text-[10px] text-foreground-muted">
+                    <span>Open: <span className="font-bold">{odds1Open ? formatOdds(odds1Open) : '—'}</span></span>
+                    <span className="uppercase tracking-widest text-[9px]">Opening</span>
+                    <span>Open: <span className="font-bold">{odds2Open ? formatOdds(odds2Open) : '—'}</span></span>
+                  </div>
+                )}
+
+                {/* Win probability bar */}
+                {odds1 && odds2 && (() => {
+                  const p1 = impliedProb(odds1)
+                  const p2 = impliedProb(odds2)
+                  return (
+                    <div>
+                      <div className="flex h-3 rounded-full overflow-hidden gap-px">
+                        <div className="h-full bg-red-500 transition-all" style={{ width: `${p1}%` }} />
+                        <div className="h-full bg-blue-500 transition-all" style={{ width: `${p2}%` }} />
+                      </div>
+                      <div className="flex justify-between mt-1.5 text-[10px] text-foreground-muted">
+                        <span>{p1}% {f1LastName}</span>
+                        <span>{f2LastName} {p2}%</span>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Disclaimer */}
+                <p className="text-[9px] text-foreground-muted text-center pt-1 leading-snug">
+                  Odds subject to change. Must be 21+. Gambling problem? Call 1-800-GAMBLER.
+                </p>
+              </div>
+            )
+          })()}
         </div>
       </TabsContent>
     </Tabs>

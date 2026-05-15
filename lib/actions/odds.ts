@@ -75,6 +75,33 @@ function bestOdds(
   return null
 }
 
+/** Per-bookmaker odds shape stored in fights.odds_by_book */
+export interface BookOdds {
+  odds_f1: number
+  odds_f2: number
+}
+
+/**
+ * Collect odds for every bookmaker that has a line on this fight.
+ * Returns a map of bookmaker key → { odds_f1, odds_f2 }.
+ * Only includes books that have lines for BOTH fighters.
+ */
+function collectBookOdds(
+  bookmakers: OddsApiBookmaker[],
+  f1Name: string,
+  f2Name: string,
+): Record<string, BookOdds> {
+  const result: Record<string, BookOdds> = {}
+  for (const bk of bookmakers) {
+    const h2h = bk.markets.find((m) => m.key === 'h2h')
+    if (!h2h) continue
+    const o1 = h2h.outcomes.find((o) => nameMatches(f1Name, o.name))
+    const o2 = h2h.outcomes.find((o) => nameMatches(f2Name, o.name))
+    if (o1 && o2) result[bk.key] = { odds_f1: o1.price, odds_f2: o2.price }
+  }
+  return result
+}
+
 // ─── Main sync action ────────────────────────────────────────────────────────
 
 export async function syncEventOdds(eventId: string): Promise<{ error?: string; synced?: number; message?: string }> {
@@ -145,6 +172,9 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
 
     if (!newOddsF1 || !newOddsF2) continue
 
+    // Collect per-bookmaker lines
+    const oddsMap = collectBookOdds(match.bookmakers, apiNameF1, apiNameF2)
+
     // Build history snapshot
     const snapshot: OddsSnapshot = { ts: now, odds_f1: newOddsF1, odds_f2: newOddsF2 }
     const existingHistory: OddsSnapshot[] = Array.isArray(fight.odds_history) ? (fight.odds_history as OddsSnapshot[]) : []
@@ -164,6 +194,7 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
         odds_f1_open: openF1,
         odds_f2_open: openF2,
         odds_history: updatedHistory,
+        odds_by_book: Object.keys(oddsMap).length > 0 ? oddsMap : null,
       })
       .eq('id', fight.id)
 

@@ -154,6 +154,8 @@ export interface Database {
           odds_f1_open: number | null
           odds_f2_open: number | null
           odds_history: Json | null
+          /** Per-bookmaker odds: Record<bookmakerKey, { odds_f1: number; odds_f2: number }> */
+          odds_by_book: Json | null
           analysis_f1: string | null
           analysis_f2: string | null
           is_main_event: boolean
@@ -179,6 +181,7 @@ export interface Database {
           odds_f1_open?: number | null
           odds_f2_open?: number | null
           odds_history?: Json | null
+          odds_by_book?: Json | null
           analysis_f1?: string | null
           analysis_f2?: string | null
           is_main_event?: boolean
