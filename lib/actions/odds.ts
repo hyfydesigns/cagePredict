@@ -102,6 +102,46 @@ function collectBookOdds(
   return result
 }
 
+// ─── Debug: inspect raw API response ─────────────────────────────────────────
+
+/**
+ * Fetch the raw Odds API response and return a summary of what bookmakers
+ * and fighter names it contains for MMA. Useful for diagnosing missing books.
+ */
+export async function debugOddsApi(): Promise<{
+  error?: string
+  fights: { home: string; away: string; books: string[] }[]
+  rawBookmakerKeys: string[]
+}> {
+  const apiKey = process.env.ODDS_API_KEY
+  if (!apiKey) return { error: 'ODDS_API_KEY not set', fights: [], rawBookmakerKeys: [] }
+
+  const url = new URL('https://api.the-odds-api.com/v4/sports/mma_mixed_martial_arts/odds/')
+  url.searchParams.set('apiKey', apiKey)
+  url.searchParams.set('regions', 'us,uk,eu,au')  // expand regions to see all available books
+  url.searchParams.set('markets', 'h2h')
+  url.searchParams.set('oddsFormat', 'american')
+
+  try {
+    const res = await fetch(url.toString(), { cache: 'no-store' })
+    if (!res.ok) {
+      const text = await res.text()
+      return { error: `API error ${res.status}: ${text.slice(0, 300)}`, fights: [], rawBookmakerKeys: [] }
+    }
+    const apiEvents: OddsApiEvent[] = await res.json()
+
+    const allBookKeys = new Set<string>()
+    const fights = apiEvents.map((ev) => {
+      const books = ev.bookmakers.map((b) => { allBookKeys.add(b.key); return b.key })
+      return { home: ev.home_team, away: ev.away_team, books }
+    })
+
+    return { fights, rawBookmakerKeys: [...allBookKeys].sort() }
+  } catch (e) {
+    return { error: String(e), fights: [], rawBookmakerKeys: [] }
+  }
+}
+
 // ─── Main sync action ────────────────────────────────────────────────────────
 
 export async function syncEventOdds(eventId: string): Promise<{ error?: string; synced?: number; message?: string }> {

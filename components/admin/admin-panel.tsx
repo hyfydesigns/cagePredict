@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder } from '@/lib/actions/admin'
-import { syncEventOdds } from '@/lib/actions/odds'
+import { syncEventOdds, debugOddsApi } from '@/lib/actions/odds'
 import { adminDeleteUser } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
 import { format } from 'date-fns'
@@ -65,6 +65,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [isResultPending, startResultTransition]     = useTransition()
   const [isOddsPending, startOddsTransition]         = useTransition()
   const [oddsEventId, setOddsEventId]                = useState(() => events[0]?.id ?? '')
+  const [isOddsDebugPending, startOddsDebugTransition] = useTransition()
+  const [oddsDebugResult, setOddsDebugResult]          = useState<{ fights: { home: string; away: string; books: string[] }[]; rawBookmakerKeys: string[]; error?: string } | null>(null)
   const [userSearch, setUserSearch]                  = useState('')
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null)
   const [isDeleteUserPending, startDeleteUserTransition] = useTransition()
@@ -257,6 +259,13 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
       } else {
         toast({ title: 'Odds synced!', description: result.message })
       }
+    })
+  }
+
+  function handleDebugOdds() {
+    startOddsDebugTransition(async () => {
+      const result = await debugOddsApi()
+      setOddsDebugResult(result)
     })
   }
 
@@ -549,6 +558,40 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
         <p className="text-foreground-muted text-xs">
           Run this manually before events, or set up a cron to call <code className="bg-surface-2 px-1 rounded">/api/cron/sync-odds</code> hourly on fight days.
         </p>
+
+        {/* Debug: inspect raw API response */}
+        <div className="border-t border-border/40 pt-3 space-y-2">
+          <div className="flex items-center gap-3">
+            <p className="text-foreground-muted text-xs flex-1">
+              Not seeing multiple bookmakers? Inspect what The Odds API is actually returning:
+            </p>
+            <Button variant="outline" size="sm" onClick={handleDebugOdds} disabled={isOddsDebugPending} className="shrink-0 text-xs">
+              {isOddsDebugPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Debug API'}
+            </Button>
+          </div>
+          {oddsDebugResult && (
+            <div className="rounded-lg bg-surface-2/60 border border-border/50 p-3 space-y-2 text-xs font-mono">
+              {oddsDebugResult.error ? (
+                <p className="text-red-400">{oddsDebugResult.error}</p>
+              ) : (
+                <>
+                  <p className="text-foreground-muted font-sans font-semibold">
+                    Books in API response: <span className="text-foreground">{oddsDebugResult.rawBookmakerKeys.length === 0 ? 'none' : oddsDebugResult.rawBookmakerKeys.join(', ')}</span>
+                  </p>
+                  <p className="text-foreground-muted font-sans font-semibold">
+                    MMA fights listed: <span className="text-foreground">{oddsDebugResult.fights.length}</span>
+                  </p>
+                  {oddsDebugResult.fights.map((f, i) => (
+                    <div key={i} className="text-[11px] text-foreground-secondary">
+                      {f.home} vs {f.away}
+                      <span className="text-foreground-muted ml-2">({f.books.join(', ') || 'no books'})</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Seed fake data (fallback) */}
