@@ -202,6 +202,97 @@ function matchKalshi(
   }
 }
 
+// ─── Polymarket prediction market ────────────────────────────────────────────
+
+interface PolymarketMarket {
+  id:            string
+  question:      string
+  /** JSON string, e.g. '["Burns", "Morales"]' */
+  outcomes:      string
+  /** JSON string, e.g. '["0.62", "0.38"]' */
+  outcomePrices: string
+  active:        boolean
+  closed:        boolean
+}
+
+interface PolymarketEvent {
+  id:      string
+  title:   string
+  markets: PolymarketMarket[]
+}
+
+/**
+ * Fetch all active UFC markets from the Polymarket Gamma API.
+ * The `/events` endpoint with `tag_slug=ufc` returns UFC event objects,
+ * each containing an array of fight markets.
+ * Returns a flat list of all fight markets across all UFC events.
+ */
+async function fetchPolymarketMarkets(): Promise<PolymarketMarket[]> {
+  try {
+    const url = new URL('https://gamma-api.polymarket.com/events')
+    url.searchParams.set('tag_slug', 'ufc')
+    url.searchParams.set('active', 'true')
+    url.searchParams.set('closed', 'false')
+    url.searchParams.set('limit', '100')
+
+    const res = await fetch(url.toString(), { next: { revalidate: 0 } })
+    if (!res.ok) return []
+    const events: PolymarketEvent[] = await res.json()
+
+    // Flatten all markets from all UFC events into one list
+    return events.flatMap((ev) => ev.markets ?? [])
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Match a fighter pair against Polymarket markets.
+ *
+ * Each fight is one market whose `outcomes` JSON array contains the two
+ * fighter last names (e.g. ["Burns", "Morales"]).  `outcomePrices` is a
+ * parallel JSON array of probability strings ("0.0"–"1.0").
+ * Prices of "0" or "1" indicate a settled market — skip those.
+ */
+function matchPolymarket(
+  markets: PolymarketMarket[],
+  f1Name: string,
+  f2Name: string,
+): { odds_f1: number; odds_f2: number } | null {
+  for (const market of markets) {
+    let outcomes: string[]
+    let prices:   string[]
+    try {
+      outcomes = JSON.parse(market.outcomes)
+      prices   = JSON.parse(market.outcomePrices)
+    } catch {
+      continue
+    }
+
+    if (!Array.isArray(outcomes) || outcomes.length < 2) continue
+    if (!Array.isArray(prices)   || prices.length   < 2) continue
+
+    // Find which index corresponds to each fighter (by last-name match)
+    const idx1 = outcomes.findIndex((o) => nameMatches(f1Name, o.trim()))
+    const idx2 = outcomes.findIndex((o) => nameMatches(f2Name, o.trim()))
+    if (idx1 === -1 || idx2 === -1) continue
+
+    const p1 = parseFloat(prices[idx1])
+    const p2 = parseFloat(prices[idx2])
+
+    // Skip settled markets (price exactly 0 or 1) and invalid data
+    if (isNaN(p1) || isNaN(p2))   continue
+    if (p1 === 0  || p1 === 1)    continue
+    if (p2 === 0  || p2 === 1)    continue
+
+    return {
+      odds_f1: kalshiPriceToAmerican(p1),  // same formula: probability → American odds
+      odds_f2: kalshiPriceToAmerican(p2),
+    }
+  }
+  return null
+}
+
 // ─── Debug: inspect raw API response ─────────────────────────────────────────
 
 /**
@@ -287,8 +378,11 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
     return { error: `Network error fetching odds: ${String(e)}` }
   }
 
-  // 3. Fetch Kalshi markets in parallel (no API key required, best-effort)
-  const kalshiMarkets = await fetchKalshiMarkets()
+  // 3. Fetch Kalshi + Polymarket in parallel (no API keys required, best-effort)
+  const [kalshiMarkets, polymarketMarkets] = await Promise.all([
+    fetchKalshiMarkets(),
+    fetchPolymarketMarkets(),
+  ])
 
   // 4. Match each DB fight to an API event and update
   const now = new Date().toISOString()
@@ -327,10 +421,14 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
     const kalshiLine = matchKalshi(kalshiMarkets, f1.name, f2.name)
     if (kalshiLine) oddsMap['kalshi'] = kalshiLine
 
+    // ── Polymarket: match by fighter name (no auth required) ─────────────────
+    const polyLine = matchPolymarket(polymarketMarkets, f1.name, f2.name)
+    if (polyLine) oddsMap['polymarket'] = polyLine
+
     // ── Resolve best "main" odds ─────────────────────────────────────────────
-    // Prefer The Odds API (real sportsbook lines); fall back to Kalshi prices.
-    const finalF1 = oddsApiF1 ?? kalshiLine?.odds_f1 ?? null
-    const finalF2 = oddsApiF2 ?? kalshiLine?.odds_f2 ?? null
+    // Prefer The Odds API (real sportsbook lines); fall back to prediction markets.
+    const finalF1 = oddsApiF1 ?? kalshiLine?.odds_f1 ?? polyLine?.odds_f1 ?? null
+    const finalF2 = oddsApiF2 ?? kalshiLine?.odds_f2 ?? polyLine?.odds_f2 ?? null
 
     if (!finalF1 || !finalF2) continue   // no source has odds for this fight
 

@@ -23,7 +23,8 @@ export interface Bookmaker {
 
 export const BOOKMAKERS: Bookmaker[] = [
   // ── Prediction markets ────────────────────────────────────────────────────
-  { key: 'kalshi',          name: 'Kalshi',      url: 'https://kalshi.com/markets/kxufcfight' },
+  { key: 'kalshi',      name: 'Kalshi',      url: 'https://kalshi.com/markets/kxufcfight' },
+  { key: 'polymarket',  name: 'Polymarket',  url: 'https://polymarket.com/sports/ufc' },
   // ── US books ──────────────────────────────────────────────────────────────
   { key: 'draftkings',      name: 'DraftKings',  url: 'https://sportsbook.draftkings.com/sports/mma' },
   { key: 'fanduel',         name: 'FanDuel',     url: 'https://sportsbook.fanduel.com/mma' },
@@ -82,7 +83,7 @@ export const DEFAULT_BOOKMAKER: Bookmaker = BOOKMAKERS[0]
  * The Admin panel lets you override this list via the app_settings table.
  * Add more keys here to change the fallback when no DB setting is present.
  */
-export const FEATURED_BOOKMAKER_KEYS: string[] = ['kalshi', 'draftkings', 'fanduel', 'bovada']
+export const FEATURED_BOOKMAKER_KEYS: string[] = ['kalshi', 'polymarket', 'draftkings', 'fanduel', 'bovada']
 
 /** Pre-filtered bookmaker objects for the featured keys above */
 export const FEATURED_BOOKMAKERS: Bookmaker[] = BOOKMAKERS.filter((b) =>
