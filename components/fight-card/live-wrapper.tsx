@@ -81,16 +81,16 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     ? events.some(e => format(new Date(e.date), 'yyyy-MM-dd') !== activeEventDateKey)
     : false
 
-  // Helper: update events + snap to live if one exists, otherwise keep current selection.
+  // Helper: update events + preserve user's current selection if still valid.
+  // Only auto-snap when the selected event is no longer in the list.
   const applyFreshEvents = (fresh: EventWithFights[]) => {
     setEvents(fresh)
-    const liveEvent = fresh.find((e) => e.status === 'live')
-    if (liveEvent) {
-      setActiveEventId(liveEvent.id)
-    } else {
-      // Keep current selection if still in list; fall back gracefully
-      setActiveEventId((prev) => fresh.find((e) => e.id === prev)?.id ?? pickActiveId(fresh))
-    }
+    setActiveEventId((prev) => {
+      // Keep the user's current selection as long as it's still in the list
+      if (prev && fresh.find((e) => e.id === prev)) return prev
+      // Selection gone (e.g. event completed and dropped off) — pick best default
+      return pickActiveId(fresh)
+    })
   }
 
   // ── DB-authoritative stats scoped to the ACTIVE event only ──────────────────
