@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder } from '@/lib/actions/admin'
 import { syncEventOdds, debugOddsApi } from '@/lib/actions/odds'
+import { saveVisibleBookmakerKeys } from '@/lib/actions/settings'
 import { adminDeleteUser } from '@/lib/actions/auth'
+import { BOOKMAKERS, FEATURED_BOOKMAKER_KEYS } from '@/lib/affiliates'
 import { useToast } from '@/components/ui/use-toast'
 import { format } from 'date-fns'
 
@@ -54,9 +56,10 @@ interface Props {
   stats: { users: number; fights: number; predictions: number }
   adminUserId: string
   users: AdminUser[]
+  visibleBookmakerKeys: string[]
 }
 
-export function AdminPanel({ events, stats, adminUserId, users }: Props) {
+export function AdminPanel({ events, stats, adminUserId, users, visibleBookmakerKeys }: Props) {
   const { toast } = useToast()
   const [isSeedPending, startSeedTransition]         = useTransition()
   const [isApiFetchPending, startApiFetchTransition] = useTransition()
@@ -78,6 +81,8 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
   const [isAutoImportPending, startAutoImportTransition] = useTransition()
   const [autoImportLog, setAutoImportLog]                = useState<string[] | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(events[0]?.id ?? null)
+  const [selectedBookmakers, setSelectedBookmakers] = useState<Set<string>>(() => new Set(visibleBookmakerKeys))
+  const [isBookmakerSavePending, startBookmakerSaveTransition] = useTransition()
   const [refreshingEventId, setRefreshingEventId] = useState<string | null>(null)
   const [settingTimesEventId, setSettingTimesEventId] = useState<string | null>(null)
   // eventStartTimes: eventId → "datetime-local" value (YYYY-MM-DDTHH:mm)
@@ -266,6 +271,18 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
     startOddsDebugTransition(async () => {
       const result = await debugOddsApi()
       setOddsDebugResult(result)
+    })
+  }
+
+  function handleSaveBookmakers() {
+    startBookmakerSaveTransition(async () => {
+      const keys = Array.from(selectedBookmakers)
+      const result = await saveVisibleBookmakerKeys(keys)
+      if (result.error) {
+        toast({ title: 'Save failed', description: result.error, variant: 'destructive' })
+      } else {
+        toast({ title: 'Bookmakers saved!', description: `Showing ${keys.length} bookmaker${keys.length !== 1 ? 's' : ''} on fight cards.` })
+      }
     })
   }
 
@@ -591,6 +608,85 @@ export function AdminPanel({ events, stats, adminUserId, users }: Props) {
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Bookmaker Visibility */}
+      <div className="rounded-2xl border border-border bg-surface p-5 space-y-4">
+        <div>
+          <h2 className="font-bold text-foreground flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-emerald-400" /> Bookmaker Display
+          </h2>
+          <p className="text-foreground-muted text-sm mt-1">
+            Choose which sportsbooks appear in the &quot;Bet&quot; section on fight cards.
+            Only books that have odds data for a given fight will actually render.
+          </p>
+        </div>
+
+        {/* Setup note */}
+        <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3 text-xs text-foreground-muted space-y-1">
+          <p className="font-semibold text-amber-600 dark:text-amber-400">First-time setup</p>
+          <p>Run this SQL once in the Supabase SQL editor to enable persistent bookmaker settings:</p>
+          <pre className="mt-1 bg-surface-2 rounded p-2 text-[10px] overflow-x-auto whitespace-pre-wrap break-all">{`CREATE TABLE IF NOT EXISTS app_settings (
+  key   text PRIMARY KEY,
+  value jsonb NOT NULL
+);`}</pre>
+        </div>
+
+        {/* Bookmaker grid — grouped by region */}
+        {(['US', 'UK / Europe', 'Australia'] as const).map((region) => {
+          const regionBooks = BOOKMAKERS.filter((b) => {
+            if (region === 'US') return ['draftkings','fanduel','betmgm','betrivers','caesars','espnbet','williamhill_us','betonlineag','bovada','betus','betanysports'].includes(b.key)
+            if (region === 'Australia') return ['sportsbet','tab','tabtouch','neds','ladbrokes_au','pointsbetau','betr_au','betright','playup'].includes(b.key)
+            return true // UK / Europe — everything else
+          }).filter((b) => {
+            if (region === 'UK / Europe') return !['draftkings','fanduel','betmgm','betrivers','caesars','espnbet','williamhill_us','betonlineag','bovada','betus','betanysports','sportsbet','tab','tabtouch','neds','ladbrokes_au','pointsbetau','betr_au','betright','playup'].includes(b.key)
+            return true
+          })
+          return (
+            <div key={region} className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{region}</p>
+              <div className="flex flex-wrap gap-2">
+                {regionBooks.map((bm) => {
+                  const active = selectedBookmakers.has(bm.key)
+                  return (
+                    <button
+                      key={bm.key}
+                      onClick={() => {
+                        setSelectedBookmakers((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(bm.key)) { next.delete(bm.key) } else { next.add(bm.key) }
+                          return next
+                        })
+                      }}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                        active
+                          ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-400'
+                          : 'border-border bg-surface-2/50 text-foreground-muted hover:border-border hover:text-foreground-secondary'
+                      }`}
+                    >
+                      {active ? '✓ ' : ''}{bm.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+
+        <div className="flex items-center gap-3 pt-1">
+          <Button onClick={handleSaveBookmakers} disabled={isBookmakerSavePending || selectedBookmakers.size === 0}>
+            {isBookmakerSavePending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <>Save · {selectedBookmakers.size} selected</>
+            }
+          </Button>
+          <button
+            onClick={() => setSelectedBookmakers(new Set(FEATURED_BOOKMAKER_KEYS))}
+            className="text-xs text-foreground-muted hover:text-foreground-secondary transition-colors"
+          >
+            Reset to defaults
+          </button>
         </div>
       </div>
 

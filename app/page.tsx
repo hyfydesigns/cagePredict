@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { LiveWrapper } from '@/components/fight-card/live-wrapper'
 import { getPicksStats, type EventStats } from '@/lib/actions/events'
+import { getVisibleBookmakerKeys } from '@/lib/actions/settings'
 import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
 import type { PredictionMap } from '@/hooks/use-predictions'
@@ -258,7 +259,7 @@ export default async function HomePage({
         </div>
       ) : (
         <div className="space-y-12">
-          <LiveWrapper initialEvents={typedEvents} userPicks={userPicks} userId={user?.id} commentsByFight={commentsByFight} initialDbStats={initialDbStats} />
+          <LiveWrapper initialEvents={typedEvents} userPicks={userPicks} userId={user?.id} commentsByFight={commentsByFight} initialDbStats={initialDbStats} visibleBookmakerKeys={await getVisibleBookmakerKeys()} />
         </div>
       )}
     </div>

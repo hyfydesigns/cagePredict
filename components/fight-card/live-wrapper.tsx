@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
 import { usePredictions, type PredictionMap } from '@/hooks/use-predictions'
 import { FightCardSections } from './fight-card-sections'
+import { BookmakerProvider } from './bookmaker-context'
+import { FEATURED_BOOKMAKER_KEYS } from '@/lib/affiliates'
 
 interface LiveWrapperProps {
   initialEvents: EventWithFights[]
@@ -20,9 +22,10 @@ interface LiveWrapperProps {
   userId?: string
   commentsByFight?: Record<string, CommentWithProfile[]>
   initialDbStats?: EventStats | null
+  visibleBookmakerKeys?: string[]
 }
 
-export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight = {}, initialDbStats = null }: LiveWrapperProps) {
+export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight = {}, initialDbStats = null, visibleBookmakerKeys = FEATURED_BOOKMAKER_KEYS }: LiveWrapperProps) {
   const [events, setEvents] = useState(initialEvents)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [refreshError, setRefreshError] = useState(false)
@@ -209,6 +212,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   if (!activeEvent) return null
 
   return (
+    <BookmakerProvider keys={visibleBookmakerKeys}>
     <div className="space-y-4">
       {/* Live indicator */}
       {isLive && (
@@ -364,6 +368,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
         liveEarned={liveEarned}
       />
     </div>
+    </BookmakerProvider>
   )
 }
 

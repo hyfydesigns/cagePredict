@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { isAdmin } from '@/lib/auth/is-admin'
+import { getVisibleBookmakerKeys } from '@/lib/actions/settings'
 
 export const metadata: Metadata = { title: 'Admin Panel' }
 
@@ -39,12 +40,15 @@ export default async function AdminPage() {
     .select('id, username, display_name, avatar_emoji, total_points, total_picks, correct_picks, created_at, email_notifications')
     .order('created_at', { ascending: false })
 
+  const visibleBookmakerKeys = await getVisibleBookmakerKeys()
+
   return (
     <AdminPanel
       events={(events as any) ?? []}
       stats={{ users: userCount ?? 0, fights: fightCount ?? 0, predictions: predCount ?? 0 }}
       adminUserId={user.id}
       users={(usersData as any) ?? []}
+      visibleBookmakerKeys={visibleBookmakerKeys}
     />
   )
 }

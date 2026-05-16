@@ -74,3 +74,15 @@ export function getBookmaker(key: string): Bookmaker | undefined {
  * Whichever book is listed first in BOOKMAKERS is the default.
  */
 export const DEFAULT_BOOKMAKER: Bookmaker = BOOKMAKERS[0]
+
+/**
+ * Bookmakers shown on fight cards by default.
+ * The Admin panel lets you override this list via the app_settings table.
+ * Add more keys here to change the fallback when no DB setting is present.
+ */
+export const FEATURED_BOOKMAKER_KEYS: string[] = ['draftkings', 'fanduel', 'bovada']
+
+/** Pre-filtered bookmaker objects for the featured keys above */
+export const FEATURED_BOOKMAKERS: Bookmaker[] = BOOKMAKERS.filter((b) =>
+  FEATURED_BOOKMAKER_KEYS.includes(b.key),
+)

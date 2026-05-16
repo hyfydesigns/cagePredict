@@ -15,6 +15,7 @@ import { cn, isFightLocked, formatOdds } from '@/lib/utils'
 import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 import { BOOKMAKERS, getBookmaker, DEFAULT_BOOKMAKER } from '@/lib/affiliates'
 import type { BookOdds } from '@/lib/actions/odds'
+import { useVisibleBookmakerKeys } from './bookmaker-context'
 
 // ── Bookmaker odds content (rendered inside the collapsible) ─────────────────
 
@@ -31,6 +32,9 @@ function BookmakerOddsContent({
   f1Name: string
   f2Name: string
 }) {
+  const visibleKeys = useVisibleBookmakerKeys()
+  const visibleSet  = new Set(visibleKeys)
+
   const rows: { key: string; name: string; url: string; o1: number; o2: number }[] = []
   const seenNames = new Set<string>()
 
@@ -41,15 +45,16 @@ function BookmakerOddsContent({
   }
 
   if (oddsByBook && Object.keys(oddsByBook).length > 0) {
+    // Only show bookmakers that are in the visible set (admin-configurable)
     for (const bm of BOOKMAKERS) {
+      if (!visibleSet.has(bm.key)) continue
       const line = oddsByBook[bm.key]
       if (line) addRow(bm.key, bm.name, bm.url, line.odds_f1, line.odds_f2)
     }
-    for (const [k, line] of Object.entries(oddsByBook)) {
-      if (!BOOKMAKERS.find(b => b.key === k)) addRow(k, k, '#', line.odds_f1, line.odds_f2)
-    }
   } else if (odds1 && odds2) {
-    addRow(DEFAULT_BOOKMAKER.key, DEFAULT_BOOKMAKER.name, DEFAULT_BOOKMAKER.url, odds1, odds2)
+    // Fall back to the first visible bookmaker when no per-book data is stored
+    const fallback = BOOKMAKERS.find(b => visibleSet.has(b.key)) ?? DEFAULT_BOOKMAKER
+    addRow(fallback.key, fallback.name, fallback.url, odds1, odds2)
   }
 
   if (rows.length === 0) {
