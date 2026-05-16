@@ -139,16 +139,19 @@ function kalshiPriceToAmerican(p: number): number {
 }
 
 /**
- * Fetch all currently open UFC fight markets from Kalshi.
+ * Fetch all active UFC fight markets from Kalshi.
  * No API key required — the endpoint is public.
+ * Kalshi creates TWO markets per fight (one YES contract per fighter),
+ * so a 10-fight card returns ~20 markets.
  * Returns an empty array on any network or parse error.
  */
 async function fetchKalshiMarkets(): Promise<KalshiMarket[]> {
   try {
     const url = new URL('https://external-api.kalshi.com/trade-api/v2/markets')
     url.searchParams.set('series_ticker', 'KXUFCFIGHT')
+    // Kalshi uses "open" as the query-param value for active/live markets
     url.searchParams.set('status', 'open')
-    url.searchParams.set('limit', '200')
+    url.searchParams.set('limit', '500')
 
     const res = await fetch(url.toString(), { next: { revalidate: 0 } })
     if (!res.ok) return []
@@ -160,35 +163,43 @@ async function fetchKalshiMarkets(): Promise<KalshiMarket[]> {
 }
 
 /**
- * Try to find a Kalshi market for a given fighter pair.
- * Returns { odds_f1, odds_f2 } in American format, or null if no match.
+ * Find Kalshi odds for a fighter pair.
+ *
+ * Kalshi structure: each fight gets TWO separate binary markets —
+ *   "Will [Fighter A] win?" (YES = A wins)
+ *   "Will [Fighter B] win?" (YES = B wins)
+ *
+ * So we look for each fighter's own YES market and read the mid-price
+ * directly from it. If only one fighter's market is found we derive
+ * the other from 1 - p (less accurate but still useful).
  */
 function matchKalshi(
   markets: KalshiMarket[],
   f1Name: string,
   f2Name: string,
 ): { odds_f1: number; odds_f2: number } | null {
-  for (const mkt of markets) {
-    const f1IsYes =
-      nameMatches(f1Name, mkt.yes_sub_title) &&
-      nameMatches(f2Name, mkt.no_sub_title)
-    const f2IsYes =
-      nameMatches(f2Name, mkt.yes_sub_title) &&
-      nameMatches(f1Name, mkt.no_sub_title)
+  // Each fighter has their own market where they are the YES side
+  const f1Market = markets.find((m) => nameMatches(f1Name, m.yes_sub_title))
+  const f2Market = markets.find((m) => nameMatches(f2Name, m.yes_sub_title))
 
-    if (!f1IsYes && !f2IsYes) continue
+  if (!f1Market && !f2Market) return null
 
-    const midP = kalshiMidPrice(mkt)
-    if (midP <= 0 || midP >= 1) continue
+  // Use each fighter's own market price; derive the other if missing
+  let p1 = f1Market ? kalshiMidPrice(f1Market) : null
+  let p2 = f2Market ? kalshiMidPrice(f2Market) : null
 
-    const yesOdds = kalshiPriceToAmerican(midP)
-    const noOdds  = kalshiPriceToAmerican(1 - midP)
+  if (p1 === null && p2 !== null) p1 = 1 - p2
+  if (p2 === null && p1 !== null) p2 = 1 - p1
 
-    return f1IsYes
-      ? { odds_f1: yesOdds, odds_f2: noOdds }
-      : { odds_f1: noOdds,  odds_f2: yesOdds }
+  if (p1 === null || p2 === null) return null
+  // Clamp — shouldn't normally be needed but guards against bad data
+  p1 = Math.max(0.01, Math.min(0.99, p1))
+  p2 = Math.max(0.01, Math.min(0.99, p2))
+
+  return {
+    odds_f1: kalshiPriceToAmerican(p1),
+    odds_f2: kalshiPriceToAmerican(p2),
   }
-  return null
 }
 
 // ─── Debug: inspect raw API response ─────────────────────────────────────────
