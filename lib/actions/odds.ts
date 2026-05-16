@@ -102,6 +102,95 @@ function collectBookOdds(
   return result
 }
 
+// ─── Kalshi prediction market ────────────────────────────────────────────────
+
+interface KalshiMarket {
+  ticker:             string
+  yes_sub_title:      string   // fighter name on the YES side
+  no_sub_title:       string   // fighter name on the NO side
+  last_price_dollars: string   // last traded price  (0.00–1.00)
+  yes_bid_dollars:    string   // current best bid for YES
+  yes_ask_dollars:    string   // current best ask for YES
+  status:             string   // open | closed | settled | …
+}
+
+/**
+ * Mid-price of the YES side (average of best bid and best ask).
+ * Falls back to last traded price when bid/ask are missing or zero.
+ */
+function kalshiMidPrice(market: KalshiMarket): number {
+  const bid  = parseFloat(market.yes_bid_dollars)
+  const ask  = parseFloat(market.yes_ask_dollars)
+  const last = parseFloat(market.last_price_dollars)
+  if (bid > 0 && ask > 0) return (bid + ask) / 2
+  return last
+}
+
+/**
+ * Convert a Kalshi probability (0.0–1.0) to American odds.
+ * p > 0.5 → negative (favourite), p < 0.5 → positive (underdog).
+ */
+function kalshiPriceToAmerican(p: number): number {
+  // clamp so we never divide by 0 or produce nonsense
+  const clamped = Math.max(0.01, Math.min(0.99, p))
+  if (clamped > 0.5) return -Math.round((clamped / (1 - clamped)) * 100)
+  if (clamped < 0.5) return  Math.round(((1 - clamped) / clamped) * 100)
+  return -100
+}
+
+/**
+ * Fetch all currently open UFC fight markets from Kalshi.
+ * No API key required — the endpoint is public.
+ * Returns an empty array on any network or parse error.
+ */
+async function fetchKalshiMarkets(): Promise<KalshiMarket[]> {
+  try {
+    const url = new URL('https://external-api.kalshi.com/trade-api/v2/markets')
+    url.searchParams.set('series_ticker', 'KXUFCFIGHT')
+    url.searchParams.set('status', 'open')
+    url.searchParams.set('limit', '200')
+
+    const res = await fetch(url.toString(), { next: { revalidate: 0 } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.markets ?? []) as KalshiMarket[]
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Try to find a Kalshi market for a given fighter pair.
+ * Returns { odds_f1, odds_f2 } in American format, or null if no match.
+ */
+function matchKalshi(
+  markets: KalshiMarket[],
+  f1Name: string,
+  f2Name: string,
+): { odds_f1: number; odds_f2: number } | null {
+  for (const mkt of markets) {
+    const f1IsYes =
+      nameMatches(f1Name, mkt.yes_sub_title) &&
+      nameMatches(f2Name, mkt.no_sub_title)
+    const f2IsYes =
+      nameMatches(f2Name, mkt.yes_sub_title) &&
+      nameMatches(f1Name, mkt.no_sub_title)
+
+    if (!f1IsYes && !f2IsYes) continue
+
+    const midP = kalshiMidPrice(mkt)
+    if (midP <= 0 || midP >= 1) continue
+
+    const yesOdds = kalshiPriceToAmerican(midP)
+    const noOdds  = kalshiPriceToAmerican(1 - midP)
+
+    return f1IsYes
+      ? { odds_f1: yesOdds, odds_f2: noOdds }
+      : { odds_f1: noOdds,  odds_f2: yesOdds }
+  }
+  return null
+}
+
 // ─── Debug: inspect raw API response ─────────────────────────────────────────
 
 /**
@@ -187,7 +276,10 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
     return { error: `Network error fetching odds: ${String(e)}` }
   }
 
-  // 3. Match each DB fight to an API event and update
+  // 3. Fetch Kalshi markets in parallel (no API key required, best-effort)
+  const kalshiMarkets = await fetchKalshiMarkets()
+
+  // 4. Match each DB fight to an API event and update
   const now = new Date().toISOString()
   let synced = 0
 
@@ -196,43 +288,57 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
     const f2 = fight.fighter2 as unknown as { id: string; name: string }
     if (!f1 || !f2) continue
 
-    // Find the API event that matches this fight
+    // ── The Odds API: find the matching event ────────────────────────────────
     const match = apiEvents.find(
       (ev) =>
         (nameMatches(f1.name, ev.home_team) && nameMatches(f2.name, ev.away_team)) ||
         (nameMatches(f2.name, ev.home_team) && nameMatches(f1.name, ev.away_team)),
     )
-    if (!match) continue
 
-    // Determine which API side is which DB fighter
-    const f1IsHome = nameMatches(f1.name, match.home_team)
-    const apiNameF1 = f1IsHome ? match.home_team : match.away_team
-    const apiNameF2 = f1IsHome ? match.away_team : match.home_team
+    let oddsApiF1: number | null = null
+    let oddsApiF2: number | null = null
+    const oddsMap: Record<string, BookOdds> = {}
 
-    const newOddsF1 = bestOdds(match.bookmakers, apiNameF1)
-    const newOddsF2 = bestOdds(match.bookmakers, apiNameF2)
+    if (match) {
+      const f1IsHome = nameMatches(f1.name, match.home_team)
+      const apiNameF1 = f1IsHome ? match.home_team : match.away_team
+      const apiNameF2 = f1IsHome ? match.away_team : match.home_team
 
-    if (!newOddsF1 || !newOddsF2) continue
+      oddsApiF1 = bestOdds(match.bookmakers, apiNameF1)
+      oddsApiF2 = bestOdds(match.bookmakers, apiNameF2)
 
-    // Collect per-bookmaker lines
-    const oddsMap = collectBookOdds(match.bookmakers, apiNameF1, apiNameF2)
+      // Collect all per-bookmaker lines from The Odds API
+      const fromApi = collectBookOdds(match.bookmakers, apiNameF1, apiNameF2)
+      Object.assign(oddsMap, fromApi)
+    }
 
-    // Build history snapshot
-    const snapshot: OddsSnapshot = { ts: now, odds_f1: newOddsF1, odds_f2: newOddsF2 }
-    const existingHistory: OddsSnapshot[] = Array.isArray(fight.odds_history) ? (fight.odds_history as OddsSnapshot[]) : []
+    // ── Kalshi: match by fighter name (no auth required) ────────────────────
+    const kalshiLine = matchKalshi(kalshiMarkets, f1.name, f2.name)
+    if (kalshiLine) oddsMap['kalshi'] = kalshiLine
 
-    // Keep max 50 snapshots
+    // ── Resolve best "main" odds ─────────────────────────────────────────────
+    // Prefer The Odds API (real sportsbook lines); fall back to Kalshi prices.
+    const finalF1 = oddsApiF1 ?? kalshiLine?.odds_f1 ?? null
+    const finalF2 = oddsApiF2 ?? kalshiLine?.odds_f2 ?? null
+
+    if (!finalF1 || !finalF2) continue   // no source has odds for this fight
+
+    // ── Build history snapshot ───────────────────────────────────────────────
+    const snapshot: OddsSnapshot = { ts: now, odds_f1: finalF1, odds_f2: finalF2 }
+    const existingHistory: OddsSnapshot[] = Array.isArray(fight.odds_history)
+      ? (fight.odds_history as OddsSnapshot[])
+      : []
     const updatedHistory = [...existingHistory, snapshot].slice(-50)
 
-    // Opening odds: only set once (when null)
-    const openF1 = fight.odds_f1_open ?? newOddsF1
-    const openF2 = fight.odds_f2_open ?? newOddsF2
+    // Opening odds: only set once (when null/0)
+    const openF1 = fight.odds_f1_open ?? finalF1
+    const openF2 = fight.odds_f2_open ?? finalF2
 
     const { error: updateErr } = await supabase
       .from('fights')
       .update({
-        odds_f1:      newOddsF1,
-        odds_f2:      newOddsF2,
+        odds_f1:      finalF1,
+        odds_f2:      finalF2,
         odds_f1_open: openF1,
         odds_f2_open: openF2,
         odds_history: updatedHistory,
