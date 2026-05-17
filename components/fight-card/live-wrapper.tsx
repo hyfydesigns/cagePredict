@@ -477,17 +477,23 @@ function EventSectionClient({
   return (
     <section>
       <div className="rounded-2xl overflow-hidden border border-border/60 mb-4">
-        <div className="relative h-32 sm:h-40 bg-surface">
+        <div className="relative h-36 sm:h-44 bg-surface">
           {event.image_url && (
             <Image src={event.image_url} alt={event.name} fill className="object-cover opacity-40" sizes="760px" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
+
+          {/* Status badge — pinned to top-left so it never overlaps the navigation above */}
+          <div className="absolute top-3 left-4">
+            <Badge variant={event.status === 'live' ? 'live' : 'outline'} className="text-[11px]">
+              {event.status === 'live' ? '🔴 LIVE NOW' : 'Upcoming'}
+            </Badge>
+          </div>
+
+          {/* Event name, date and picks progress — pinned to bottom */}
           <div className="absolute bottom-4 left-4 right-4">
             <div className="flex items-end justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <Badge variant={event.status === 'live' ? 'live' : 'outline'} className="mb-2 text-[11px]">
-                  {event.status === 'live' ? '🔴 LIVE NOW' : 'Upcoming'}
-                </Badge>
                 <h2 className="text-xl sm:text-2xl font-black text-foreground flex items-center gap-2">
                   <span className="truncate">{event.name}</span>
                   <Link
