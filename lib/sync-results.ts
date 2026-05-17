@@ -100,10 +100,13 @@ async function syncViaApiSports(
 
     let apiFights: Awaited<ReturnType<typeof getFightsByDate>>
     try {
-      // Try the stored date first; if it returns nothing, also try ±1 day
-      // (handles timezone offsets introduced during import)
-      const datesToTry = [dateStr, offsetDate(dateStr, -1), offsetDate(dateStr, 1)]
-      let foundFights: typeof apiFights = []
+      // Try the stored date AND adjacent days — late-night main cards often
+      // cross midnight UTC so api-sports files them under the next calendar day.
+      // Accumulate all matches across all dates (dedup by fight ID) so we never
+      // miss a fight just because it finished after 00:00 UTC.
+      const datesToTry = [dateStr, offsetDate(dateStr, 1), offsetDate(dateStr, -1)]
+      const seenIds    = new Set<number>()
+      const foundFights: Awaited<ReturnType<typeof getFightsByDate>> = []
 
       for (const tryDate of datesToTry) {
         const allFights = await getFightsByDate(tryDate, false)
@@ -144,9 +147,12 @@ async function syncViaApiSports(
           }
         }
 
-        if (relevantFights.length > 0) {
-          foundFights = relevantFights
-          break
+        // Accumulate, deduplicating by fight ID
+        for (const f of relevantFights) {
+          if (!seenIds.has(f.id)) {
+            seenIds.add(f.id)
+            foundFights.push(f)
+          }
         }
       }
       apiFights = foundFights
