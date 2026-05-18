@@ -666,35 +666,46 @@ export async function autoImportUpcomingEvents(): Promise<{
 
     log.push(`Scanning ${weekendDates.length} upcoming weekend dates for non-UFC promotions via MMAAPI…`)
 
-    // Collect results per promotion for clean log output
-    const promoFoundDates = new Map<string, string[]>(nonUfcPromos.map((p) => [p.name, []]))
+    // Process promotions sequentially to stay well under RapidAPI burst rate limits.
+    // Within each promotion, batch dates in groups of 8 to limit concurrency further.
+    for (const { id: tournamentId, name: promoName } of nonUfcPromos) {
+      const foundDates: string[] = []
+      let firstError: string | null = null
 
-    await Promise.all(
-      nonUfcPromos.flatMap(({ id: tournamentId, name: promoName }) =>
-        weekendDates.map(async ({ day, month, year, dateStr }) => {
-          try {
-            const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
-            const res = await fetch(url, {
-              headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
-              cache: 'no-store',
-            })
-            if (!res.ok || res.status === 204) return
-            const text = await res.text()
-            if (!text) return
-            const data = JSON.parse(text)
-            const fights: any[] = data.events ?? []
-            if (fights.length > 0 && !candidateDateSet.has(dateStr)) {
-              candidateDateSet.add(dateStr)
-              promoFoundDates.get(promoName)!.push(dateStr)
+      for (let i = 0; i < weekendDates.length; i += 8) {
+        const batch = weekendDates.slice(i, i + 8)
+        await Promise.all(
+          batch.map(async ({ day, month, year, dateStr }) => {
+            try {
+              const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
+              const res = await fetch(url, {
+                headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
+                cache: 'no-store',
+              })
+              if (res.status === 204) return  // no event that day — expected
+              if (!res.ok) {
+                if (!firstError) firstError = `HTTP ${res.status} on ${dateStr}`
+                return
+              }
+              const text = await res.text()
+              if (!text) return
+              const data = JSON.parse(text)
+              const fights: any[] = data.events ?? []
+              if (fights.length > 0 && !candidateDateSet.has(dateStr)) {
+                candidateDateSet.add(dateStr)
+                foundDates.push(dateStr)
+              }
+            } catch (e: any) {
+              if (!firstError) firstError = e.message
             }
-          } catch { /* skip individual failures */ }
-        })
-      )
-    )
+          })
+        )
+      }
 
-    for (const [promoName, dates] of promoFoundDates) {
-      if (dates.length > 0) {
-        log.push(`  ${promoName}: found event(s) on ${dates.sort().join(', ')}`)
+      if (firstError) {
+        log.push(`  ${promoName}: scan error — ${firstError}`)
+      } else if (foundDates.length > 0) {
+        log.push(`  ${promoName}: found event(s) on ${foundDates.sort().join(', ')}`)
       } else {
         log.push(`  ${promoName}: no upcoming events found in next 12 weeks`)
       }
