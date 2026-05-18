@@ -666,40 +666,37 @@ export async function autoImportUpcomingEvents(): Promise<{
 
     log.push(`Scanning ${weekendDates.length} upcoming weekend dates for non-UFC promotions via MMAAPI…`)
 
-    // Process promotions sequentially to stay well under RapidAPI burst rate limits.
-    // Within each promotion, batch dates in groups of 8 to limit concurrency further.
+    // Fully sequential — one request at a time across all promotions and dates.
+    // RapidAPI's burst rate limit rejects even small concurrent batches (HTTP 429),
+    // so serialising all requests is the only reliable approach.
+    // 36 dates × 4 promotions = 144 requests; ~200 ms each ≈ 30 s total.
     for (const { id: tournamentId, name: promoName } of nonUfcPromos) {
       const foundDates: string[] = []
       let firstError: string | null = null
 
-      for (let i = 0; i < weekendDates.length; i += 8) {
-        const batch = weekendDates.slice(i, i + 8)
-        await Promise.all(
-          batch.map(async ({ day, month, year, dateStr }) => {
-            try {
-              const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
-              const res = await fetch(url, {
-                headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
-                cache: 'no-store',
-              })
-              if (res.status === 204) return  // no event that day — expected
-              if (!res.ok) {
-                if (!firstError) firstError = `HTTP ${res.status} on ${dateStr}`
-                return
-              }
-              const text = await res.text()
-              if (!text) return
-              const data = JSON.parse(text)
-              const fights: any[] = data.events ?? []
-              if (fights.length > 0 && !candidateDateSet.has(dateStr)) {
-                candidateDateSet.add(dateStr)
-                foundDates.push(dateStr)
-              }
-            } catch (e: any) {
-              if (!firstError) firstError = e.message
-            }
+      for (const { day, month, year, dateStr } of weekendDates) {
+        try {
+          const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
+          const res = await fetch(url, {
+            headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
+            cache: 'no-store',
           })
-        )
+          if (res.status === 204) continue  // no event that day — expected
+          if (!res.ok) {
+            if (!firstError) firstError = `HTTP ${res.status} on ${dateStr}`
+            continue
+          }
+          const text = await res.text()
+          if (!text) continue
+          const data = JSON.parse(text)
+          const fights: any[] = data.events ?? []
+          if (fights.length > 0 && !candidateDateSet.has(dateStr)) {
+            candidateDateSet.add(dateStr)
+            foundDates.push(dateStr)
+          }
+        } catch (e: any) {
+          if (!firstError) firstError = e.message
+        }
       }
 
       if (firstError) {
@@ -1064,29 +1061,27 @@ async function fetchEventByDateRapidApi(
   const host = process.env.RAPIDAPI_UFC_HOST ?? MMAAPI_HOST
   if (!key) return { error: 'RAPIDAPI_KEY not configured in environment (also no APISPORTS_KEY found)' }
 
-  // Query all supported promotion tournament IDs in parallel.
-  // Each endpoint returns fights for that promotion on this date.
-  // Combining the results lets a single date import find any promotion's card.
+  // Query all supported promotion tournament IDs sequentially.
+  // Parallel requests trigger RapidAPI's burst rate limit (HTTP 429),
+  // so we serialise across promotions.
   const apiFights: any[] = []
-  await Promise.all(
-    PROMOTION_TOURNAMENTS.map(async ({ id: tournamentId, name: promoName }) => {
-      const url = `https://${host}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
-      try {
-        const res = await fetch(url, {
-          headers: { 'X-RapidAPI-Key': key!, 'X-RapidAPI-Host': host },
-          cache: 'no-store',
-        })
-        if (!res.ok || res.status === 204) return
-        const text = await res.text()
-        if (!text) return
-        const data = JSON.parse(text)
-        const fights: any[] = data.events ?? []
-        if (fights.length > 0) apiFights.push(...fights)
-      } catch {
-        // skip individual tournament failures — other promotions still imported
-      }
-    })
-  )
+  for (const { id: tournamentId } of PROMOTION_TOURNAMENTS) {
+    const url = `https://${host}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
+    try {
+      const res = await fetch(url, {
+        headers: { 'X-RapidAPI-Key': key!, 'X-RapidAPI-Host': host },
+        cache: 'no-store',
+      })
+      if (!res.ok || res.status === 204) continue
+      const text = await res.text()
+      if (!text) continue
+      const data = JSON.parse(text)
+      const fights: any[] = data.events ?? []
+      if (fights.length > 0) apiFights.push(...fights)
+    } catch {
+      // skip individual tournament failures — other promotions still imported
+    }
+  }
 
   if (apiFights.length === 0) return { error: 'No fights found for that date' }
 
