@@ -551,8 +551,12 @@ export async function fetchEventByDate(
  * Internal version of fetchEventByDate for cron use — bypasses admin auth.
  * Auth is handled at the cron route level via CRON_SECRET.
  *
- * Tries api-sports first (if configured). If the free plan blocks the date
- * ("Free plans do not have access to this date"), falls back to RapidAPI.
+ * Strategy:
+ *  1. Try api-sports (covers UFC well, patchy for non-UFC promotions).
+ *  2. If api-sports errors for any reason AND RAPIDAPI_KEY is set, fall back
+ *     to MMAAPI which covers Bellator/PFL/ONE/RIZIN. This handles both plan
+ *     restrictions and "no fights found" on non-UFC dates.
+ *  3. Return the original api-sports error only if MMAAPI also finds nothing.
  */
 export async function importEventByDateInternal(
   day: number,
@@ -561,11 +565,14 @@ export async function importEventByDateInternal(
 ): Promise<ActionResult> {
   if (isApiSportsConfigured()) {
     const result = await fetchEventByDateApiSports(day, month, year)
-    // Free plan restriction → try RapidAPI instead
-    if (result.error?.toLowerCase().includes('plan')) {
-      return fetchEventByDateRapidApi(day, month, year)
+    if (!result.error) return result  // api-sports succeeded — done
+    // api-sports failed (plan restriction, no fights, or other error).
+    // Try MMAAPI as a fallback — it covers non-UFC promotions api-sports misses.
+    if (process.env.RAPIDAPI_KEY) {
+      const rapidResult = await fetchEventByDateRapidApi(day, month, year)
+      if (!rapidResult.error) return rapidResult
     }
-    return result
+    return result  // both failed — surface the original api-sports error
   }
   return fetchEventByDateRapidApi(day, month, year)
 }
