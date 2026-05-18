@@ -20,6 +20,7 @@ import {
   normaliseFight,
   type NormalisedFighter,
 } from '@/lib/apis/api-sports'
+import { MMAAPI_HOST, PROMOTION_TOURNAMENTS, getTournamentId } from '@/lib/apis/mmaapi'
 
 type ActionResult = { error?: string; success?: boolean; message?: string }
 
@@ -237,11 +238,21 @@ async function syncFightMetaFromRapidApi(
   year: number,
 ): Promise<void> {
   const key  = process.env.RAPIDAPI_KEY
-  const host = process.env.RAPIDAPI_UFC_HOST ?? 'mmaapi.p.rapidapi.com'
+  const host = process.env.RAPIDAPI_UFC_HOST ?? MMAAPI_HOST
   if (!key) return
 
   try {
-    const url = `https://${host}/api/mma/unique-tournament/19906/schedules/${day}/${month}/${year}`
+    const supabase = createServiceClient()
+
+    // Look up event name first so we can route to the correct tournament endpoint
+    const { data: dbEvent } = await supabase
+      .from('events').select('name').eq('id', eventId).single()
+    if (!dbEvent) return
+
+    const tournamentId = getTournamentId(dbEvent.name)
+    if (!tournamentId) return  // Promotion not covered by MMAAPI — skip silently
+
+    const url = `https://${host}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
     const res = await fetch(url, {
       headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': host },
       cache: 'no-store',
@@ -250,13 +261,6 @@ async function syncFightMetaFromRapidApi(
     const data = await res.json()
     const allApiEvents: any[] = data.events ?? []
     if (allApiEvents.length === 0) return
-
-    const supabase = createServiceClient()
-
-    // Find the RapidAPI tournament that best matches our DB event (by name)
-    const { data: dbEvent } = await supabase
-      .from('events').select('name').eq('id', eventId).single()
-    if (!dbEvent) return
 
     const norm     = (n: string) => n.toLowerCase().replace(/[^a-z]/g, '')
     const dbNorm   = norm(dbEvent.name)
@@ -588,7 +592,7 @@ export async function autoImportUpcomingEvents(): Promise<{
   if (upErr) return { message: 'DB error', log, error: upErr.message }
 
   const currentCount = upcomingEvents?.length ?? 0
-  const TARGET = 2
+  const TARGET = 6
 
   if (currentCount >= TARGET) {
     return {
@@ -610,31 +614,82 @@ export async function autoImportUpcomingEvents(): Promise<{
     }
   }
 
-  // ── 3. Discover upcoming UFC event dates in ONE API call ─────────────────
-  // Instead of blindly scanning 16 Saturdays (15+ fetch calls), fetch all
-  // not-started UFC fights at once and extract their unique event dates.
-  let candidateDates: string[] = []
+  // ── 3. Discover upcoming event dates across all promotions ───────────────
+  // UFC: one api-sports call returns all upcoming UFC fights with their dates.
+  // Non-UFC (Bellator, RIZIN, PFL, ONE): query each MMAAPI tournament's
+  // /events/next/0 endpoint in parallel to get their upcoming event dates.
+  // All dates flow into one deduped Set before the import loop runs.
+  const candidateDateSet = new Set<string>()
+  let ufcDiscoveryFailed = false
 
+  // ── 3a. UFC via api-sports ────────────────────────────────────────────────
   if (isApiSportsConfigured()) {
     log.push('Fetching upcoming UFC schedule from api-sports…')
     try {
       const upcomingFights = await getUpcomingUFCFights()
-      const dateSet = new Set<string>()
       for (const fight of upcomingFights) {
-        // New api-sports format: date is on fight.date; legacy: fight.event.date
-        const d = (fight.date ?? fight.event?.date)?.slice(0, 10)  // "YYYY-MM-DD"
-        if (d && !coveredDates.has(d)) dateSet.add(d)
+        const d = (fight.date ?? fight.event?.date)?.slice(0, 10)
+        if (d && !coveredDates.has(d)) candidateDateSet.add(d)
       }
-      candidateDates = [...dateSet].sort()
-      log.push(`  Found ${candidateDates.length} uncovered event date(s): ${candidateDates.join(', ') || 'none'}`)
+      log.push(`  api-sports: ${candidateDateSet.size} uncovered UFC date(s)`)
     } catch (e: any) {
-      log.push(`  Discovery call failed: ${e.message} — falling back to Saturday scan`)
+      ufcDiscoveryFailed = true
+      log.push(`  api-sports discovery failed: ${e.message}`)
     }
   }
 
-  // ── 4. Fallback: scan next 16 Saturdays if discovery failed / no api-sports ──
+  // ── 3b. Non-UFC promotions via MMAAPI ────────────────────────────────────
+  if (process.env.RAPIDAPI_KEY) {
+    const rapidKey  = process.env.RAPIDAPI_KEY
+    const rapidHost = process.env.RAPIDAPI_UFC_HOST ?? MMAAPI_HOST
+    // Skip UFC here — api-sports handles it above (and is more reliable for UFC).
+    // If api-sports failed, UFC dates will be caught by the Saturday scan fallback.
+    const nonUfcPromos = PROMOTION_TOURNAMENTS.filter((p) => p.name !== 'UFC')
+
+    log.push('Fetching upcoming non-UFC schedules from MMAAPI…')
+    await Promise.all(
+      nonUfcPromos.map(async ({ id: tournamentId, name: promoName }) => {
+        try {
+          const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/events/next/0`
+          const res = await fetch(url, {
+            headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
+            cache: 'no-store',
+          })
+          if (!res.ok || res.status === 204) return
+          const data = await res.json()
+          const events: any[] = data.events ?? []
+          const newDates: string[] = []
+          for (const ev of events) {
+            const ts = ev.startTimestamp as number | undefined
+            if (!ts) continue
+            const dateStr = new Date(ts * 1000).toISOString().slice(0, 10)
+            if (!coveredDates.has(dateStr) && !candidateDateSet.has(dateStr)) {
+              candidateDateSet.add(dateStr)
+              newDates.push(dateStr)
+            }
+          }
+          if (newDates.length > 0) {
+            log.push(`  ${promoName}: found event(s) on ${newDates.sort().join(', ')}`)
+          } else {
+            log.push(`  ${promoName}: no upcoming events found`)
+          }
+        } catch (e: any) {
+          log.push(`  ${promoName}: discovery failed — ${e.message}`)
+        }
+      })
+    )
+  }
+
+  let candidateDates = [...candidateDateSet].sort()
+  if (candidateDates.length > 0) {
+    log.push(`Total uncovered dates found: ${candidateDates.join(', ')}`)
+  }
+
+  // ── 4. Fallback: scan next 16 Saturdays if all discovery failed ──────────
+  // Only kicks in when neither api-sports nor MMAAPI returned any dates —
+  // e.g. both keys missing, or API outage. Covers UFC Saturdays as a last resort.
   if (candidateDates.length === 0) {
-    log.push('Falling back to Saturday scan…')
+    log.push('Falling back to Saturday scan (no API discovery results)…')
     const today = new Date()
     today.setUTCHours(0, 0, 0, 0)
     const firstSat = new Date(today)
@@ -660,7 +715,7 @@ export async function autoImportUpcomingEvents(): Promise<{
       const result = await importEventByDateInternal(day, month, year)
       if (result.error) {
         const quiet = result.error.toLowerCase().includes('no ')
-        log.push(`  ${quiet ? '—' : '✗'} ${dateStr}: ${quiet ? 'no UFC event' : result.error}`)
+        log.push(`  ${quiet ? '—' : '✗'} ${dateStr}: ${quiet ? 'no event found' : result.error}`)
       } else {
         log.push(`  ✓ ${dateStr}: ${result.message}`)
         imported++
@@ -964,7 +1019,7 @@ async function fetchEventByDateApiSports(
   }
 }
 
-// ─── RapidAPI import (legacy fallback) ───────────────────────────────────────
+// ─── RapidAPI import (multi-promotion fallback) ──────────────────────────────
 
 async function fetchEventByDateRapidApi(
   day: number,
@@ -974,23 +1029,33 @@ async function fetchEventByDateRapidApi(
   const supabase = createServiceClient()
 
   const key  = process.env.RAPIDAPI_KEY
-  const host = process.env.RAPIDAPI_UFC_HOST ?? 'mmaapi.p.rapidapi.com'
+  const host = process.env.RAPIDAPI_UFC_HOST ?? MMAAPI_HOST
   if (!key) return { error: 'RAPIDAPI_KEY not configured in environment (also no APISPORTS_KEY found)' }
 
-  const url = `https://${host}/api/mma/unique-tournament/19906/schedules/${day}/${month}/${year}`
-  const res = await fetch(url, {
-    headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': host },
-    cache: 'no-store',
-  })
+  // Query all supported promotion tournament IDs in parallel.
+  // Each endpoint returns fights for that promotion on this date.
+  // Combining the results lets a single date import find any promotion's card.
+  const apiFights: any[] = []
+  await Promise.all(
+    PROMOTION_TOURNAMENTS.map(async ({ id: tournamentId, name: promoName }) => {
+      const url = `https://${host}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
+      try {
+        const res = await fetch(url, {
+          headers: { 'X-RapidAPI-Key': key!, 'X-RapidAPI-Host': host },
+          cache: 'no-store',
+        })
+        if (!res.ok || res.status === 204) return
+        const text = await res.text()
+        if (!text) return
+        const data = JSON.parse(text)
+        const fights: any[] = data.events ?? []
+        if (fights.length > 0) apiFights.push(...fights)
+      } catch {
+        // skip individual tournament failures — other promotions still imported
+      }
+    })
+  )
 
-  const text = await res.text()
-  if (!res.ok) return { error: `API request failed: ${res.status} — ${text.slice(0, 200)}` }
-  if (!text) return { error: 'API returned empty response' }
-
-  let data: any
-  try { data = JSON.parse(text) } catch { return { error: `Invalid JSON from API: ${text.slice(0, 200)}` } }
-
-  const apiFights: any[] = data.events ?? []
   if (apiFights.length === 0) return { error: 'No fights found for that date' }
 
   const eventMap = new Map<number, { tournament: any; venue: any; fights: any[] }>()
@@ -1444,40 +1509,38 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
   const month = d.getUTCMonth() + 1
   const year  = d.getUTCFullYear()
 
-  // When RapidAPI is available, skip api-sports entirely for refreshes.
-  // api-sports groups fights by slug which can collide across events on the same date,
-  // causing fights from a different event to get stamped with forceEventUuid.
-  // The RapidAPI reconciliation is authoritative: it matches by event name, deletes
+  // When RapidAPI is available and the promotion is supported, use it as the
+  // authoritative source for refreshes. RapidAPI matches by event name, deletes
   // wrong fights, inserts missing ones, and sets correct fight_type/display_order.
-  //
-  // IMPORTANT: RapidAPI tournament 19906 is UFC-only. Never run it against non-UFC
-  // events — it will match/insert UFC fights under the wrong promotion's event_id.
-  const isUfcEvent = /ufc/i.test(event.name)
+  // Tapology reconciliation runs afterward for UFC events only (Tapology API is UFC-focused).
+  const isUfcEvent    = /ufc/i.test(event.name)
+  const tournamentId  = getTournamentId(event.name)
 
-  if (process.env.RAPIDAPI_KEY && isUfcEvent) {
+  if (process.env.RAPIDAPI_KEY && tournamentId) {
     await syncFightMetaFromRapidApi(eventId, day, month, year)
 
-    // Cross-check against Tapology and correct any fighter mismatches
-    const tapologyEvents = await getUpcomingUFCEvents()
-    const tapEvent = tapologyEvents.find((te) => {
-      const parsed = parseTapologyDate(te.datetime)
-      return parsed && parsed.month === month && parsed.day === day
-    })
-    if (tapEvent) {
-      const tapLog: string[] = []
-      await reconcileWithTapology(eventId, tapEvent.fight_card, supabase, tapLog)
+    // Tapology cross-check — UFC events only (Tapology API covers UFC)
+    if (isUfcEvent) {
+      const tapologyEvents = await getUpcomingUFCEvents()
+      const tapEvent = tapologyEvents.find((te) => {
+        const parsed = parseTapologyDate(te.datetime)
+        return parsed && parsed.month === month && parsed.day === day
+      })
+      if (tapEvent) {
+        const tapLog: string[] = []
+        await reconcileWithTapology(eventId, tapEvent.fight_card, supabase, tapLog)
+      }
     }
 
     revalidatePath('/', 'layout')
     revalidatePath('/admin')
-    return { success: true, message: 'Fights reconciled from RapidAPI + Tapology.' }
+    return { success: true, message: 'Fights reconciled from RapidAPI.' }
   }
 
-  // Non-UFC events are not covered by RapidAPI — fall back to api-sports if available.
-  // (RAPIDAPI_KEY may be set but the endpoint is UFC-only, so we skip it for non-UFC.)
+  // Promotion not covered by MMAAPI — fall back to api-sports if available.
   const result = isApiSportsConfigured()
     ? await fetchEventByDateApiSports(day, month, year, { skipAI: true, skipUFCStats: true, forceEventUuid: eventId })
-    : { error: 'No API source configured for non-UFC events (set APISPORTS_KEY)' }
+    : { error: 'No API source configured for this promotion (set APISPORTS_KEY or RAPIDAPI_KEY)' }
 
   if (result.error) return { error: result.error }
 
@@ -1621,14 +1684,13 @@ export async function syncAllUpcomingCards(): Promise<{
     const eventMonth = d.getUTCMonth() + 1
     const eventDay   = d.getUTCDate()
 
-    // RapidAPI tournament 19906 is UFC-only — skip non-UFC events to prevent
-    // UFC fights from being incorrectly inserted into other promotions' cards.
-    const isUfcEvent = /ufc/i.test(event.name)
+    const isUfcEvent   = /ufc/i.test(event.name)
+    const tournamentId = getTournamentId(event.name)
 
     try {
       // Step 1 — RapidAPI sync (fight order, segments, insertions, deletions)
-      // Only run for UFC events since the RapidAPI endpoint is UFC-specific.
-      if (isUfcEvent) {
+      // Runs for any promotion supported by MMAAPI (UFC, Bellator, RIZIN, PFL, ONE).
+      if (tournamentId) {
         await syncFightMetaFromRapidApi(
           event.id,
           eventDay,
@@ -1637,7 +1699,7 @@ export async function syncAllUpcomingCards(): Promise<{
         )
         log.push(`[rapidapi] ✓ ${event.name}`)
       } else {
-        log.push(`[rapidapi] Skipped ${event.name} — not a UFC event (RapidAPI is UFC-only)`)
+        log.push(`[rapidapi] Skipped ${event.name} — promotion not in MMAAPI`)
       }
 
       // Step 2 — Tapology reconciliation (fighter name corrections)

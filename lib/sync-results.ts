@@ -8,6 +8,7 @@ import {
   UFC_LEAGUE_ID,
 } from '@/lib/apis/api-sports'
 import { fetchWikipediaFightResults } from '@/lib/apis/wikipedia-mma'
+import { MMAAPI_HOST, getTournamentId } from '@/lib/apis/mmaapi'
 
 // ─── Wikipedia event map ──────────────────────────────────────────────────────
 // Maps DB event IDs to Wikipedia article titles for promotions not covered by
@@ -326,7 +327,7 @@ async function syncViaApiSports(
   return { synced, rateLimited }
 }
 
-// ─── RapidAPI sync (legacy fallback) ─────────────────────────────────────────
+// ─── RapidAPI sync (multi-promotion fallback) ────────────────────────────────
 
 async function syncViaRapidApi(
   liveEvents: any[],
@@ -336,7 +337,7 @@ async function syncViaRapidApi(
   skipped: string[],
 ): Promise<number> {
   const key  = process.env.RAPIDAPI_KEY
-  const host = process.env.RAPIDAPI_UFC_HOST ?? 'mmaapi.p.rapidapi.com'
+  const host = process.env.RAPIDAPI_UFC_HOST ?? MMAAPI_HOST
 
   if (!key) {
     errors.push('RAPIDAPI_KEY not configured')
@@ -352,17 +353,15 @@ async function syncViaRapidApi(
     const month = d.getUTCMonth() + 1
     const year  = d.getUTCFullYear()
 
-    // RapidAPI (mmaapi.p.rapidapi.com) only covers UFC via tournament 19906.
-    // Skip non-UFC events and log clearly so ops can see it in the cron output.
-    const isUfcEvent = /ufc/i.test(event.name)
-    if (!isUfcEvent) {
-      skipped.push(`[rapidapi] ${event.name} — RapidAPI is UFC-only; use api-sports for non-UFC events`)
+    const tournamentId = getTournamentId(event.name)
+    if (!tournamentId) {
+      skipped.push(`[rapidapi] ${event.name} — promotion not in MMAAPI; add pattern to lib/apis/mmaapi.ts`)
       continue
     }
 
     log.push(`[rapidapi] Checking ${event.name} (${dbFights.length} DB fights) for ${year}-${month}-${day}`)
 
-    const url = `https://${host}/api/mma/unique-tournament/19906/schedules/${day}/${month}/${year}`
+    const url = `https://${host}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
     let apiFights: any[]
     try {
       const res = await fetch(url, {
