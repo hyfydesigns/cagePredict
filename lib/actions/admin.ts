@@ -639,45 +639,66 @@ export async function autoImportUpcomingEvents(): Promise<{
   }
 
   // ── 3b. Non-UFC promotions via MMAAPI ────────────────────────────────────
+  // The /events/next/0 endpoint doesn't exist on MMAAPI, so we use the
+  // /schedules/{day}/{month}/{year} endpoint (confirmed working) and probe
+  // every Fri/Sat/Sun over the next 12 weeks — non-UFC events overwhelmingly
+  // fall on weekends. All requests fire in parallel so latency is low.
   if (process.env.RAPIDAPI_KEY) {
     const rapidKey  = process.env.RAPIDAPI_KEY
     const rapidHost = process.env.RAPIDAPI_UFC_HOST ?? MMAAPI_HOST
-    // Skip UFC here — api-sports handles it above (and is more reliable for UFC).
-    // If api-sports failed, UFC dates will be caught by the Saturday scan fallback.
     const nonUfcPromos = PROMOTION_TOURNAMENTS.filter((p) => p.name !== 'UFC')
 
-    log.push('Fetching upcoming non-UFC schedules from MMAAPI…')
-    await Promise.all(
-      nonUfcPromos.map(async ({ id: tournamentId, name: promoName }) => {
-        try {
-          const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/events/next/0`
-          const res = await fetch(url, {
-            headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
-            cache: 'no-store',
-          })
-          if (!res.ok || res.status === 204) return
-          const data = await res.json()
-          const events: any[] = data.events ?? []
-          const newDates: string[] = []
-          for (const ev of events) {
-            const ts = ev.startTimestamp as number | undefined
-            if (!ts) continue
-            const dateStr = new Date(ts * 1000).toISOString().slice(0, 10)
-            if (!coveredDates.has(dateStr) && !candidateDateSet.has(dateStr)) {
-              candidateDateSet.add(dateStr)
-              newDates.push(dateStr)
-            }
-          }
-          if (newDates.length > 0) {
-            log.push(`  ${promoName}: found event(s) on ${newDates.sort().join(', ')}`)
-          } else {
-            log.push(`  ${promoName}: no upcoming events found`)
-          }
-        } catch (e: any) {
-          log.push(`  ${promoName}: discovery failed — ${e.message}`)
+    // Build Fri/Sat/Sun dates for the next 12 weeks
+    const weekendDates: { day: number; month: number; year: number; dateStr: string }[] = []
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    for (let offset = 1; offset <= 84; offset++) {
+      const d = new Date(today)
+      d.setUTCDate(today.getUTCDate() + offset)
+      const dow = d.getUTCDay() // 0=Sun, 5=Fri, 6=Sat
+      if (dow === 5 || dow === 6 || dow === 0) {
+        const dateStr = d.toISOString().slice(0, 10)
+        if (!coveredDates.has(dateStr)) {
+          weekendDates.push({ day: d.getUTCDate(), month: d.getUTCMonth() + 1, year: d.getUTCFullYear(), dateStr })
         }
-      })
+      }
+    }
+
+    log.push(`Scanning ${weekendDates.length} upcoming weekend dates for non-UFC promotions via MMAAPI…`)
+
+    // Collect results per promotion for clean log output
+    const promoFoundDates = new Map<string, string[]>(nonUfcPromos.map((p) => [p.name, []]))
+
+    await Promise.all(
+      nonUfcPromos.flatMap(({ id: tournamentId, name: promoName }) =>
+        weekendDates.map(async ({ day, month, year, dateStr }) => {
+          try {
+            const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
+            const res = await fetch(url, {
+              headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
+              cache: 'no-store',
+            })
+            if (!res.ok || res.status === 204) return
+            const text = await res.text()
+            if (!text) return
+            const data = JSON.parse(text)
+            const fights: any[] = data.events ?? []
+            if (fights.length > 0 && !candidateDateSet.has(dateStr)) {
+              candidateDateSet.add(dateStr)
+              promoFoundDates.get(promoName)!.push(dateStr)
+            }
+          } catch { /* skip individual failures */ }
+        })
+      )
     )
+
+    for (const [promoName, dates] of promoFoundDates) {
+      if (dates.length > 0) {
+        log.push(`  ${promoName}: found event(s) on ${dates.sort().join(', ')}`)
+      } else {
+        log.push(`  ${promoName}: no upcoming events found in next 12 weeks`)
+      }
+    }
   }
 
   let candidateDates = [...candidateDateSet].sort()
