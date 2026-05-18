@@ -648,7 +648,10 @@ export async function autoImportUpcomingEvents(): Promise<{
     const rapidHost = process.env.RAPIDAPI_UFC_HOST ?? MMAAPI_HOST
     const nonUfcPromos = PROMOTION_TOURNAMENTS.filter((p) => p.name !== 'UFC')
 
-    // Build Fri/Sat/Sun dates for the next 12 weeks
+    // Build Fri/Sat/Sun dates for the next 12 weeks.
+    // Intentionally does NOT filter by coveredDates — a UFC event on May 24
+    // should not prevent scanning May 23 for PFL, ONE, etc. Two promotions
+    // can both fight on the same weekend. The import upsert handles duplicates.
     const weekendDates: { day: number; month: number; year: number; dateStr: string }[] = []
     const today = new Date()
     today.setUTCHours(0, 0, 0, 0)
@@ -657,10 +660,7 @@ export async function autoImportUpcomingEvents(): Promise<{
       d.setUTCDate(today.getUTCDate() + offset)
       const dow = d.getUTCDay() // 0=Sun, 5=Fri, 6=Sat
       if (dow === 5 || dow === 6 || dow === 0) {
-        const dateStr = d.toISOString().slice(0, 10)
-        if (!coveredDates.has(dateStr)) {
-          weekendDates.push({ day: d.getUTCDate(), month: d.getUTCMonth() + 1, year: d.getUTCFullYear(), dateStr })
-        }
+        weekendDates.push({ day: d.getUTCDate(), month: d.getUTCMonth() + 1, year: d.getUTCFullYear(), dateStr: d.toISOString().slice(0, 10) })
       }
     }
 
