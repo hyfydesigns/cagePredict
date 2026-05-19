@@ -23,16 +23,25 @@ export interface PromotionTournament {
 }
 
 /**
- * All promotions supported by MMAAPI.
+ * Active promotions for auto-import and live sync.
  * Order matters — first match wins in getTournamentId().
- * Add new promotions here to automatically extend sync coverage.
+ *
+ * To add a promotion:
+ *  1. Find its Sofascore unique-tournament ID (test with /schedules/{day}/{month}/{year})
+ *  2. Add an entry below and uncomment
+ *  3. Raise TARGET in autoImportUpcomingEvents if needed
+ *
+ * Inactive promotions (kept for reference):
+ *  { name: 'Bellator', id: 19904, pattern: /\bbellator\b/i },
+ *  { name: 'RIZIN',    id: 19905, pattern: /\brizin\b/i },
+ *  { name: 'PFL',      id: 19910, pattern: /\bpfl\b/i },
+ *  { name: 'ONE',      id: 20269, pattern: /\bone\s+(?:championship|fight|friday|fc|mma)\b|^one\s+/i },
+ *
+ * MVP MMA — uncomment once tournament ID is confirmed:
+ *  { name: 'MVP MMA',  id: 0,     pattern: /\bmvp\s*mma\b/i },
  */
 export const PROMOTION_TOURNAMENTS: PromotionTournament[] = [
-  { name: 'UFC',      id: 19906, pattern: /\bufc\b/i },
-  { name: 'Bellator', id: 19904, pattern: /\bbellator\b/i },
-  { name: 'RIZIN',    id: 19905, pattern: /\brizin\b/i },
-  { name: 'PFL',      id: 19910, pattern: /\bpfl\b/i },
-  { name: 'ONE',      id: 20269, pattern: /\bone\s+(?:championship|fight|friday|fc|mma)\b|^one\s+/i },
+  { name: 'UFC', id: 19906, pattern: /\bufc\b/i },
 ]
 
 /**

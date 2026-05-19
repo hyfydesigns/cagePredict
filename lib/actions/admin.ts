@@ -599,7 +599,7 @@ export async function autoImportUpcomingEvents(): Promise<{
   if (upErr) return { message: 'DB error', log, error: upErr.message }
 
   const currentCount = upcomingEvents?.length ?? 0
-  const TARGET = 6
+  const TARGET = 2
 
   if (currentCount >= TARGET) {
     return {
@@ -621,10 +621,10 @@ export async function autoImportUpcomingEvents(): Promise<{
     }
   }
 
-  // ── 3. Discover upcoming event dates across all promotions ───────────────
-  // UFC: one api-sports call returns all upcoming UFC fights with their dates.
-  // Non-UFC (Bellator, RIZIN, PFL, ONE): query each MMAAPI tournament's
-  // /events/next/0 endpoint in parallel to get their upcoming event dates.
+  // ── 3. Discover upcoming event dates ────────────────────────────────────
+  // UFC: api-sports returns all upcoming fights with their dates.
+  // Additional promotions: add entries to PROMOTION_TOURNAMENTS in lib/apis/mmaapi.ts
+  // and they'll automatically be included in the weekend scan below.
   // All dates flow into one deduped Set before the import loop runs.
   const candidateDateSet = new Set<string>()
   let ufcDiscoveryFailed = false
@@ -646,72 +646,86 @@ export async function autoImportUpcomingEvents(): Promise<{
   }
 
   // ── 3b. Non-UFC promotions via MMAAPI ────────────────────────────────────
-  // The /events/next/0 endpoint doesn't exist on MMAAPI, so we use the
-  // /schedules/{day}/{month}/{year} endpoint (confirmed working) and probe
-  // every Fri/Sat/Sun over the next 12 weeks — non-UFC events overwhelmingly
-  // fall on weekends. All requests fire in parallel so latency is low.
+  // Sources:
+  //   a) Hardcoded entries in PROMOTION_TOURNAMENTS (lib/apis/mmaapi.ts)
+  //   b) Dynamically discovered promotions stored in app_config by the
+  //      discover-promotions cron (e.g. MVP MMA once its tournament ID is found)
+  // All requests are fully sequential to avoid RapidAPI 429s.
   if (process.env.RAPIDAPI_KEY) {
     const rapidKey  = process.env.RAPIDAPI_KEY
     const rapidHost = process.env.RAPIDAPI_UFC_HOST ?? MMAAPI_HOST
-    const nonUfcPromos = PROMOTION_TOURNAMENTS.filter((p) => p.name !== 'UFC')
 
-    // Build Fri/Sat/Sun dates for the next 12 weeks.
-    // Intentionally does NOT filter by coveredDates — a UFC event on May 24
-    // should not prevent scanning May 23 for PFL, ONE, etc. Two promotions
-    // can both fight on the same weekend. The import upsert handles duplicates.
-    const weekendDates: { day: number; month: number; year: number; dateStr: string }[] = []
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
-    for (let offset = 1; offset <= 84; offset++) {
-      const d = new Date(today)
-      d.setUTCDate(today.getUTCDate() + offset)
-      const dow = d.getUTCDay() // 0=Sun, 5=Fri, 6=Sat
-      if (dow === 5 || dow === 6 || dow === 0) {
-        weekendDates.push({ day: d.getUTCDate(), month: d.getUTCMonth() + 1, year: d.getUTCFullYear(), dateStr: d.toISOString().slice(0, 10) })
+    // Build the list from both sources
+    const nonUfcPromos: { id: number; name: string }[] =
+      PROMOTION_TOURNAMENTS.filter((p) => p.name !== 'UFC').map(({ id, name }) => ({ id, name }))
+
+    const { data: discoveredRow } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'discovered_promotions')
+      .single()
+
+    for (const promo of (discoveredRow?.value ?? []) as { id: number; name: string }[]) {
+      if (promo.id && !nonUfcPromos.some((p) => p.id === promo.id)) {
+        nonUfcPromos.push(promo)
+        log.push(`  Loaded auto-discovered promotion: ${promo.name} (ID: ${promo.id})`)
       }
     }
 
-    log.push(`Scanning ${weekendDates.length} upcoming weekend dates for non-UFC promotions via MMAAPI…`)
-
-    // Fully sequential — one request at a time across all promotions and dates.
-    // RapidAPI's burst rate limit rejects even small concurrent batches (HTTP 429),
-    // so serialising all requests is the only reliable approach.
-    // 36 dates × 4 promotions = 144 requests; ~200 ms each ≈ 30 s total.
-    for (const { id: tournamentId, name: promoName } of nonUfcPromos) {
-      const foundDates: string[] = []
-      let firstError: string | null = null
-
-      for (const { day, month, year, dateStr } of weekendDates) {
-        try {
-          const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
-          const res = await fetch(url, {
-            headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
-            cache: 'no-store',
-          })
-          if (res.status === 204) continue  // no event that day — expected
-          if (!res.ok) {
-            if (!firstError) firstError = `HTTP ${res.status} on ${dateStr}`
-            continue
-          }
-          const text = await res.text()
-          if (!text) continue
-          const data = JSON.parse(text)
-          const fights: any[] = data.events ?? []
-          if (fights.length > 0 && !candidateDateSet.has(dateStr)) {
-            candidateDateSet.add(dateStr)
-            foundDates.push(dateStr)
-          }
-        } catch (e: any) {
-          if (!firstError) firstError = e.message
+    if (nonUfcPromos.length > 0) {
+      // Build Fri/Sat/Sun dates for the next 12 weeks.
+      // Intentionally does NOT filter by coveredDates — two promotions can
+      // fight on the same weekend; the import upsert handles duplicates.
+      const weekendDates: { day: number; month: number; year: number; dateStr: string }[] = []
+      const today = new Date()
+      today.setUTCHours(0, 0, 0, 0)
+      for (let offset = 1; offset <= 84; offset++) {
+        const d = new Date(today)
+        d.setUTCDate(today.getUTCDate() + offset)
+        const dow = d.getUTCDay() // 0=Sun, 5=Fri, 6=Sat
+        if (dow === 5 || dow === 6 || dow === 0) {
+          weekendDates.push({ day: d.getUTCDate(), month: d.getUTCMonth() + 1, year: d.getUTCFullYear(), dateStr: d.toISOString().slice(0, 10) })
         }
       }
 
-      if (firstError) {
-        log.push(`  ${promoName}: scan error — ${firstError}`)
-      } else if (foundDates.length > 0) {
-        log.push(`  ${promoName}: found event(s) on ${foundDates.sort().join(', ')}`)
-      } else {
-        log.push(`  ${promoName}: no upcoming events found in next 12 weeks`)
+      log.push(`Scanning ${weekendDates.length} upcoming weekend dates for ${nonUfcPromos.map(p => p.name).join(', ')} via MMAAPI…`)
+
+      for (const { id: tournamentId, name: promoName } of nonUfcPromos) {
+        const foundDates: string[] = []
+        let firstError: string | null = null
+
+        for (const { day, month, year, dateStr } of weekendDates) {
+          try {
+            const url = `https://${rapidHost}/api/mma/unique-tournament/${tournamentId}/schedules/${day}/${month}/${year}`
+            const res = await fetch(url, {
+              headers: { 'X-RapidAPI-Key': rapidKey, 'X-RapidAPI-Host': rapidHost },
+              cache: 'no-store',
+            })
+            if (res.status === 204) continue  // no event that day — expected
+            if (!res.ok) {
+              if (!firstError) firstError = `HTTP ${res.status} on ${dateStr}`
+              continue
+            }
+            const text = await res.text()
+            if (!text) continue
+            const data = JSON.parse(text)
+            const fights: any[] = data.events ?? []
+            if (fights.length > 0 && !candidateDateSet.has(dateStr)) {
+              candidateDateSet.add(dateStr)
+              foundDates.push(dateStr)
+            }
+          } catch (e: any) {
+            if (!firstError) firstError = e.message
+          }
+        }
+
+        if (firstError) {
+          log.push(`  ${promoName}: scan error — ${firstError}`)
+        } else if (foundDates.length > 0) {
+          log.push(`  ${promoName}: found event(s) on ${foundDates.sort().join(', ')}`)
+        } else {
+          log.push(`  ${promoName}: no upcoming events found in next 12 weeks`)
+        }
       }
     }
   }

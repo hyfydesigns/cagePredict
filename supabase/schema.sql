@@ -138,6 +138,13 @@ create table public.crew_members (
   unique(crew_id, user_id)
 );
 
+-- app_config (runtime key-value store — server-only via service client)
+create table if not exists public.app_config (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
 -- ============================================================
 -- INDEXES
 -- ============================================================
