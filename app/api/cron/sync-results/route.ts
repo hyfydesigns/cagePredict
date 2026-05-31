@@ -3,6 +3,9 @@ import { runSyncResults } from '@/lib/sync-results'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// Vercel default is 10 s (Hobby) / 60 s (Pro) — not enough for a full UFC card.
+// 300 s gives headroom for multiple API calls + DB operations mid-event.
+export const maxDuration = 300
 
 /**
  * GET /api/cron/sync-results
@@ -11,7 +14,7 @@ export const dynamic = 'force-dynamic'
  * detects finished fights, and automatically calls complete_fight() to
  * score predictions — no admin interaction required.
  *
- * Run every 2 minutes while an event is live.
+ * Run every minute while an event is live.
  * Protected by CRON_SECRET header: Authorization: Bearer <secret>
  */
 export async function GET(req: Request) {

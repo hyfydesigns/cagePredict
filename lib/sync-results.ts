@@ -101,20 +101,16 @@ async function syncViaApiSports(
 
     let apiFights: Awaited<ReturnType<typeof getFightsByDate>>
     try {
-      // Try the stored date AND adjacent days — late-night main cards often
-      // cross midnight UTC so api-sports files them under the next calendar day.
-      // Accumulate all matches across all dates (dedup by fight ID) so we never
-      // miss a fight just because it finished after 00:00 UTC.
-      const datesToTry = [dateStr, offsetDate(dateStr, 1), offsetDate(dateStr, -1)]
+      // api-sports free plan allows ~100 requests/day; a UFC card can run 4–5 hours
+      // with the cron firing every minute — that's 240–300 calls on the base date alone.
+      // Strategy: fetch the event date first. Only fetch adjacent days (+1/-1) if the
+      // base date returns ZERO relevant fights — this cuts request usage by ~3×.
       const seenIds    = new Set<number>()
       const foundFights: Awaited<ReturnType<typeof getFightsByDate>> = []
 
-      for (const tryDate of datesToTry) {
-        const allFights = await getFightsByDate(tryDate, false)
-
+      const filterRelevant = (allFights: Awaited<ReturnType<typeof getFightsByDate>>, tryDate: string) => {
         let relevantFights: typeof allFights
         if (isUfcEvent) {
-          // UFC: filter to UFC bouts only to avoid false name matches from other orgs on same day
           relevantFights = allFights.filter(
             (f: any) =>
               f.league?.id === UFC_LEAGUE_ID ||
@@ -123,13 +119,10 @@ async function syncViaApiSports(
               f.slug?.toLowerCase().includes('ufc') ||
               f.competition?.name?.toLowerCase().includes('ufc') ||
               f.tournament?.name?.toLowerCase().includes('ufc') ||
-              // Last resort: if no discriminating field at all, include everything
               (!f.league && !f.event && !f.slug)
           )
           log.push(`  [${tryDate}] ${allFights.length} total, ${relevantFights.length} UFC`)
         } else {
-          // Non-UFC: use all fights — then name-match against this event's DB fighters
-          // to avoid picking up UFC bouts that happen on the same day.
           const dbNames = new Set(
             dbFights.flatMap((f: any) => [
               norm(f.fighter1?.name ?? ''),
@@ -147,18 +140,32 @@ async function syncViaApiSports(
             log.push(`  Sample fight: ${sample.fighters?.first?.name} vs ${sample.fighters?.second?.name} | slug=${sample.slug ?? 'none'}`)
           }
         }
+        return relevantFights
+      }
 
-        // Accumulate, deduplicating by fight ID
-        for (const f of relevantFights) {
-          if (!seenIds.has(f.id)) {
-            seenIds.add(f.id)
-            foundFights.push(f)
+      // 1. Always fetch the base date
+      const baseFights = await getFightsByDate(dateStr, false)
+      for (const f of filterRelevant(baseFights, dateStr)) {
+        if (!seenIds.has(f.id)) { seenIds.add(f.id); foundFights.push(f) }
+      }
+
+      // 2. Only probe adjacent days when the base date returned nothing — saves
+      //    ~2 requests per run (up to 200+ over the course of a 5-hour card).
+      if (foundFights.length === 0) {
+        for (const adjDate of [offsetDate(dateStr, 1), offsetDate(dateStr, -1)]) {
+          const adjFights = await getFightsByDate(adjDate, false)
+          for (const f of filterRelevant(adjFights, adjDate)) {
+            if (!seenIds.has(f.id)) { seenIds.add(f.id); foundFights.push(f) }
           }
+          if (foundFights.length > 0) break  // found on this adjacent day, no need to check the other
         }
       }
+
       apiFights = foundFights
     } catch (e: any) {
-      if (e.message?.toLowerCase().includes('request limit') || e.message?.toLowerCase().includes('rate limit')) {
+      const msg = e.message?.toLowerCase() ?? ''
+      // Catch both envelope-level rate-limit messages AND raw HTTP 429 responses
+      if (msg.includes('request limit') || msg.includes('rate limit') || msg.includes('→ 429') || msg.includes(': 429')) {
         rateLimited = true
         log.push(`  ⚠ api-sports daily limit reached — will fall back to RapidAPI`)
         break
