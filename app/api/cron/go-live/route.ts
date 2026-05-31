@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { refreshEventFightsInternal } from '@/lib/actions/admin'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// Card refresh on go-live adds API calls — raise ceiling to avoid timeout
+export const maxDuration = 120
 
 /**
  * GET /api/cron/go-live
@@ -49,6 +52,17 @@ export async function GET(req: Request) {
     // Go live 30 min before the first fight
     const goLiveAt = earliestMs - 30 * 60 * 1000
     if (now >= goLiveAt) {
+      // Refresh the fight card before flipping live — catches any fights added
+      // or changed since the event was originally imported (opponent replacements,
+      // late additions, etc.) so sync-results never encounters missing DB fights.
+      try {
+        const refresh = await refreshEventFightsInternal(event.id)
+        log.push(`  Card refresh: ${refresh.message ?? refresh.error ?? 'done'}`)
+      } catch (e: any) {
+        log.push(`  Card refresh failed (non-fatal): ${e.message}`)
+        // Non-fatal — still flip to live even if the refresh errors out
+      }
+
       const { error } = await supabase
         .from('events')
         .update({ status: 'live' })

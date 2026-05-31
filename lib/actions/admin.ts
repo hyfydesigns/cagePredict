@@ -1536,38 +1536,35 @@ export async function backfillStatsForCron(): Promise<{ updated: number; errors:
  * Safe to run on a live event — existing fights (and their picks) are untouched;
  * only missing fights get added.
  */
-export async function refreshEventFights(eventId: string): Promise<ActionResult> {
-  try {
-  const auth = await requireAdmin()
-  if ('error' in auth) return { error: auth.error }
-
+/**
+ * Internal (no-auth) version of refreshEventFights.
+ * Called by the go-live cron to ensure the card is complete before scoring starts,
+ * and by the admin action below after auth is verified.
+ */
+export async function refreshEventFightsInternal(
+  eventId: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const supabase = createServiceClient()
 
-  // Get the event date from DB
   const { data: event, error: evErr } = await supabase
     .from('events')
     .select('id, name, date')
     .eq('id', eventId)
     .single()
 
-  if (evErr || !event) return { error: 'Event not found' }
+  if (evErr || !event) return { success: false, error: 'Event not found' }
 
   const d     = new Date(event.date)
   const day   = d.getUTCDate()
   const month = d.getUTCMonth() + 1
   const year  = d.getUTCFullYear()
 
-  // When RapidAPI is available and the promotion is supported, use it as the
-  // authoritative source for refreshes. RapidAPI matches by event name, deletes
-  // wrong fights, inserts missing ones, and sets correct fight_type/display_order.
-  // Tapology reconciliation runs afterward for UFC events only (Tapology API is UFC-focused).
-  const isUfcEvent    = /ufc/i.test(event.name)
-  const tournamentId  = getTournamentId(event.name)
+  const isUfcEvent   = /ufc/i.test(event.name)
+  const tournamentId = getTournamentId(event.name)
 
   if (process.env.RAPIDAPI_KEY && tournamentId) {
     await syncFightMetaFromRapidApi(eventId, day, month, year)
 
-    // Tapology cross-check — UFC events only (Tapology API covers UFC)
     if (isUfcEvent) {
       const tapologyEvents = await getUpcomingUFCEvents()
       const tapEvent = tapologyEvents.find((te) => {
@@ -1580,21 +1577,28 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
       }
     }
 
-    revalidatePath('/', 'layout')
-    revalidatePath('/admin')
     return { success: true, message: 'Fights reconciled from RapidAPI.' }
   }
 
-  // Promotion not covered by MMAAPI — fall back to api-sports if available.
   const result = isApiSportsConfigured()
     ? await fetchEventByDateApiSports(day, month, year, { skipAI: true, skipUFCStats: true, forceEventUuid: eventId })
-    : { error: 'No API source configured for this promotion (set APISPORTS_KEY or RAPIDAPI_KEY)' }
+    : { success: false, error: 'No API source configured for this promotion (set APISPORTS_KEY or RAPIDAPI_KEY)' }
 
-  if (result.error) return { error: result.error }
+  if ('error' in result && result.error) return { success: false, error: result.error }
+  return { success: true, message: (result as any).message ?? 'Fights refreshed.' }
+}
 
-  revalidatePath('/', 'layout')
-  revalidatePath('/admin')
-  return { success: true, message: result.message ?? 'Fights refreshed.' }
+export async function refreshEventFights(eventId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return { error: auth.error }
+
+    const result = await refreshEventFightsInternal(eventId)
+    if (!result.success) return { error: result.error }
+
+    revalidatePath('/', 'layout')
+    revalidatePath('/admin')
+    return { success: true, message: result.message }
   } catch (e: any) {
     console.error('[refreshEventFights] uncaught error:', e)
     return { error: `Unexpected error: ${e?.message ?? String(e)}` }
