@@ -379,6 +379,11 @@ async function syncFightMetaFromRapidApi(
     const uniqueDbTimes = new Set(existingFightTimes)
     const dbTimesAreUniform = uniqueDbTimes.size <= 1  // all same, or none set yet
 
+    // Earliest existing fight_time in the DB — used to sanity-check the API timestamp.
+    const existingEarliestMs = existingFightTimes.length > 0
+      ? Math.min(...existingFightTimes.map((t) => new Date(t).getTime()))
+      : 0
+
     const SEGMENT_OFFSET_S: Record<string, number> = {
       maincard:     0,
       prelims:      -90  * 60,
@@ -405,9 +410,16 @@ async function syncFightMetaFromRapidApi(
 
       // Stagger fight_time by segment when all fights share one API timestamp
       // and the DB hasn't been manually staggered yet.
+      // Guard: only write if the new timestamp is at least as late as the existing
+      // one — prevents a bad early-morning API placeholder from replacing a correct
+      // evening time when all DB times happen to be uniform (which they are after
+      // a fresh import, making dbTimesAreUniform always true on first refresh).
       if (singleApiTs && dbTimesAreUniform) {
         const off = SEGMENT_OFFSET_S[apiFight.fightType ?? ''] ?? 0
-        updates.fight_time = new Date((singleApiTs + off) * 1000).toISOString()
+        const newFightTimeMs = (singleApiTs + off) * 1000
+        if (newFightTimeMs >= existingEarliestMs) {
+          updates.fight_time = new Date(newFightTimeMs).toISOString()
+        }
       }
 
       if (Object.keys(updates).length > 0) {
