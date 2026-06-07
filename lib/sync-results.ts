@@ -178,6 +178,20 @@ async function syncViaApiSports(
       continue
     }
 
+    // If api-sports returned zero fights but the event still has pending DB
+    // fights, the quota was likely exhausted silently (no explicit error thrown).
+    // Trigger the RapidAPI fallback rather than silently doing nothing.
+    if (apiFights.length === 0) {
+      const pendingCount = dbFights.filter(
+        (f: any) => f.status !== 'completed' && f.status !== 'cancelled'
+      ).length
+      if (pendingCount > 0) {
+        rateLimited = true
+        log.push(`  ⚠ api-sports returned 0 fights for ${event.name} with ${pendingCount} pending — assuming quota exhausted, falling back to RapidAPI`)
+        break
+      }
+    }
+
     for (const apiFight of apiFights) {
       const fightUuid = apiSportsIdToUuid(apiFight.id, 'fight')
       const f1Name    = apiFight.fighters.first?.name ?? 'TBA'
