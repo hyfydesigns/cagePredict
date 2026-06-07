@@ -238,6 +238,31 @@ async function syncViaApiSports(
       const clockTime  = apiFight.result?.clock ?? null
 
       if (isCancelled && dbFight.status !== 'cancelled') {
+        // Guard: if either DB fighter appears in a *different* fight in this
+        // same API response that is active (finished or in-progress), they stepped
+        // in as a replacement opponent. Cancelling the original slot would also
+        // cancel the replacement fight if it shares a DB row. Skip it and let the
+        // replacement fight be matched and completed on its own loop iteration.
+        const f1NormDB = norm(dbFight.fighter1?.name ?? '')
+        const f2NormDB = norm(dbFight.fighter2?.name ?? '')
+        const hasReplacementBout = apiFights.some((af: any) => {
+          if (af.id === apiFight.id) return false
+          const afStatus = (typeof af.status === 'object' && af.status !== null
+            ? af.status.long ?? af.status.short ?? ''
+            : String(af.status ?? '')).toLowerCase()
+          const afActive = ['finished', 'final', 'fin'].includes(afStatus) ||
+            (!!afStatus && !['cancelled', 'canceled', 'postponed', 'canc', '', 'ns', 'not started', 'scheduled', 'tbd'].includes(afStatus))
+          if (!afActive) return false
+          const afN1 = norm(af.fighters?.first?.name  ?? '')
+          const afN2 = norm(af.fighters?.second?.name ?? '')
+          return afN1 === f1NormDB || afN1 === f2NormDB || afN2 === f1NormDB || afN2 === f2NormDB
+        })
+
+        if (hasReplacementBout) {
+          log.push(`  ⚠ ${f1Name} vs ${f2Name} — skipping cancel: fighter has an active replacement bout on the same card`)
+          continue
+        }
+
         const { error } = await supabase.from('fights').update({ status: 'cancelled' }).eq('id', dbFight.id)
         if (error) errors.push(`cancel(${dbFight.id}): ${error.message}`)
         else log.push(`✗ ${f1Name} vs ${f2Name} → cancelled`)
@@ -421,7 +446,27 @@ async function syncViaRapidApi(
       const round      = apiFight.finalRound ?? null
 
       if (['cancelled', 'canceled', 'postponed', 'abandoned'].includes(apiStatus) && dbFight.status !== 'cancelled') {
-        const { error } = await supabase.from('fights').update({ status: 'cancelled' }).eq('id', fightUuid)
+        // Same replacement-bout guard as the api-sports path above.
+        const f1NormDB = norm(dbFight.fighter1?.name ?? '')
+        const f2NormDB = norm(dbFight.fighter2?.name ?? '')
+        const hasReplacementBout = apiFights.some((af: any) => {
+          if (af.id === apiFight.id) return false
+          const afStatus = (af.status?.type ?? af.statusType ?? '').toLowerCase()
+          const afActive = ['finished', 'complete', 'ended', 'after', 'inprogress', 'live'].includes(afStatus)
+          if (!afActive) return false
+          const afH = norm(af.homeTeam?.name ?? '')
+          const afA = norm(af.awayTeam?.name ?? '')
+          return afH === f1NormDB || afH === f2NormDB || afA === f1NormDB || afA === f2NormDB
+        })
+
+        if (hasReplacementBout) {
+          log.push(`  ⚠ ${home} vs ${away} — skipping cancel: fighter has an active replacement bout on the same card`)
+          continue
+        }
+
+        // Use dbFight.id (not fightUuid) — if this fight was name-matched, the two
+        // UUIDs differ and using fightUuid would silently cancel the wrong row.
+        const { error } = await supabase.from('fights').update({ status: 'cancelled' }).eq('id', dbFight.id)
         if (error) errors.push(`cancel(${fightUuid}): ${error.message}`)
         else log.push(`✗ ${home} vs ${away} → cancelled`)
         continue
