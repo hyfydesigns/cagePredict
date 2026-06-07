@@ -118,8 +118,12 @@ async function syncViaApiSports(
               f.event?.name?.toLowerCase().includes('ufc') ||
               f.slug?.toLowerCase().includes('ufc') ||
               f.competition?.name?.toLowerCase().includes('ufc') ||
-              f.tournament?.name?.toLowerCase().includes('ufc') ||
-              (!f.league && !f.event && !f.slug)
+              f.tournament?.name?.toLowerCase().includes('ufc')
+            // Note: we intentionally do NOT fall back to "include fights with no metadata"
+            // here. That fallback caused fights from other promotions (which happen to lack
+            // league/event/slug fields) to pass this filter and then get matched — via fuzzy
+            // name matching — to UFC DB fights. If those unrelated fights were cancelled or
+            // postponed, the wrong UFC fights were incorrectly marked as cancelled.
           )
           log.push(`  [${tryDate}] ${allFights.length} total, ${relevantFights.length} UFC`)
         } else {

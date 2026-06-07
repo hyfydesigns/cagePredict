@@ -430,8 +430,10 @@ async function apiGet<T>(
 
 /** Returns true if a fight belongs to the UFC, checking multiple possible field locations
  *  because api-sports doesn't always populate the `league` field on fight objects.
- *  Falls back to including the fight if none of the discriminating fields are present
- *  (safe since callers already filter by specific event date). */
+ *  Returns false when none of the discriminating fields are present — a fight with no
+ *  promotion metadata cannot be positively identified as a UFC fight and should not be
+ *  treated as one. Relying on the date filter alone is insufficient because other
+ *  promotions can share the same event date. */
 function isUfcFight(f: ApiSportsFight | any): boolean {
   // New api-sports format: event name is in slug field
   if (f.slug != null) return f.slug.toLowerCase().includes('ufc')
@@ -440,8 +442,12 @@ function isUfcFight(f: ApiSportsFight | any): boolean {
   if (f.event != null)       return f.event?.name?.toLowerCase().includes('ufc') ?? false
   if (f.competition != null) return f.competition?.name?.toLowerCase().includes('ufc') ?? false
   if (f.tournament != null)  return f.tournament?.name?.toLowerCase().includes('ufc') ?? false
-  // No discriminating field — include by default (caller is filtering by date already)
-  return true
+  // No discriminating field — exclude rather than include.
+  // Previously this returned true ("include by default"), which caused fights from other
+  // promotions with no metadata to be treated as UFC fights. When such a fight was
+  // cancelled/postponed, fuzzy name-matching could map it to a real UFC bout and
+  // incorrectly mark it cancelled.
+  return false
 }
 
 /**
