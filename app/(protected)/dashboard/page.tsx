@@ -206,7 +206,7 @@ export default async function DashboardPage() {
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-foreground-secondary">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {format(new Date(event.date), 'MMM d, yyyy')}
+                      {format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'MMM d, yyyy')}
                     </span>
                     <span>{event.fights?.length ?? 0} fights</span>
                   </div>

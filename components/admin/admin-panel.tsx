@@ -561,7 +561,7 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
           >
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
-                {ev.name} — {format(new Date(ev.date), 'MMM d')}
+                {ev.name} — {format(new Date(ev.date.slice(0, 10) + 'T12:00:00'), 'MMM d')}
               </option>
             ))}
           </select>
@@ -846,7 +846,7 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
                 <div>
                   <p className="font-semibold text-foreground text-sm">{event.name}</p>
                   <p className="text-foreground-muted text-xs mt-0.5">
-                    {format(new Date(event.date), 'MMM d, yyyy')} · {event.fights?.length ?? 0} fights
+                    {format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'MMM d, yyyy')} · {event.fights?.length ?? 0} fights
                   </p>
                 </div>
                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>

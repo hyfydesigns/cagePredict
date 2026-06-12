@@ -37,7 +37,7 @@ export async function generateMetadata(
   const main    = fights.find((f) => f.is_main_event)
   const f1Name  = main?.fighter1?.name ?? ''
   const f2Name  = main?.fighter2?.name ?? ''
-  const dateStr = format(new Date(event.date), 'MMMM d, yyyy')
+  const dateStr = format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'MMMM d, yyyy')
 
   const title       = `${event.name} Predictions & Fight Card | CagePredict`
   const description = main
@@ -178,7 +178,7 @@ export default async function EventPage(
               <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-foreground-muted">
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
-                  {format(new Date(event.date), 'EEEE, MMMM d, yyyy')}
+                  {format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
                 </span>
                 {event.venue && (
                   <span className="flex items-center gap-1.5">

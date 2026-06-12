@@ -67,18 +67,18 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   const dateGroups = useMemo(() => {
     const g: Record<string, EventWithFights[]> = {}
     for (const ev of events) {
-      const d = format(new Date(ev.date), 'yyyy-MM-dd')
+      const d = ev.date.slice(0, 10)
       ;(g[d] ??= []).push(ev)
     }
     return g
   }, [events])
 
-  const activeEventDateKey = activeEvent ? format(new Date(activeEvent.date), 'yyyy-MM-dd') : null
+  const activeEventDateKey = activeEvent ? activeEvent.date.slice(0, 10) : null
   const sameDayEvents      = activeEventDateKey ? (dateGroups[activeEventDateKey] ?? []) : []
   const isDoubleHeader     = sameDayEvents.length > 1
   // Events on other dates — used to show cross-day arrows underneath the tabs
   const hasCrossDayEvents  = activeEventDateKey
-    ? events.some(e => format(new Date(e.date), 'yyyy-MM-dd') !== activeEventDateKey)
+    ? events.some(e => e.date.slice(0, 10) !== activeEventDateKey)
     : false
 
   // Helper: update events + preserve user's current selection if still valid.
@@ -240,7 +240,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
               <span className="text-xs font-black text-foreground tracking-widest uppercase">Double Header</span>
               <span className="w-px h-3 bg-border/60" />
               <span className="text-xs text-foreground-muted">
-                {format(new Date(activeEvent.date), 'MMMM d, yyyy')}
+                {format(new Date(activeEvent.date.slice(0, 10) + 'T12:00:00'), 'MMMM d, yyyy')}
               </span>
             </div>
 
@@ -339,7 +339,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
                   ? 'bg-surface-2 text-foreground-muted'
                   : 'bg-surface-2/80 text-foreground-muted'
               }`}>
-                {activeEvent.status === 'live' ? 'LIVE' : format(new Date(activeEvent.date), 'MMM d')}
+                {activeEvent.status === 'live' ? 'LIVE' : format(new Date(activeEvent.date.slice(0, 10) + 'T12:00:00'), 'MMM d')}
               </span>
               <span className="shrink-0 text-[10px] text-foreground-muted">
                 {activeIndex + 1}/{events.length}
@@ -507,7 +507,7 @@ function EventSectionClient({
                 <div className="flex items-center gap-3 mt-1 text-xs text-foreground-muted flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {format(new Date(event.date), 'EEEE, MMMM d, yyyy')}
+                    {format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
                   </span>
                   {event.venue && (
                     <span className="flex items-center gap-1">
