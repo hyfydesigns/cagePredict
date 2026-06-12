@@ -381,7 +381,7 @@ async function syncFightMetaFromRapidApi(
 
     // Earliest existing fight_time in the DB — used to sanity-check the API timestamp.
     const existingEarliestMs = existingFightTimes.length > 0
-      ? Math.min(...existingFightTimes.map((t) => new Date(t).getTime()))
+      ? Math.min(...existingFightTimes.filter((t): t is string => t !== null).map((t) => new Date(t).getTime()))
       : 0
 
     const SEGMENT_OFFSET_S: Record<string, number> = {
