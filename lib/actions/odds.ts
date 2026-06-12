@@ -345,6 +345,7 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
     .from('fights')
     .select(`
       id,
+      fight_time,
       odds_f1, odds_f2,
       odds_f1_open, odds_f2_open,
       odds_history,
@@ -403,6 +404,7 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
     let oddsApiF1: number | null = null
     let oddsApiF2: number | null = null
     const oddsMap: Record<string, BookOdds> = {}
+    let commenceTime: string | null = null
 
     if (match) {
       const f1IsHome = nameMatches(f1.name, match.home_team)
@@ -415,6 +417,10 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
       // Collect all per-bookmaker lines from The Odds API
       const fromApi = collectBookOdds(match.bookmakers, apiNameF1, apiNameF2)
       Object.assign(oddsMap, fromApi)
+
+      // The Odds API commence_time is the authoritative event start time —
+      // bookmakers need it precise so they know when to close bets.
+      commenceTime = match.commence_time ?? null
     }
 
     // ── Kalshi: match by fighter name (no auth required) ────────────────────
@@ -430,7 +436,22 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
     const finalF1 = oddsApiF1 ?? kalshiLine?.odds_f1 ?? polyLine?.odds_f1 ?? null
     const finalF2 = oddsApiF2 ?? kalshiLine?.odds_f2 ?? polyLine?.odds_f2 ?? null
 
-    if (!finalF1 || !finalF2) continue   // no source has odds for this fight
+    // If we have a commence_time from The Odds API and it differs from the DB
+    // fight_time, update it. Bookmakers have the most reliable start times.
+    // Only update upcoming fights (not fights about to start / already locked).
+    const currentFightTime = (fight as any).fight_time as string | null
+    const shouldUpdateTime =
+      commenceTime &&
+      currentFightTime !== commenceTime &&
+      new Date(commenceTime).getTime() > Date.now() // don't move past fights
+
+    if (!finalF1 || !finalF2) {
+      // No odds yet, but still fix fight_time if we have a commence_time
+      if (shouldUpdateTime) {
+        await supabase.from('fights').update({ fight_time: commenceTime }).eq('id', fight.id)
+      }
+      continue
+    }
 
     // ── Build history snapshot ───────────────────────────────────────────────
     const snapshot: OddsSnapshot = { ts: now, odds_f1: finalF1, odds_f2: finalF2 }
@@ -452,6 +473,7 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
         odds_f2_open: openF2,
         odds_history: updatedHistory,
         odds_by_book: Object.keys(oddsMap).length > 0 ? oddsMap : null,
+        ...(shouldUpdateTime ? { fight_time: commenceTime } : {}),
       })
       .eq('id', fight.id)
 
@@ -465,6 +487,6 @@ export async function syncEventOdds(eventId: string): Promise<{ error?: string; 
     synced,
     message: synced > 0
       ? `Synced odds for ${synced} fight${synced !== 1 ? 's' : ''}`
-      : 'No matching fights found in The Odds API — they may not be listed yet',
+      : 'No matching fights found in The Odds API — they may not be listed yet (fight times corrected where possible)',
   }
 }
