@@ -192,6 +192,29 @@ async function syncViaApiSports(
       }
     }
 
+    // If api-sports returned fights but ALL are still "Not Started" even though
+    // the event is live and the card start time has passed, the API is lagging.
+    // Fall back to RapidAPI which tends to update faster.
+    const notStartedStatuses = ['not started', 'tbd', 'scheduled', 'ns', '']
+    const allNotStarted = apiFights.length > 0 && apiFights.every((f: any) => {
+      const s = (typeof f.status === 'object' && f.status !== null
+        ? (f.status.long ?? f.status.short ?? '')
+        : String(f.status ?? '')
+      ).toLowerCase()
+      return notStartedStatuses.includes(s)
+    })
+    if (allNotStarted) {
+      const earliestFightMs = dbFights
+        .filter((f: any) => f.fight_time)
+        .reduce((min: number, f: any) => Math.min(min, new Date(f.fight_time).getTime()), Infinity)
+      const cardShouldHaveStarted = earliestFightMs < Date.now()
+      if (cardShouldHaveStarted) {
+        rateLimited = true
+        log.push(`  ⚠ api-sports shows all ${apiFights.length} fights as "Not Started" but card should have started — falling back to RapidAPI`)
+        break
+      }
+    }
+
     for (const apiFight of apiFights) {
       const fightUuid = apiSportsIdToUuid(apiFight.id, 'fight')
       const f1Name    = apiFight.fighters.first?.name ?? 'TBA'
