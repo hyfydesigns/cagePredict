@@ -577,6 +577,115 @@ async function syncViaRapidApi(
   return synced
 }
 
+// ─── ESPN sync (fallback for UFC events when api-sports/RapidAPI lag) ────────
+// ESPN holds UFC broadcast rights and updates STATUS_FINAL in real time.
+// No API key required. Only covers UFC events.
+
+async function syncViaEspn(
+  liveEvents: any[],
+  supabase: ReturnType<typeof createServiceClient>,
+  log: string[],
+  errors: string[],
+  skipped: string[],
+): Promise<number> {
+  const ufcEvents = liveEvents.filter((e: any) => /ufc/i.test(e.name))
+  if (!ufcEvents.length) return 0
+
+  let espnComps: any[]
+  try {
+    const res = await fetch(
+      'https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard',
+      { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' },
+    )
+    if (!res.ok) {
+      log.push(`[espn] HTTP ${res.status} — skipping`)
+      return 0
+    }
+    const data = await res.json()
+    espnComps = (data?.events ?? []).flatMap((e: any) => e.competitions ?? [])
+  } catch (e: any) {
+    log.push(`[espn] Fetch error: ${e.message}`)
+    return 0
+  }
+
+  const finished = espnComps.filter(
+    (c: any) => c.status?.type?.name === 'STATUS_FINAL',
+  )
+  if (!finished.length) {
+    log.push('[espn] No STATUS_FINAL fights yet')
+    return 0
+  }
+
+  log.push(`[espn] ${finished.length} finished fight(s)`)
+  let synced = 0
+
+  for (const event of ufcEvents) {
+    const dbFights: any[] = (event as any).fights ?? []
+
+    for (const comp of finished) {
+      const competitors: any[] = comp.competitors ?? []
+      const winnerComp  = competitors.find((c: any) => c.winner)
+      const loserComp   = competitors.find((c: any) => !c.winner)
+      if (!winnerComp || !loserComp) continue
+
+      const winnerName = winnerComp.athlete?.displayName ?? ''
+      const loserName  = loserComp.athlete?.displayName  ?? ''
+      if (!winnerName || !loserName) continue
+
+      const winnerNorm = norm(winnerName)
+      const loserNorm  = norm(loserName)
+
+      // Full name match first, then last-name fallback
+      let dbFight = dbFights.find((f: any) => {
+        const d1 = norm(f.fighter1?.name ?? '')
+        const d2 = norm(f.fighter2?.name ?? '')
+        return (d1 === winnerNorm && d2 === loserNorm) || (d1 === loserNorm && d2 === winnerNorm)
+      })
+      if (!dbFight) {
+        const lastName = (s: string) => norm(s.trim().split(/\s+/).pop() ?? s)
+        const wl = lastName(winnerName)
+        const ll = lastName(loserName)
+        const candidates = dbFights.filter((f: any) => {
+          const d1l = lastName(f.fighter1?.name ?? '')
+          const d2l = lastName(f.fighter2?.name ?? '')
+          return (d1l === wl && d2l === ll) || (d1l === ll && d2l === wl)
+        })
+        if (candidates.length === 1) {
+          dbFight = candidates[0]
+          log.push(`  [espn] Last-name-matched ${winnerName} vs ${loserName}`)
+        }
+      }
+
+      if (!dbFight) { skipped.push(`[espn] No DB match for ${winnerName} vs ${loserName}`); continue }
+      if (dbFight.status === 'completed') { log.push(`  ⏭ [espn] ${winnerName} vs ${loserName} already completed`); continue }
+
+      const winnerDbId =
+        norm(dbFight.fighter1?.name ?? '') === winnerNorm ? dbFight.fighter1?.id :
+        norm(dbFight.fighter2?.name ?? '') === winnerNorm ? dbFight.fighter2?.id :
+        null
+
+      if (!winnerDbId) { errors.push(`[espn] Could not resolve winner DB ID for ${winnerName}`); continue }
+
+      const { error } = await supabase.rpc('complete_fight', {
+        p_fight_id:  dbFight.id,
+        p_winner_id: winnerDbId,
+        p_method:    null,
+        p_round:     null,
+        p_time:      null,
+      } as any)
+
+      if (error) {
+        errors.push(`[espn] complete_fight(${dbFight.id}): ${error.message}`)
+      } else {
+        synced++
+        log.push(`✓ [espn] ${winnerName} def. ${loserName}`)
+      }
+    }
+  }
+
+  return synced
+}
+
 // ─── Wikipedia sync (fallback for non-UFC events not covered by api-sports) ───
 
 async function syncViaWikipedia(
@@ -727,13 +836,20 @@ export async function runSyncResults(): Promise<SyncResultsOutput> {
   if (provider === 'api-sports') {
     const { synced: asSynced, rateLimited } = await syncViaApiSports(liveEvents, supabase, log, errors, skipped)
     synced += asSynced
-    // If api-sports hit its daily limit, fall back to RapidAPI automatically
-    if (rateLimited && process.env.RAPIDAPI_KEY) {
-      log.push('[rapidapi] Falling back to RapidAPI due to api-sports rate limit')
-      synced += await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
+    if (rateLimited) {
+      // ESPN first — no rate limits, real-time for UFC events (they broadcast it)
+      log.push('[espn] api-sports stalled — trying ESPN')
+      synced += await syncViaEspn(liveEvents, supabase, log, errors, skipped)
+      // RapidAPI as additional fallback for method/round details and non-UFC events
+      if (process.env.RAPIDAPI_KEY) {
+        log.push('[rapidapi] Also trying RapidAPI fallback')
+        synced += await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
+      }
     }
   } else {
-    synced = await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
+    // ESPN runs first even without api-sports configured
+    synced += await syncViaEspn(liveEvents, supabase, log, errors, skipped)
+    synced += await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
   }
 
   // Wikipedia fallback — for live events that have a Wikipedia mapping and
