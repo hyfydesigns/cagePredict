@@ -833,22 +833,21 @@ export async function runSyncResults(): Promise<SyncResultsOutput> {
   const skipped: string[] = []
 
   let synced = 0
+
+  // ESPN is the primary source for UFC events — they hold the broadcast rights
+  // and update STATUS_FINAL in real time with no rate limits or API key needed.
+  synced += await syncViaEspn(liveEvents, supabase, log, errors, skipped)
+
+  // api-sports runs after ESPN to catch non-UFC events and add method/round
+  // details for fights ESPN already completed (complete_fight skips duplicates).
   if (provider === 'api-sports') {
     const { synced: asSynced, rateLimited } = await syncViaApiSports(liveEvents, supabase, log, errors, skipped)
     synced += asSynced
-    if (rateLimited) {
-      // ESPN first — no rate limits, real-time for UFC events (they broadcast it)
-      log.push('[espn] api-sports stalled — trying ESPN')
-      synced += await syncViaEspn(liveEvents, supabase, log, errors, skipped)
-      // RapidAPI as additional fallback for method/round details and non-UFC events
-      if (process.env.RAPIDAPI_KEY) {
-        log.push('[rapidapi] Also trying RapidAPI fallback')
-        synced += await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
-      }
+    if (rateLimited && process.env.RAPIDAPI_KEY) {
+      log.push('[rapidapi] api-sports stalled — also trying RapidAPI')
+      synced += await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
     }
   } else {
-    // ESPN runs first even without api-sports configured
-    synced += await syncViaEspn(liveEvents, supabase, log, errors, skipped)
     synced += await syncViaRapidApi(liveEvents, supabase, log, errors, skipped)
   }
 
