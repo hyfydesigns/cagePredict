@@ -41,9 +41,15 @@ function mapMethod(winType: string): string {
   return map[winType] ?? winType
 }
 
-/** Normalise a fighter name for fuzzy matching — strips diacritics, lowercases, removes non-letters. */
+/** Normalise a fighter name for fuzzy matching — strips diacritics, lowercases, removes non-letters.
+ *  Also strips generation suffixes (Jr., Sr., II, III, IV) and fixes latin-1 mojibake (ñ → Ã±). */
 const norm = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
+  s
+    // Fix latin-1 mojibake before anything else (e.g. api-sports encodes ñ as Ã±)
+    .replace(/Ã±/g, 'n').replace(/Ã¡/g, 'a').replace(/Ã©/g, 'e').replace(/Ã­/g, 'i').replace(/Ã³/g, 'o').replace(/Ãº/g, 'u')
+    // Strip generation suffixes so "Michael Aswell Jr." matches "Michael Aswell"
+    .replace(/\b(jr\.?|sr\.?|ii|iii|iv)\b\.?/gi, '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
 
 function mapResultType(type: string | null): string | null {
   if (!type) return null
