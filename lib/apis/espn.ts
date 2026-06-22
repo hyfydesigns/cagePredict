@@ -22,6 +22,9 @@ export type EspnFighterData = {
   wins:              number | null
   losses:            number | null
   draws:             number | null
+  ko_tko_wins:       number | null
+  sub_wins:          number | null
+  dec_wins:          number | null
   weight_class:      string | null
   height_cm:         number | null
   reach_cm:          number | null
@@ -118,15 +121,25 @@ export async function getEspnFighterById(espnId: string): Promise<EspnFighterDat
 
   const weightClass: string | null = profile.weightClass?.text ?? null
 
+  const koTkoWins = getRecord('tkos')
+  const subWins   = getRecord('submissions')
+  const totalWins = getRecord('wins')
+  const decWins   = (koTkoWins != null && subWins != null && totalWins != null)
+    ? Math.max(0, totalWins - koTkoWins - subWins)
+    : null
+
   return {
     espn_id:           espnId,
     striking_accuracy: getStat('strikeAccuracy'),
     sig_str_landed:    getStat('strikeLPM'),
     td_avg:            getStat('takedownAvg'),
     sub_avg:           getStat('submissionAvg'),
-    wins:              getRecord('wins'),
+    wins:              totalWins,
     losses:            getRecord('losses'),
     draws:             getRecord('draws'),
+    ko_tko_wins:       koTkoWins,
+    sub_wins:          subWins,
+    dec_wins:          decWins,
     weight_class:      weightClass,
     height_cm:         heightCm,
     reach_cm:          reachCm,

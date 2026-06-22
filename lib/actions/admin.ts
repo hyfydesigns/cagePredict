@@ -1476,8 +1476,12 @@ async function runBackfillStats(): Promise<{ updated: number; errors: number }> 
         : null
 
       const patch: Record<string, unknown> = {
-        // Win breakdown (only write if we have UFCStats fight history)
-        ...(breakdown ? breakdown : {}),
+        // Win breakdown: ufcstats fight history first, ESPN records as fallback
+        ...(breakdown ? breakdown : {
+          ...(espnData?.ko_tko_wins != null ? { ko_tko_wins: espnData.ko_tko_wins } : {}),
+          ...(espnData?.sub_wins    != null ? { sub_wins:    espnData.sub_wins    } : {}),
+          ...(espnData?.dec_wins    != null ? { dec_wins:    espnData.dec_wins    } : {}),
+        }),
         ...(last_5_form != null ? { last_5_form } : {}),
         // Record: ESPN full career takes priority; UFCStats counts are UFC-only fallback
         ...(newWins   != null ? { wins:   newWins   } : {}),
