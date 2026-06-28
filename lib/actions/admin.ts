@@ -1240,7 +1240,9 @@ async function fetchEventByDateRapidApi(
       }
     }
 
-    const allFinished = fights.every((f: any) => f.status?.type === 'finished')
+    // Guard against empty fight list — [].every() is true in JS, which would
+    // incorrectly mark a newly-announced event as completed before fights are added.
+    const allFinished = fights.length > 0 && fights.every((f: any) => f.status?.type === 'finished')
     const anyLive     = fights.some((f: any)  => f.status?.type === 'inprogress')
     const eventStatus = allFinished ? 'completed' : anyLive ? 'live' : 'upcoming'
     const earliestTs  = Math.min(...fights.map((f: any) => (f.startTimestamp as number) ?? Infinity))
