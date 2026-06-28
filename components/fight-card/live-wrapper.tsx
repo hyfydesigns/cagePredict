@@ -60,11 +60,9 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     setActiveEventId(id)
     setTimeout(() => {
       if (!fightCardRef.current) return
-      const rect = fightCardRef.current.getBoundingClientRect()
-      // Only scroll if the carousel is out of view (user has scrolled past it)
-      if (rect.top < 0) {
-        fightCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
+      const NAVBAR_HEIGHT = 64
+      const top = fightCardRef.current.getBoundingClientRect().top + window.scrollY
+      window.scrollTo({ top: Math.max(0, top - NAVBAR_HEIGHT - 8), behavior: 'smooth' })
     }, 50)
   }
 
