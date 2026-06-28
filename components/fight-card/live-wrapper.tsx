@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Radio, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { MapPin, Calendar, ExternalLink } from 'lucide-react'
 import Image from 'next/image'
+import { motion, AnimatePresence } from 'framer-motion'
 import { getActiveEvents, getPicksStats, type EventStats } from '@/lib/actions/events'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -314,47 +315,12 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
             )}
           </div>
         ) : (
-          /* ── Default: arrows with event name + date in centre ───────────── */
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveEventId(events[Math.max(0, activeIndex - 1)]?.id ?? activeEventId)}
-              disabled={!hasPrev}
-              aria-label="Previous event"
-              className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-
-            <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
-              {activeEvent.status === 'live' && (
-                <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse-red shrink-0" />
-              )}
-              <span className="text-sm font-semibold text-foreground truncate">
-                {activeEvent.name.split(':')[0].trim()}
-              </span>
-              <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                activeEvent.status === 'live'
-                  ? 'bg-primary/20 text-primary'
-                  : activeEvent.status === 'completed'
-                  ? 'bg-surface-2 text-foreground-muted'
-                  : 'bg-surface-2/80 text-foreground-muted'
-              }`}>
-                {activeEvent.status === 'live' ? 'LIVE' : format(new Date(activeEvent.date.slice(0, 10) + 'T12:00:00'), 'MMM d')}
-              </span>
-              <span className="shrink-0 text-[10px] text-foreground-muted">
-                {activeIndex + 1}/{events.length}
-              </span>
-            </div>
-
-            <button
-              onClick={() => setActiveEventId(events[Math.min(events.length - 1, activeIndex + 1)]?.id ?? activeEventId)}
-              disabled={!hasNext}
-              aria-label="Next event"
-              className="shrink-0 h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground-muted hover:text-foreground hover:border-border transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+          /* ── 3-card visual carousel ──────────────────────────────────────── */
+          <EventCarousel
+            events={events}
+            activeIndex={activeIndex}
+            setActiveEventId={setActiveEventId}
+          />
         )
       )}
 
@@ -621,5 +587,220 @@ function EventSectionClient({
         happeningNowId={happeningNowId}
       />
     </section>
+  )
+}
+
+// ── 3-card visual event carousel ─────────────────────────────────────────────
+
+function EventCarousel({
+  events,
+  activeIndex,
+  setActiveEventId,
+}: {
+  events: EventWithFights[]
+  activeIndex: number
+  setActiveEventId: (id: string) => void
+}) {
+  const prevEvent = activeIndex > 0 ? events[activeIndex - 1] : null
+  const activeEvent = events[activeIndex]
+  const nextEvent = activeIndex < events.length - 1 ? events[activeIndex + 1] : null
+
+  // Track slide direction for animation
+  const [dir, setDir] = useState<1 | -1>(1)
+  const prevIndexRef = useRef(activeIndex)
+  useEffect(() => {
+    setDir(activeIndex > prevIndexRef.current ? 1 : -1)
+    prevIndexRef.current = activeIndex
+  }, [activeIndex])
+
+  return (
+    <div className="relative">
+      {/* Edge fade overlays for depth */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-8 z-10 bg-gradient-to-r from-background to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-8 z-10 bg-gradient-to-l from-background to-transparent" />
+
+      <div className="flex items-center gap-2">
+        {/* Left — prev event */}
+        <div className="w-[21%] shrink-0 min-w-0">
+          {prevEvent ? (
+            <button
+              onClick={() => setActiveEventId(prevEvent.id)}
+              className="w-full group"
+              aria-label={`Go to ${prevEvent.name}`}
+            >
+              <CarouselSideCard event={prevEvent} side="left" />
+            </button>
+          ) : (
+            <div className="h-[72px]" />
+          )}
+        </div>
+
+        {/* Center — active event (large) */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeEvent.id}
+              initial={{ opacity: 0, x: dir * 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: dir * -24 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+            >
+              <CarouselCenterCard event={activeEvent} index={activeIndex} total={events.length} />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Right — next event */}
+        <div className="w-[21%] shrink-0 min-w-0">
+          {nextEvent ? (
+            <button
+              onClick={() => setActiveEventId(nextEvent.id)}
+              className="w-full group"
+              aria-label={`Go to ${nextEvent.name}`}
+            >
+              <CarouselSideCard event={nextEvent} side="right" />
+            </button>
+          ) : (
+            <div className="h-[72px]" />
+          )}
+        </div>
+      </div>
+
+      {/* Dot indicators */}
+      {events.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5 mt-2">
+          {events.map((ev, i) => (
+            <button
+              key={ev.id}
+              onClick={() => setActiveEventId(ev.id)}
+              aria-label={ev.name}
+              className={`rounded-full transition-all duration-200 ${
+                i === activeIndex
+                  ? 'w-4 h-1.5 bg-primary'
+                  : 'w-1.5 h-1.5 bg-border hover:bg-foreground-muted'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CarouselSideCard({ event, side }: { event: EventWithFights; side: 'left' | 'right' }) {
+  const isLive = event.status === 'live'
+  const dateStr = event.status === 'live'
+    ? 'LIVE'
+    : format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'MMM d')
+
+  return (
+    <div className={`relative h-[72px] rounded-xl overflow-hidden border transition-all duration-200
+      ${isLive ? 'border-primary/30' : 'border-border/40'}
+      opacity-40 group-hover:opacity-70 group-hover:border-border/70 group-hover:scale-[1.02]`}
+    >
+      {event.image_url && (
+        <Image src={event.image_url} alt={event.name} fill className="object-cover" sizes="140px" />
+      )}
+      {/* Gradient: stronger on the "inside" edge to blend toward center */}
+      <div className={`absolute inset-0 ${
+        side === 'left'
+          ? 'bg-gradient-to-l from-surface/80 via-surface/60 to-surface/30'
+          : 'bg-gradient-to-r from-surface/80 via-surface/60 to-surface/30'
+      }`} />
+
+      <div className="absolute inset-0 flex flex-col justify-end px-2.5 pb-2">
+        <p className="text-[10px] font-black text-foreground leading-tight truncate">
+          {event.name.split(':')[0].trim()}
+        </p>
+        <div className="flex items-center gap-1 mt-0.5">
+          {isLive && <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse-red shrink-0" />}
+          <p className={`text-[9px] font-semibold leading-none ${isLive ? 'text-primary' : 'text-foreground-muted'}`}>
+            {dateStr}
+          </p>
+        </div>
+      </div>
+
+      {/* Chevron hint */}
+      <div className={`absolute top-1/2 -translate-y-1/2 ${side === 'left' ? 'left-1' : 'right-1'} opacity-0 group-hover:opacity-60 transition-opacity`}>
+        {side === 'left'
+          ? <ChevronLeft className="h-3 w-3 text-foreground" />
+          : <ChevronRight className="h-3 w-3 text-foreground" />
+        }
+      </div>
+    </div>
+  )
+}
+
+function CarouselCenterCard({ event, index, total }: { event: EventWithFights; index: number; total: number }) {
+  const isLive = event.status === 'live'
+  const isCompleted = event.status === 'completed'
+
+  const shortName = event.name.split(':')[0].trim()
+  const subtitle  = event.name.includes(':') ? event.name.split(':').slice(1).join(':').trim() : null
+
+  return (
+    <div className={`relative h-[108px] rounded-xl overflow-hidden border shadow-md transition-all duration-200
+      ${isLive ? 'border-primary/50 shadow-primary/10' : 'border-border/60'}
+    `}>
+      {/* Background image */}
+      {event.image_url && (
+        <Image src={event.image_url} alt={event.name} fill className="object-cover opacity-45" sizes="480px" />
+      )}
+
+      {/* Gradient layer */}
+      <div className={`absolute inset-0 ${
+        event.image_url
+          ? 'bg-gradient-to-r from-surface/90 via-surface/70 to-surface/50'
+          : isLive
+          ? 'bg-gradient-to-br from-primary/20 via-surface-2 to-surface-3'
+          : 'bg-gradient-to-br from-surface-2 to-surface-3'
+      }`} />
+
+      {/* Live glow */}
+      {isLive && (
+        <div className="absolute inset-0 bg-primary/5 animate-pulse" />
+      )}
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-between p-3.5">
+        {/* Top row: status + counter */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {isLive && <span className="h-2 w-2 rounded-full bg-primary animate-pulse-red shrink-0" />}
+            <span className={`text-[10px] font-bold tracking-wide uppercase ${
+              isLive ? 'text-primary' : isCompleted ? 'text-foreground-muted' : 'text-foreground-muted'
+            }`}>
+              {isLive
+                ? 'Live Now'
+                : isCompleted
+                ? 'Completed'
+                : format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'EEEE, MMM d')}
+            </span>
+          </div>
+          <span className="text-[10px] text-foreground-muted tabular-nums">
+            {index + 1} / {total}
+          </span>
+        </div>
+
+        {/* Bottom row: name + fight count */}
+        <div className="flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-base font-black text-foreground leading-tight truncate">
+              {shortName}
+            </h3>
+            {subtitle && (
+              <p className="text-[10px] text-foreground-muted leading-snug truncate mt-0.5">
+                {subtitle}
+              </p>
+            )}
+          </div>
+          <div className="shrink-0 flex flex-col items-end gap-1">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-surface-2/70 text-foreground-muted backdrop-blur-sm whitespace-nowrap">
+              {event.fights?.length ?? 0} fights
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
