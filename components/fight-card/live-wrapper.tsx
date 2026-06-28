@@ -785,7 +785,7 @@ function CarouselCenterCard({ event, index, total }: { event: EventWithFights; i
         {/* Bottom row: name + fight count */}
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-base font-black text-foreground leading-tight truncate">
+            <h3 className="text-base font-black text-foreground leading-tight">
               {shortName}
             </h3>
             {subtitle && (
