@@ -474,7 +474,7 @@ function EventSectionClient({
             <div className="flex items-end justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <h2 className="text-xl sm:text-2xl font-black text-foreground flex items-center gap-2">
-                  <span className="truncate">{event.name}</span>
+                  <span>{event.name}</span>
                   <Link
                     href={`/events/${event.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
                     className="text-foreground-muted hover:text-foreground-secondary transition-colors shrink-0"
