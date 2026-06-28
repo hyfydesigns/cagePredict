@@ -239,6 +239,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
       )}
 
       {/* Event navigation */}
+      <div ref={fightCardRef} />
       {events.length > 1 && (
         isDoubleHeader ? (
           /* ── Double-header: flame banner + side-by-side tabs ─────────────── */
@@ -333,16 +334,14 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
       )}
 
       {/* Active event */}
-      <div ref={fightCardRef}>
-        <EventSectionClient
-          event={activeEvent}
-          userPicks={userPicks}
-          userId={userId}
-          dbStats={dbStats}
-          commentsByFight={commentsByFight}
-          liveEarned={liveEarned}
-        />
-      </div>
+      <EventSectionClient
+        event={activeEvent}
+        userPicks={userPicks}
+        userId={userId}
+        dbStats={dbStats}
+        commentsByFight={commentsByFight}
+        liveEarned={liveEarned}
+      />
     </div>
     </BookmakerProvider>
   )
