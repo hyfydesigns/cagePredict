@@ -239,9 +239,9 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
       )}
 
       {/* Event navigation */}
-      <div ref={fightCardRef} />
       {events.length > 1 && (
-        isDoubleHeader ? (
+        <div ref={fightCardRef}>
+        {isDoubleHeader ? (
           /* ── Double-header: flame banner + side-by-side tabs ─────────────── */
           <div className="space-y-2">
             {/* Banner */}
@@ -330,7 +330,8 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
             activeIndex={activeIndex}
             setActiveEventId={selectEvent}
           />
-        )
+        )}
+        </div>
       )}
 
       {/* Active event */}
