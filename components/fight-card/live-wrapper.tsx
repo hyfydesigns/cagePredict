@@ -802,7 +802,7 @@ function CarouselCenterCard({ event, index, total }: { event: EventWithFights; i
               {shortName}
             </h3>
             {subtitle && (
-              <p className="text-[10px] text-foreground-muted leading-snug truncate mt-0.5">
+              <p className="text-[10px] text-foreground-muted leading-snug mt-0.5">
                 {subtitle}
               </p>
             )}
