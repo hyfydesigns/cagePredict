@@ -54,6 +54,14 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
     null
 
   const [activeEventId, setActiveEventId] = useState<string | null>(() => pickActiveId(initialEvents))
+  const fightCardRef = useRef<HTMLDivElement>(null)
+
+  const selectEvent = (id: string) => {
+    setActiveEventId(id)
+    setTimeout(() => {
+      fightCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }
 
   // Derive the display index from the ID so prev/next arrows keep working.
   const activeIndex = Math.max(0, events.findIndex((e) => e.id === activeEventId))
@@ -319,20 +327,22 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
           <EventCarousel
             events={events}
             activeIndex={activeIndex}
-            setActiveEventId={setActiveEventId}
+            setActiveEventId={selectEvent}
           />
         )
       )}
 
       {/* Active event */}
-      <EventSectionClient
-        event={activeEvent}
-        userPicks={userPicks}
-        userId={userId}
-        dbStats={dbStats}
-        commentsByFight={commentsByFight}
-        liveEarned={liveEarned}
-      />
+      <div ref={fightCardRef}>
+        <EventSectionClient
+          event={activeEvent}
+          userPicks={userPicks}
+          userId={userId}
+          dbStats={dbStats}
+          commentsByFight={commentsByFight}
+          liveEarned={liveEarned}
+        />
+      </div>
     </div>
     </BookmakerProvider>
   )
