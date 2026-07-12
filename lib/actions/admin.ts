@@ -434,10 +434,11 @@ async function syncFightMetaFromRapidApi(
     //      that fight's fighter column to the new opponent.
     //   b) Genuinely new fight — neither fighter appears in any DB fight; insert fresh row.
     //
-    // SAFETY: if matchedCount is 0, the API response doesn't correspond to this event
-    // (wrong promotion / wrong date). Skip step 3 entirely to avoid inserting fights
-    // from a completely unrelated card into this event.
-    if (matchedCount === 0 && dbFights.length > 0) return
+    // SAFETY: if matchedCount is 0, the API response might not correspond to this event
+    // (wrong promotion / wrong date). Only bail when 3+ DB fights all have no match —
+    // that's a strong signal of the wrong event. 1-2 unmatched fights likely means
+    // those bouts were cancelled and MMAAPI dropped them; we still want to insert new ones.
+    if (matchedCount === 0 && dbFights.length >= 3) return
 
     // Build single-fighter index for replacement detection: norm name → { fightId, f1n, f2n }
     const dbFighterIndex = new Map<string, { fightId: string; f1n: string; f2n: string }>()
