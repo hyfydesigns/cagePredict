@@ -626,8 +626,27 @@ function EventCarousel({
     prevIndexRef.current = activeIndex
   }, [activeIndex])
 
+  const touchStartX = useRef<number | null>(null)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const delta = touchStartX.current - e.changedTouches[0].clientX
+    touchStartX.current = null
+    if (Math.abs(delta) < 50) return
+    if (delta > 0 && nextEvent) setActiveEventId(nextEvent.id)
+    else if (delta < 0 && prevEvent) setActiveEventId(prevEvent.id)
+  }
+
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Edge fade overlays for depth */}
       <div className="pointer-events-none absolute inset-y-0 left-0 w-8 z-10 bg-gradient-to-r from-background to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-8 z-10 bg-gradient-to-l from-background to-transparent" />
