@@ -127,6 +127,29 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEvents])
 
+  // ── Supabase realtime: instant event status changes (upcoming → live) ────
+  // The go-live cron flips event status server-side; without this subscription
+  // the client wouldn't know until the next 60s poll. This makes it immediate.
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('events-status-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events' },
+        (payload) => {
+          setEvents((prev) =>
+            prev.map((e) =>
+              e.id === payload.new.id ? { ...e, status: payload.new.status } : e
+            )
+          )
+          router.refresh()
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
   // ── Supabase realtime: instant fight result updates ───────────────────────
   // When sync-results cron calls complete_fight(), the DB change is broadcast
   // here immediately — no polling delay for fight results.
