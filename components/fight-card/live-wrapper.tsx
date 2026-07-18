@@ -462,8 +462,8 @@ function EventSectionClient({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
 
-          {/* Status badge — pinned to top-left so it never overlaps the navigation above */}
-          <div className="absolute top-3 left-4">
+          {/* Status badge — pinned to top-right */}
+          <div className="absolute top-3 right-4">
             <Badge variant={event.status === 'live' ? 'live' : 'outline'} className="text-[11px]">
               {event.status === 'live' ? '🔴 LIVE NOW' : 'Upcoming'}
             </Badge>
