@@ -287,6 +287,13 @@ async function syncFightMetaFromRapidApi(
 
     const apiFights: any[] = bestEntry.fights
 
+    // Update event name if MMAAPI has a different name (e.g. main event fighter replaced).
+    // Only update when the API name contains "vs" — PPV titles include fighter names.
+    // Fight Night events often return a bare slug from the API, so we leave those alone.
+    if (bestEntry.name && bestEntry.name !== dbEvent.name && /\bvs\.?\b/i.test(bestEntry.name)) {
+      await supabase.from('events').update({ name: bestEntry.name }).eq('id', eventId)
+    }
+
     // Fetch DB fights with fighter names + current fight_time
     const { data: dbFights } = await supabase
       .from('fights')
