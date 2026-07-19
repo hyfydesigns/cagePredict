@@ -31,6 +31,50 @@ export async function GET(req: Request) {
   let wentCompleted = 0
   const log: string[] = []
 
+  // ── 0. Pre-event card sync ───────────────────────────────────────────────
+  // Keeps fight cards accurate in the hours before go-live so late UFC additions
+  // and cancellations are reflected well before the event starts:
+  //   30 min – 2 h before first fight  →  sync every 15 min (every cron tick)
+  //   2 h – 6 h before first fight     →  sync once per hour (first tick of the hour)
+  //   No fight_time set + event is today (UTC)  →  sync once per hour as fallback
+  const { data: preEvents } = await supabase
+    .from('events')
+    .select('id, name, date, fights(id, fight_time)')
+    .eq('status', 'upcoming')
+
+  const todayUTC    = new Date(now).toISOString().slice(0, 10)
+  const utcMinute   = new Date(now).getUTCMinutes()
+  const isHourlySlot = utcMinute < 15   // first 15 min of each hour ≈ once-per-hour slot
+
+  for (const event of preEvents ?? []) {
+    const preFights: any[] = (event as any).fights ?? []
+    const earliestMs = preFights.reduce((min: number, f: any) => {
+      const t = f.fight_time ? new Date(f.fight_time).getTime() : Infinity
+      return Math.min(min, t)
+    }, Infinity)
+
+    const timeUntilMs  = earliestMs - now
+    const eventIsToday = (event as any).date?.slice(0, 10) === todayUTC
+    const hasKnownTime = isFinite(timeUntilMs)
+
+    const inCloseWindow = hasKnownTime && timeUntilMs > 30 * 60_000 && timeUntilMs <= 2 * 60 * 60_000
+    const inFarWindow   = hasKnownTime && timeUntilMs > 2 * 60 * 60_000 && timeUntilMs <= 6 * 60 * 60_000
+
+    const shouldPreSync =
+      inCloseWindow ||                               // 30 min–2 h: every 15 min
+      (inFarWindow   && isHourlySlot) ||             // 2–6 h out:  once per hour
+      (!hasKnownTime && eventIsToday && isHourlySlot) // no fight_time but event is today
+
+    if (!shouldPreSync) continue
+
+    try {
+      const r = await refreshEventFightsInternal((event as any).id)
+      log.push(`Pre-sync ${(event as any).name}: ${r.message ?? r.error ?? 'done'}`)
+    } catch (e: any) {
+      log.push(`Pre-sync ${(event as any).name} failed (non-fatal): ${(e as Error).message}`)
+    }
+  }
+
   // ── 1. upcoming → live ───────────────────────────────────────────────────
   // Flip any upcoming event whose earliest fight starts within the next 30 min
   const { data: upcomingEvents, error: upErr } = await supabase
