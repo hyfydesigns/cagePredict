@@ -867,16 +867,28 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
                     </button>
                   )}
                   {event.status === 'live' && (
-                    <button
-                      className="flex items-center gap-1 text-[10px] font-bold text-foreground-muted border border-border rounded px-1.5 py-0.5 hover:bg-surface-2 transition-colors"
-                      onClick={() => {
-                        forceSetEventStatus(event.id, 'upcoming').then(r => {
-                          toast({ title: r.error ? 'Failed' : r.message ?? 'Set upcoming', variant: r.error ? 'destructive' : 'default' })
-                        })
-                      }}
-                    >
-                      Revert
-                    </button>
+                    <>
+                      <button
+                        className="flex items-center gap-1 text-[10px] font-bold text-green-500 border border-green-500/40 rounded px-1.5 py-0.5 hover:bg-green-500/10 transition-colors"
+                        onClick={() => {
+                          forceSetEventStatus(event.id, 'completed').then(r => {
+                            toast({ title: r.error ? 'Failed' : r.message ?? 'Set completed', variant: r.error ? 'destructive' : 'default' })
+                          })
+                        }}
+                      >
+                        Force Complete
+                      </button>
+                      <button
+                        className="flex items-center gap-1 text-[10px] font-bold text-foreground-muted border border-border rounded px-1.5 py-0.5 hover:bg-surface-2 transition-colors"
+                        onClick={() => {
+                          forceSetEventStatus(event.id, 'upcoming').then(r => {
+                            toast({ title: r.error ? 'Failed' : r.message ?? 'Set upcoming', variant: r.error ? 'destructive' : 'default' })
+                          })
+                        }}
+                      >
+                        Revert
+                      </button>
+                    </>
                   )}
                   <button
                     className="flex items-center gap-1 text-[10px] font-bold text-blue-500 border border-blue-500/40 rounded px-1.5 py-0.5 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
