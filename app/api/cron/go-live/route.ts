@@ -75,10 +75,11 @@ export async function GET(req: Request) {
   }
 
   // ── 2. live → completed ──────────────────────────────────────────────────
-  // Flip any live event where every fight is already completed
+  // Flip any live event where every fight is already completed, OR where the
+  // event date was more than 8 hours ago (safety valve for missing/stuck fights).
   const { data: liveEvents, error: liveErr } = await supabase
     .from('events')
-    .select('id, name, fights(id, status)')
+    .select('id, name, date, fights(id, status)')
     .eq('status', 'live')
 
   if (liveErr) return NextResponse.json({ error: liveErr.message }, { status: 500 })
@@ -89,14 +90,22 @@ export async function GET(req: Request) {
 
     // cancelled fights count as "done" — don't block event completion
     const allDone = fights.every((f: any) => f.status === 'completed' || f.status === 'cancelled')
-    if (allDone) {
+
+    // Safety valve: if the event date was more than 8 hours ago and at least
+    // half the fights are done, force complete even if one fight is stuck/missing.
+    const eventDateMs = new Date((event as any).date).getTime()
+    const hoursLive = (now - eventDateMs) / (1000 * 60 * 60)
+    const doneFights = fights.filter((f: any) => f.status === 'completed' || f.status === 'cancelled').length
+    const stuckLive = hoursLive > 8 && doneFights >= Math.ceil(fights.length / 2)
+
+    if (allDone || stuckLive) {
       const { error } = await supabase
         .from('events')
         .update({ status: 'completed' })
         .eq('id', event.id)
       if (!error) {
         wentCompleted++
-        log.push(`→ COMPLETED: ${event.name}`)
+        log.push(`→ COMPLETED: ${event.name}${stuckLive && !allDone ? ' (safety valve — stuck fight)' : ''}`)
       }
     }
   }
