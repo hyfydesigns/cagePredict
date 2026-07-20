@@ -1592,6 +1592,26 @@ export async function refreshEventFightsInternal(
     await syncFightMetaFromRapidApi(eventId, day, month, year)
 
     if (isUfcEvent) {
+      // ESPN holds UFC broadcast rights and updates event names faster than MMAAPI.
+      // Sync the event name from ESPN so fighter replacements in the title are reflected.
+      try {
+        const espnDate = `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`
+        const espnRes  = await fetch(
+          `https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard?dates=${espnDate}`,
+          { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' },
+        )
+        if (espnRes.ok) {
+          const espnData   = await espnRes.json()
+          const espnEvents: any[] = espnData.events ?? []
+          // Pick the ESPN event whose name contains "vs" (has fighter names) and best
+          // matches our event — typically only one UFC event per date.
+          const espnMatch  = espnEvents.find((e: any) => e.name && /\bvs\.?\b/i.test(e.name))
+          if (espnMatch?.name && espnMatch.name !== event.name) {
+            await supabase.from('events').update({ name: espnMatch.name }).eq('id', eventId)
+          }
+        }
+      } catch { /* non-fatal */ }
+
       const tapologyEvents = await getUpcomingUFCEvents()
       const tapEvent = tapologyEvents.find((te) => {
         const parsed = parseTapologyDate(te.datetime)
