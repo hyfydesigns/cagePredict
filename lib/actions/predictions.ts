@@ -70,17 +70,20 @@ export async function toggleConfidencePick(
 
   const f = fight as any
   if (!f) return { error: 'Fight not found' }
-  if (isFightLocked(f.fight_time, null, f.status)) return { error: 'Picks are locked for this fight' }
+  // Always allow removing a lock even if the fight is cancelled/locked.
+  // Only block when placing a new lock on an already-locked fight.
+  if (isConfidence && isFightLocked(f.fight_time, null, f.status)) return { error: 'Picks are locked for this fight' }
 
-  // Enforce one confidence pick per event
+  // Enforce one confidence pick per event — cancelled fights don't count
   if (isConfidence) {
     const { data: existing } = await supabase
       .from('predictions')
-      .select('fight_id, fights!inner(event_id)')
+      .select('fight_id, fights!inner(event_id, status)')
       .eq('user_id', user.id)
       .eq('is_confidence', true)
       .eq('fights.event_id', f.event_id)
       .neq('fight_id', fightId)
+      .neq('fights.status', 'cancelled')
       .limit(1)
 
     if (existing && existing.length > 0) {

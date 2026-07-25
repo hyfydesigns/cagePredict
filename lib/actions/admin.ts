@@ -360,6 +360,17 @@ async function syncFightMetaFromRapidApi(
           if (toDelete.includes(dbId)) dbLookup.delete(pair)
         }
       }
+
+      // Auto-clear confidence locks from any cancelled fights so users can re-use
+      // their lock on an active fight without manual intervention.
+      const { data: cancelledFights } = await supabase
+        .from('fights').select('id').eq('event_id', eventId).eq('status', 'cancelled')
+      if (cancelledFights?.length) {
+        await supabase.from('predictions')
+          .update({ is_confidence: false })
+          .in('fight_id', cancelledFights.map((f: any) => f.id))
+          .eq('is_confidence', true)
+      }
     }
 
     // ── 2. Update metadata on matched fights ─────────────────────────────────
