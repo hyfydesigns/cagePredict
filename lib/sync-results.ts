@@ -586,6 +586,9 @@ async function syncViaRapidApi(
 // ─── ESPN sync (fallback for UFC events when api-sports/RapidAPI lag) ────────
 // ESPN holds UFC broadcast rights and updates STATUS_FINAL in real time.
 // No API key required. Only covers UFC events.
+//
+// We fetch using the event's actual date (not "today") so main-card results
+// are found even when the card finishes after midnight UTC.
 
 async function syncViaEspn(
   liveEvents: any[],
@@ -597,32 +600,46 @@ async function syncViaEspn(
   const ufcEvents = liveEvents.filter((e: any) => /ufc/i.test(e.name))
   if (!ufcEvents.length) return 0
 
-  let espnComps: any[]
-  try {
-    const res = await fetch(
-      'https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard',
-      { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' },
-    )
-    if (!res.ok) {
-      log.push(`[espn] HTTP ${res.status} — skipping`)
-      return 0
+  // Build a de-duped set of ESPN date strings we need to fetch (YYYYMMDD).
+  // Also include "today" in UTC as a catch-all for events with no date field.
+  const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+  const datesToFetch = new Set<string>([todayStr])
+  for (const event of ufcEvents) {
+    if (event.date) {
+      const d = new Date(event.date)
+      datesToFetch.add(
+        `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`,
+      )
     }
-    const data = await res.json()
-    espnComps = (data?.events ?? []).flatMap((e: any) => e.competitions ?? [])
-  } catch (e: any) {
-    log.push(`[espn] Fetch error: ${e.message}`)
-    return 0
   }
 
-  const finished = espnComps.filter(
-    (c: any) => c.status?.type?.name === 'STATUS_FINAL',
-  )
+  // Fetch each required date and accumulate all STATUS_FINAL competitions.
+  const finished: any[] = []
+  for (const dateStr of datesToFetch) {
+    try {
+      const res = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard?dates=${dateStr}`,
+        { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' },
+      )
+      if (!res.ok) {
+        log.push(`[espn] HTTP ${res.status} for ${dateStr} — skipping`)
+        continue
+      }
+      const data = await res.json()
+      const comps: any[] = (data?.events ?? []).flatMap((e: any) => e.competitions ?? [])
+      const done = comps.filter((c: any) => c.status?.type?.name === 'STATUS_FINAL')
+      log.push(`[espn] ${dateStr}: ${done.length} STATUS_FINAL fight(s)`)
+      finished.push(...done)
+    } catch (e: any) {
+      log.push(`[espn] Fetch error for ${dateStr}: ${e.message}`)
+    }
+  }
+
   if (!finished.length) {
-    log.push('[espn] No STATUS_FINAL fights yet')
+    log.push('[espn] No STATUS_FINAL fights found across checked dates')
     return 0
   }
 
-  log.push(`[espn] ${finished.length} finished fight(s)`)
   let synced = 0
 
   for (const event of ufcEvents) {
@@ -664,6 +681,13 @@ async function syncViaEspn(
 
       if (!dbFight) { skipped.push(`[espn] No DB match for ${winnerName} vs ${loserName}`); continue }
       if (dbFight.status === 'completed') { log.push(`  ⏭ [espn] ${winnerName} vs ${loserName} already completed`); continue }
+
+      // For cancelled fights with ESPN STATUS_FINAL, un-cancel them first so
+      // complete_fight() can score the fight and predictions properly.
+      if (dbFight.status === 'cancelled') {
+        log.push(`  [espn] Un-cancelling ${winnerName} vs ${loserName} — ESPN shows STATUS_FINAL`)
+        await supabase.from('fights').update({ status: 'upcoming' }).eq('id', dbFight.id)
+      }
 
       const winnerDbId =
         norm(dbFight.fighter1?.name ?? '') === winnerNorm ? dbFight.fighter1?.id :
