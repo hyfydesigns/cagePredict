@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { isAdmin } from '@/lib/auth/is-admin'
 import { getVisibleBookmakerKeys } from '@/lib/actions/settings'
@@ -42,6 +43,28 @@ export default async function AdminPage() {
 
   const visibleBookmakerKeys = await getVisibleBookmakerKeys()
 
+  // Fetch last sync-results run for health display in admin panel.
+  // Uses service client to bypass RLS on sync_log.
+  // Gracefully returns null if the table doesn't exist yet.
+  const service = createServiceClient()
+  let lastSync: {
+    synced_at: string
+    synced_count: number
+    errors_count: number
+    log_lines: string[]
+    errors_json: string[]
+    provider: string | null
+  } | null = null
+  try {
+    const { data: syncRow } = await service
+      .from('sync_log')
+      .select('synced_at, synced_count, errors_count, log_lines, errors_json, provider')
+      .order('synced_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    lastSync = (syncRow as any) ?? null
+  } catch {}
+
   return (
     <AdminPanel
       events={(events as any) ?? []}
@@ -49,6 +72,7 @@ export default async function AdminPage() {
       adminUserId={user.id}
       users={(usersData as any) ?? []}
       visibleBookmakerKeys={visibleBookmakerKeys}
+      lastSync={lastSync}
     />
   )
 }

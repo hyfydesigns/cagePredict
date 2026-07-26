@@ -317,6 +317,15 @@ async function syncViaApiSports(
         continue
       }
 
+      // api-sports shows the fight as finished but we have it as cancelled
+      // (e.g. original opponent withdrew and a replacement fought instead).
+      // Un-cancel it so complete_fight() can score it properly.
+      if (isFinished && dbFight.status === 'cancelled') {
+        log.push(`  [api-sports] Un-cancelling ${f1Name} vs ${f2Name} — api-sports shows finished`)
+        await supabase.from('fights').update({ status: 'upcoming' }).eq('id', dbFight.id)
+        dbFight.status = 'upcoming'
+      }
+
       // Fight is currently in progress (walkouts, round 1, etc.) — mark as live in DB
       // so the "Fighting Now" indicator on the front-end picks it up immediately.
       if (isInProgress) {
@@ -613,8 +622,10 @@ async function syncViaEspn(
     }
   }
 
-  // Fetch each required date and accumulate all STATUS_FINAL competitions.
-  const finished: any[] = []
+  // Fetch each required date. Collect ALL competitions (any status) for the
+  // orphan-detection pass, and STATUS_FINAL ones for the completion pass.
+  const allComps: any[]      = []
+  const finished: any[]      = []
   for (const dateStr of datesToFetch) {
     try {
       const res = await fetch(
@@ -627,17 +638,36 @@ async function syncViaEspn(
       }
       const data = await res.json()
       const comps: any[] = (data?.events ?? []).flatMap((e: any) => e.competitions ?? [])
+      allComps.push(...comps)
       const done = comps.filter((c: any) => c.status?.type?.name === 'STATUS_FINAL')
-      log.push(`[espn] ${dateStr}: ${done.length} STATUS_FINAL fight(s)`)
+      log.push(`[espn] ${dateStr}: ${comps.length} total, ${done.length} STATUS_FINAL`)
       finished.push(...done)
     } catch (e: any) {
       log.push(`[espn] Fetch error for ${dateStr}: ${e.message}`)
     }
   }
 
-  if (!finished.length) {
-    log.push('[espn] No STATUS_FINAL fights found across checked dates')
+  if (!allComps.length) {
+    log.push('[espn] No competitions returned across checked dates')
     return 0
+  }
+
+  // Helper: does this DB fight match any ESPN competition (any status)?
+  const lastName = (s: string) => norm(s.trim().split(/\s+/).pop() ?? s)
+  const espnMatchesDbFight = (dbFight: any): boolean => {
+    const d1 = norm(dbFight.fighter1?.name ?? '')
+    const d2 = norm(dbFight.fighter2?.name ?? '')
+    const d1l = lastName(dbFight.fighter1?.name ?? '')
+    const d2l = lastName(dbFight.fighter2?.name ?? '')
+    return allComps.some((c: any) => {
+      const competitors: any[] = c.competitors ?? []
+      const names = competitors.map((x: any) => x.athlete?.displayName ?? '').filter(Boolean)
+      if (names.length < 2) return false
+      const n1 = norm(names[0]); const n2 = norm(names[1])
+      if ((d1 === n1 && d2 === n2) || (d1 === n2 && d2 === n1)) return true
+      const n1l = lastName(names[0]); const n2l = lastName(names[1])
+      return (d1l === n1l && d2l === n2l) || (d1l === n2l && d2l === n1l)
+    })
   }
 
   let synced = 0
@@ -645,6 +675,7 @@ async function syncViaEspn(
   for (const event of ufcEvents) {
     const dbFights: any[] = (event as any).fights ?? []
 
+    // ── Pass 1: complete STATUS_FINAL fights ─────────────────────────────────
     for (const comp of finished) {
       const competitors: any[] = comp.competitors ?? []
       const winnerComp  = competitors.find((c: any) => c.winner)
@@ -665,7 +696,6 @@ async function syncViaEspn(
         return (d1 === winnerNorm && d2 === loserNorm) || (d1 === loserNorm && d2 === winnerNorm)
       })
       if (!dbFight) {
-        const lastName = (s: string) => norm(s.trim().split(/\s+/).pop() ?? s)
         const wl = lastName(winnerName)
         const ll = lastName(loserName)
         const candidates = dbFights.filter((f: any) => {
@@ -709,6 +739,54 @@ async function syncViaEspn(
       } else {
         synced++
         log.push(`✓ [espn] ${winnerName} def. ${loserName}`)
+      }
+    }
+
+    // ── Pass 2: auto-cancel orphaned fights ──────────────────────────────────
+    // A fight that is still "upcoming" after Pass 1 and has NO match anywhere in
+    // ESPN's data (not even as in-progress) was never broadcast / pulled from the
+    // card. Auto-cancel it so the event can complete cleanly.
+    //
+    // Guards:
+    //  • ESPN must have returned at least some competitions (we have real data)
+    //  • At least one other fight on the card must be completed (event is underway)
+    //  • ALL other non-cancelled fights must be completed (card is winding down)
+    const hasEspnData      = allComps.length > 0
+    const otherDoneCount   = dbFights.filter((f: any) => f.status === 'completed').length
+    const otherPendingCount = dbFights.filter((f: any) => f.status !== 'completed' && f.status !== 'cancelled').length
+
+    if (hasEspnData && otherDoneCount > 0) {
+      for (const dbFight of dbFights) {
+        if (dbFight.status !== 'upcoming') continue
+        // Only auto-cancel when this is the last pending fight (all others done/cancelled)
+        const thisPending = dbFights.filter(
+          (f: any) => f.status !== 'completed' && f.status !== 'cancelled' && f.id !== dbFight.id
+        ).length
+        if (thisPending > 0) continue
+        if (espnMatchesDbFight(dbFight)) continue  // ESPN has it — wait for STATUS_FINAL
+
+        const n1 = dbFight.fighter1?.name ?? '?'
+        const n2 = dbFight.fighter2?.name ?? '?'
+        log.push(`  [espn] Orphan detected: ${n1} vs ${n2} not in ESPN data — auto-cancelling`)
+
+        const { error: cancelErr } = await supabase
+          .from('fights')
+          .update({ status: 'cancelled' })
+          .eq('id', dbFight.id)
+
+        if (cancelErr) {
+          errors.push(`[espn] auto-cancel(${dbFight.id}): ${cancelErr.message}`)
+          continue
+        }
+
+        // Release any confidence locks so users can re-use their pick
+        await supabase
+          .from('predictions')
+          .update({ is_confidence: false })
+          .eq('fight_id', dbFight.id)
+          .eq('is_confidence', true)
+
+        log.push(`  [espn] ✓ ${n1} vs ${n2} auto-cancelled (confidence locks released)`)
       }
     }
   }
@@ -895,5 +973,25 @@ export async function runSyncResults(): Promise<SyncResultsOutput> {
     revalidatePath('/admin')
   }
 
-  return { success: true, synced, provider, errors, log, skipped, checkedAt: new Date().toISOString() }
+  const checkedAt = new Date().toISOString()
+
+  // Persist sync result so admin panel can show live sync health without
+  // requiring the admin to dig through Vercel logs.
+  try {
+    await supabase.from('sync_log').insert({
+      synced_count:  synced,
+      errors_count:  errors.length,
+      log_lines:     log,
+      errors_json:   errors,
+      skipped_json:  skipped,
+      provider,
+    })
+    // Keep only last 24 hours of entries (~288 rows at 5-min cadence)
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    await supabase.from('sync_log').delete().lt('synced_at', cutoff)
+  } catch {
+    // Non-fatal — don't break the sync if the log table doesn't exist yet
+  }
+
+  return { success: true, synced, provider, errors, log, skipped, checkedAt }
 }

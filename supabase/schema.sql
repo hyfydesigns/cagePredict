@@ -389,3 +389,19 @@ create policy "crew_members_delete_own"  on public.crew_members for delete
 -- Enable Realtime for live leaderboard updates
 alter publication supabase_realtime add table public.profiles;
 alter publication supabase_realtime add table public.predictions;
+
+-- Sync-results health log (written by sync-results cron every ~5 min during live events)
+-- Run once in Supabase SQL editor:
+create table if not exists public.sync_log (
+  id            bigint generated always as identity primary key,
+  synced_at     timestamptz not null default now(),
+  synced_count  int not null default 0,
+  errors_count  int not null default 0,
+  log_lines     text[] not null default '{}',
+  errors_json   text[] not null default '{}',
+  skipped_json  text[] not null default '{}',
+  provider      text
+);
+-- Service role has full access; no public RLS needed
+alter table public.sync_log enable row level security;
+create policy "sync_log_service_only" on public.sync_log using (false);  -- blocks anon/authenticated; service role bypasses RLS

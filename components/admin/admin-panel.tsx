@@ -51,15 +51,25 @@ interface AdminUser {
   email_notifications: boolean
 }
 
+interface LastSync {
+  synced_at: string
+  synced_count: number
+  errors_count: number
+  log_lines: string[]
+  errors_json: string[]
+  provider: string | null
+}
+
 interface Props {
   events: AdminEvent[]
   stats: { users: number; fights: number; predictions: number }
   adminUserId: string
   users: AdminUser[]
   visibleBookmakerKeys: string[]
+  lastSync: LastSync | null
 }
 
-export function AdminPanel({ events, stats, adminUserId, users, visibleBookmakerKeys }: Props) {
+export function AdminPanel({ events, stats, adminUserId, users, visibleBookmakerKeys, lastSync }: Props) {
   const { toast } = useToast()
   const [isSeedPending, startSeedTransition]         = useTransition()
   const [isApiFetchPending, startApiFetchTransition] = useTransition()
@@ -107,6 +117,7 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
   const [isMvpUndercardPending, startMvpUndercardTransition] = useTransition()
   const [isMvpOrderPending, startMvpOrderTransition]         = useTransition()
   const [deletedFightIds, setDeletedFightIds] = useState<Set<string>>(new Set())
+  const [showLastSyncLog, setShowLastSyncLog] = useState(false)
   const [fetchDate, setFetchDate] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -800,6 +811,59 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
             Manually trigger the sync-results cron. Uses api-sports.io if <code className="text-xs bg-surface-2 px-1 rounded">APISPORTS_KEY</code> is set, otherwise RapidAPI.
           </p>
         </div>
+
+        {/* Last auto-sync status */}
+        {lastSync && (() => {
+          const ageMs  = Date.now() - new Date(lastSync.synced_at).getTime()
+          const ageMins = Math.round(ageMs / 60_000)
+          const ageStr = ageMins < 2 ? 'just now' : ageMins < 60 ? `${ageMins}m ago` : `${Math.round(ageMins / 60)}h ago`
+          const hasErrors = lastSync.errors_count > 0
+          return (
+            <div className={`rounded-xl border p-3 space-y-2 ${hasErrors ? 'border-amber-500/40 bg-amber-500/5' : 'border-border bg-surface-2/40'}`}>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className={`h-2 w-2 rounded-full ${ageMins < 10 ? 'bg-green-400' : ageMins < 30 ? 'bg-amber-400' : 'bg-red-400'}`} />
+                  <span className="text-xs text-foreground-muted font-mono">
+                    Last auto-sync: <span className="text-foreground">{ageStr}</span>
+                  </span>
+                  <span className={`text-xs font-mono ${lastSync.synced_count > 0 ? 'text-green-400' : 'text-foreground-muted'}`}>
+                    · {lastSync.synced_count} completed
+                  </span>
+                  {hasErrors && (
+                    <span className="text-xs font-mono text-amber-500">
+                      · {lastSync.errors_count} error{lastSync.errors_count !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {lastSync.provider && (
+                    <span className="text-[10px] text-foreground-muted border border-border rounded px-1.5 py-0.5">
+                      {lastSync.provider}
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="text-[10px] text-foreground-muted hover:text-foreground transition-colors"
+                  onClick={() => setShowLastSyncLog(v => !v)}
+                >
+                  {showLastSyncLog ? 'Hide log' : 'View log'}
+                </button>
+              </div>
+              {showLastSyncLog && (
+                <div className="rounded-lg bg-background border border-border p-2.5 max-h-48 overflow-y-auto">
+                  {[...lastSync.log_lines, ...(lastSync.errors_json.length ? ['— Errors —', ...lastSync.errors_json] : [])].map((line, i) => (
+                    <p key={i} className={`text-[11px] font-mono leading-relaxed ${
+                      line.startsWith('✓') ? 'text-green-400' :
+                      line.startsWith('✗') ? 'text-red-400' :
+                      line.startsWith('⚠') || line.startsWith('ERROR') ? 'text-amber-500' :
+                      line.startsWith('—') ? 'text-foreground-muted mt-1.5 font-semibold' :
+                      'text-foreground-muted'
+                    }`}>{line}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         <Button onClick={handleForceSync} disabled={isSyncPending} variant="outline" className="border-border">
           {isSyncPending
             ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Syncing…</>
