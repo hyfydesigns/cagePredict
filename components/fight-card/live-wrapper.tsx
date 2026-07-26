@@ -487,8 +487,15 @@ function EventSectionClient({
 
           {/* Status badge — pinned to top-right */}
           <div className="absolute top-3 right-4">
-            <Badge variant={event.status === 'live' ? 'live' : 'outline'} className="text-[11px]">
-              {event.status === 'live' ? '🔴 LIVE NOW' : 'Upcoming'}
+            <Badge
+              variant={event.status === 'live' ? 'live' : 'outline'}
+              className="text-[11px]"
+            >
+              {event.status === 'live'
+                ? '🔴 LIVE NOW'
+                : event.status === 'completed'
+                ? '✓ Completed'
+                : 'Upcoming'}
             </Badge>
           </div>
 
