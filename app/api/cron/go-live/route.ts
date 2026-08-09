@@ -123,7 +123,7 @@ export async function GET(req: Request) {
   // event date was more than 8 hours ago (safety valve for missing/stuck fights).
   const { data: liveEvents, error: liveErr } = await supabase
     .from('events')
-    .select('id, name, date, fights(id, status)')
+    .select('id, name, date, fights(id, status, is_main_event)')
     .eq('status', 'live')
 
   if (liveErr) return NextResponse.json({ error: liveErr.message }, { status: 500 })
@@ -135,21 +135,35 @@ export async function GET(req: Request) {
     // cancelled fights count as "done" — don't block event completion
     const allDone = fights.every((f: any) => f.status === 'completed' || f.status === 'cancelled')
 
-    // Safety valve: if the event date was more than 8 hours ago and at least
-    // half the fights are done, force complete even if one fight is stuck/missing.
+    // Safety valve: only fires when the main event fight is completed (or cancelled).
+    // This is far more reliable than a time + fight-count heuristic — if the headliner
+    // is done, the card is definitively over regardless of any stuck prelim fights.
+    // Fallback: if no fight is flagged is_main_event, use the old threshold but at a
+    // more conservative 20+ hours (covers even the latest finishing cards) and require
+    // ≥ 75% done to guard against duplicate fight rows inflating the "done" count.
+    const mainEventFight = fights.find((f: any) => f.is_main_event)
+    const mainEventDone = mainEventFight
+      ? mainEventFight.status === 'completed' || mainEventFight.status === 'cancelled'
+      : false
+
     const eventDateMs = new Date((event as any).date).getTime()
     const hoursLive = (now - eventDateMs) / (1000 * 60 * 60)
     const doneFights = fights.filter((f: any) => f.status === 'completed' || f.status === 'cancelled').length
-    const stuckLive = hoursLive > 8 && doneFights >= Math.ceil(fights.length / 2)
+    const stuckLive = !mainEventFight
+      && hoursLive > 20
+      && doneFights >= Math.ceil(fights.length * 0.75)
 
-    if (allDone || stuckLive) {
+    if (allDone || mainEventDone || stuckLive) {
       const { error } = await supabase
         .from('events')
         .update({ status: 'completed' })
         .eq('id', event.id)
       if (!error) {
         wentCompleted++
-        log.push(`→ COMPLETED: ${event.name}${stuckLive && !allDone ? ' (safety valve — stuck fight)' : ''}`)
+        const reason = !allDone
+          ? mainEventDone ? ' (main event completed)' : ' (safety valve — stuck fight)'
+          : ''
+        log.push(`→ COMPLETED: ${event.name}${reason}`)
       }
     }
   }

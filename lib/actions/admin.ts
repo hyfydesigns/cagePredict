@@ -1,4 +1,4 @@
-'use server'
+﻿'use server'
 
 import Anthropic from '@anthropic-ai/sdk'
 import { revalidatePath } from 'next/cache'
@@ -262,7 +262,7 @@ async function syncFightMetaFromRapidApi(
     const allApiEvents: any[] = data.events ?? []
     if (allApiEvents.length === 0) return
 
-    const norm     = (n: string) => n.toLowerCase().replace(/[^a-z]/g, '')
+    const norm     = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '')
     const dbNorm   = norm(dbEvent.name)
 
     const tourneyMap = new Map<number, { name: string; fights: any[] }>()
@@ -875,9 +875,23 @@ async function fetchEventByDateApiSports(
         // If a fighter with this name was previously imported from a different API source
         // (e.g. RapidAPI), reuse their existing UUID so we update the same row rather
         // than creating a parallel entry that breaks the fight dedup check.
-        const { data: existingFighter } = await supabase
+        // ilike is case-insensitive but NOT diacritic-insensitive — "Uros Medic" won't
+        // match "Uroš Medić". If the exact match fails, do a prefix search and compare
+        // with NFD normalization on both sides in JS.
+        const stripDiacritics = (n: string) =>
+          n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+        const { data: exactFighter } = await supabase
           .from('fighters').select('id').ilike('name', base.name).maybeSingle()
-        const resolvedUuid = existingFighter?.id ?? base.uuid
+        let resolvedUuid = exactFighter?.id
+        if (!resolvedUuid) {
+          const normTarget    = stripDiacritics(base.name)
+          const firstNamePfx  = normTarget.split(' ')[0].slice(0, 3)
+          const { data: cands } = await supabase
+            .from('fighters').select('id, name').ilike('name', `${firstNamePfx}%`)
+          const match = (cands ?? []).find((c: { id: string; name: string }) => stripDiacritics(c.name) === normTarget)
+          resolvedUuid = match?.id
+        }
+        resolvedUuid = resolvedUuid ?? base.uuid
 
         // Age from birth_date (only present on the full detail object)
         let age: number | null = null
@@ -995,6 +1009,24 @@ async function fetchEventByDateApiSports(
     insertedEvents++
     newEventIds.push(normEvent.uuid)
 
+    // Build a name-based map of fights already in the DB for this event.
+    // This is the authoritative dedup check — it bypasses UUID mismatches that arise
+    // when a fight was first imported from RapidAPI (0003-* IDs) and we're now
+    // re-importing from api-sports (which would generate 0006-* IDs). Normalized names
+    // are stable across API sources; UUIDs are not.
+    const normFightName = (s: string) =>
+      s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '')
+    const { data: existingDbFights } = await supabase
+      .from('fights')
+      .select('id, status, fighter1:fighters!fights_fighter1_id_fkey(name), fighter2:fighters!fights_fighter2_id_fkey(name)')
+      .eq('event_id', normEvent.uuid)
+    const existingFightByNames = new Map<string, { id: string; status: string }>()
+    for (const ef of existingDbFights ?? []) {
+      const n1 = normFightName((ef.fighter1 as any)?.name ?? '')
+      const n2 = normFightName((ef.fighter2 as any)?.name ?? '')
+      if (n1 && n2) existingFightByNames.set([n1, n2].sort().join(':'), { id: ef.id, status: ef.status })
+    }
+
     // 4. Upsert fights (skip TBA bouts where either fighter slot is missing)
     for (let fightIdx = 0; fightIdx < fights.length; fightIdx++) {
       const fight = fights[fightIdx]
@@ -1014,6 +1046,15 @@ async function fetchEventByDateApiSports(
       const f1uuid = f1data?.uuid ?? normFight.fighter1_uuid
       const f2uuid = f2data?.uuid ?? normFight.fighter2_uuid
 
+      // Dedup: look up by normalized fighter names against the pre-fetched DB fight map.
+      const f1norm = normFightName(f1data?.name ?? fight.fighters.first?.name  ?? '')
+      const f2norm = normFightName(f2data?.name ?? fight.fighters.second?.name ?? '')
+      const nameKey = [f1norm, f2norm].sort().join(':')
+      const existingMatch = existingFightByNames.get(nameKey)
+
+      // Skip if the fight already exists and is completed — never overwrite scored results.
+      if (existingMatch?.status === 'completed') continue
+
       const aiInput1 = f1data ? {
         name: f1data.name, wins: f1data.wins, losses: f1data.losses, draws: f1data.draws,
         nationality: f1data.nationality, height_cm: f1data.height_cm, reach_cm: f1data.reach_cm,
@@ -1030,20 +1071,9 @@ async function fetchEventByDateApiSports(
         : { analysis_f1: null, analysis_f2: null }
       if (aiResult.debugError && !firstAiError) firstAiError = aiResult.debugError
 
-      // Check if a fight with the same fighter pair already exists for this event.
-      // Use the resolved UUIDs (f1uuid/f2uuid) so we correctly match fights regardless
-      // of which API source originally imported them.
-      const { data: existingFight } = await supabase
-        .from('fights')
-        .select('id')
-        .eq('event_id', normFight.event_uuid)
-        .or(
-          `and(fighter1_id.eq.${f1uuid},fighter2_id.eq.${f2uuid}),` +
-          `and(fighter1_id.eq.${f2uuid},fighter2_id.eq.${f1uuid})`
-        )
-        .maybeSingle()
-
-      const fightId = existingFight?.id ?? normFight.uuid
+      // Use the existing fight's ID if found (preserves predictions + referential integrity),
+      // otherwise assign the api-sports UUID for a new row.
+      const fightId = existingMatch?.id ?? normFight.uuid
 
       const fightRow = {
         id:             fightId,
@@ -1666,7 +1696,7 @@ export async function refreshEventFights(eventId: string): Promise<ActionResult>
 
 /** Strip diacritics, lowercase, remove non-letters — for fuzzy name matching */
 const normFighterName = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '')
 
 /**
  * Cross-check DB fights for an event against Tapology's fight card.
@@ -1895,7 +1925,7 @@ export async function deduplicateFights(): Promise<ActionResult & { removed: num
   if (fErr) return { error: fErr.message, removed: 0 }
   if (!fights?.length) return { success: true, message: 'No fights found.', removed: 0 }
 
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+  const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '')
 
   // Group by event + normalised fighter name pair (order-independent)
   const groups = new Map<string, typeof fights>()
