@@ -302,3 +302,80 @@ export async function declineCrewInvite(inviteId: string): Promise<ActionResult>
   revalidatePath('/crews')
   return { success: true }
 }
+
+// ─── Crew event breakdown (fight-by-fight pick comparison) ───────────────────
+
+export interface CrewFight {
+  id: string
+  displayOrder: number
+  isMainEvent: boolean
+  fighter1: { id: string; name: string }
+  fighter2: { id: string; name: string }
+  winnerId: string | null
+  status: string
+  method: string | null
+  round: number | null
+}
+
+export interface CrewMemberPick {
+  userId: string
+  fightId: string
+  predictedWinnerId: string
+  isConfidence: boolean
+  isCorrect: boolean | null
+  pointsEarned: number
+}
+
+export interface CrewEventBreakdownResult {
+  fights: CrewFight[]
+  picks: CrewMemberPick[]
+}
+
+export async function getCrewEventBreakdown(
+  memberUserIds: string[],
+  eventId: string,
+): Promise<CrewEventBreakdownResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !memberUserIds.includes(user.id)) return { fights: [], picks: [] }
+
+  const [{ data: fightsRaw }, { data: picksRaw }] = await Promise.all([
+    supabase
+      .from('fights')
+      .select('id, display_order, is_main_event, status, winner_id, method, round, fighter1:fighters!fights_fighter1_id_fkey(id, name), fighter2:fighters!fights_fighter2_id_fkey(id, name)')
+      .eq('event_id', eventId)
+      .order('display_order', { ascending: false }),
+    supabase
+      .from('predictions')
+      .select('user_id, fight_id, predicted_winner_id, is_confidence, is_correct, points_earned')
+      .in('user_id', memberUserIds)
+      .in('fight_id',
+        // subquery workaround: fetch fight ids first
+        await supabase.from('fights').select('id').eq('event_id', eventId)
+          .then(r => (r.data ?? []).map((f: any) => f.id))
+      ),
+  ])
+
+  const fights: CrewFight[] = (fightsRaw ?? []).map((f: any) => ({
+    id: f.id,
+    displayOrder: f.display_order,
+    isMainEvent: f.is_main_event,
+    fighter1: { id: f.fighter1?.id ?? '', name: f.fighter1?.name ?? '?' },
+    fighter2: { id: f.fighter2?.id ?? '', name: f.fighter2?.name ?? '?' },
+    winnerId: f.winner_id,
+    status: f.status,
+    method: f.method,
+    round: f.round,
+  }))
+
+  const picks: CrewMemberPick[] = (picksRaw ?? []).map((p: any) => ({
+    userId: p.user_id,
+    fightId: p.fight_id,
+    predictedWinnerId: p.predicted_winner_id,
+    isConfidence: p.is_confidence ?? false,
+    isCorrect: p.is_correct,
+    pointsEarned: p.points_earned ?? 0,
+  }))
+
+  return { fights, picks }
+}

@@ -12,6 +12,7 @@ import { DeleteCrewButton } from '@/components/crews/delete-crew-button'
 import { InviteCopy } from '@/components/crews/invite-copy'
 import { InviteUserForm } from '@/components/crews/invite-user-form'
 import { CrewEventScores } from '@/components/crews/crew-event-scores'
+import { CrewEventHistory } from '@/components/crews/crew-event-history'
 import type { LeaderboardEntry, ProfileRow } from '@/types/database'
 
 interface Props { params: Promise<{ id: string }> }
@@ -67,6 +68,16 @@ export default async function CrewDetailPage({ params }: Props) {
 
   const inviteUrl = crewInviteUrl(crew.invite_code)
   const memberCount = memberships.length
+
+  // Completed events for the "All Time" history accordion
+  const { data: completedEventsRaw } = await supabase
+    .from('events')
+    .select('id, name, date')
+    .eq('status', 'completed')
+    .order('date', { ascending: false })
+    .limit(20)
+
+  const completedEvents = (completedEventsRaw ?? []) as { id: string; name: string; date: string }[]
 
   // "This Event" tab — priority: live → nearest upcoming → most recent completed
   let latestEvent: { id: string; name: string } | null = null
@@ -204,6 +215,16 @@ export default async function CrewDetailPage({ params }: Props) {
           </TabsList>
           <TabsContent value="alltime">
             <LeaderboardTable entries={leaderboard} currentUserId={user?.id} />
+            <CrewEventHistory
+              events={completedEvents}
+              members={memberProfiles.map((p) => ({
+                userId:      p.id,
+                username:    p.username,
+                displayName: p.display_name,
+                avatarEmoji: p.avatar_emoji,
+              }))}
+              currentUserId={user?.id}
+            />
           </TabsContent>
           <TabsContent value="event">
             {latestEvent ? (
