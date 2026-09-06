@@ -151,7 +151,7 @@ export default async function EventPage(
 
         {/* Event hero banner */}
         <div className="rounded-2xl overflow-hidden border border-border/60">
-          <div className="relative h-48 sm:h-64 bg-surface">
+          <div className="relative h-32 sm:h-64 bg-surface">
             {event.image_url && (
               <Image
                 src={event.image_url}
@@ -163,7 +163,9 @@ export default async function EventPage(
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6">
+
+            {/* Badges + title + date — desktop: overlaid on image */}
+            <div className="hidden sm:block absolute bottom-6 left-6 right-6">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {isLive && <Badge variant="live">🔴 LIVE NOW</Badge>}
                 {isCompleted && <Badge variant="secondary">Completed</Badge>}
@@ -172,7 +174,7 @@ export default async function EventPage(
                   <Badge variant="warning"><Trophy className="h-3 w-3 mr-1" />Title Fight</Badge>
                 )}
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-foreground leading-tight">
+              <h1 className="text-4xl font-black text-foreground leading-tight">
                 {event.name}
               </h1>
               <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-foreground-muted">
@@ -187,6 +189,33 @@ export default async function EventPage(
                   </span>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Badges + title + date — mobile: below the image strip */}
+          <div className="sm:hidden px-5 py-4 bg-surface">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              {isLive && <Badge variant="live">🔴 LIVE NOW</Badge>}
+              {isCompleted && <Badge variant="secondary">Completed</Badge>}
+              {!isLive && !isCompleted && <Badge variant="outline">Upcoming</Badge>}
+              {mainFight?.is_title_fight && (
+                <Badge variant="warning"><Trophy className="h-3 w-3 mr-1" />Title Fight</Badge>
+              )}
+            </div>
+            <h1 className="text-2xl font-black text-foreground leading-tight">
+              {event.name}
+            </h1>
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-foreground-muted">
+              <span className="flex items-center gap-1.5">
+                <Calendar className="h-4 w-4" />
+                {format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
+              </span>
+              {event.venue && (
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4" />
+                  {event.venue}{event.location ? `, ${event.location}` : ''}
+                </span>
+              )}
             </div>
           </div>
         </div>
