@@ -479,7 +479,7 @@ function EventSectionClient({
   return (
     <section>
       <div className="rounded-2xl overflow-hidden border border-border/60 mb-4">
-        <div className="relative h-36 sm:h-44 bg-surface">
+        <div className="relative h-24 sm:h-44 bg-surface">
           {event.image_url && (
             <Image src={event.image_url} alt={event.name} fill className="object-cover opacity-40" sizes="760px" />
           )}
@@ -499,11 +499,11 @@ function EventSectionClient({
             </Badge>
           </div>
 
-          {/* Event name, date and picks progress — pinned to bottom */}
-          <div className="absolute bottom-4 left-4 right-4">
+          {/* Event name, date and picks progress — desktop: pinned to bottom of image */}
+          <div className="hidden sm:block absolute bottom-4 left-4 right-4">
             <div className="flex items-end justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl sm:text-2xl font-black text-foreground flex items-center gap-2">
+                <h2 className="text-2xl font-black text-foreground flex items-center gap-2">
                   <span>{event.name}</span>
                   <Link
                     href={`/events/${event.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
@@ -526,12 +526,43 @@ function EventSectionClient({
                   )}
                 </div>
               </div>
-
-              {/* Picks progress — only shown to logged-in users */}
               {userId && (
                 <PicksProgressBadge total={totalFights} picked={pickedCount} />
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Event name, date and picks progress — mobile: below the image strip */}
+        <div className="sm:hidden px-4 py-3 bg-surface">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-black text-foreground flex items-center gap-2 flex-wrap">
+                <span>{event.name}</span>
+                <Link
+                  href={`/events/${event.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
+                  className="text-foreground-muted hover:text-foreground-secondary transition-colors shrink-0"
+                  title="Event page"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Link>
+              </h2>
+              <div className="flex items-center gap-3 mt-1 text-xs text-foreground-muted flex-wrap">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {format(new Date(event.date.slice(0, 10) + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
+                </span>
+                {event.venue && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {event.venue}, {event.location}
+                  </span>
+                )}
+              </div>
+            </div>
+            {userId && (
+              <PicksProgressBadge total={totalFights} picked={pickedCount} />
+            )}
           </div>
         </div>
 

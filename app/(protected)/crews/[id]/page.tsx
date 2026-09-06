@@ -11,8 +11,8 @@ import { Users, Crown, LogOut, Trash2 } from 'lucide-react'
 import { DeleteCrewButton } from '@/components/crews/delete-crew-button'
 import { InviteCopy } from '@/components/crews/invite-copy'
 import { InviteUserForm } from '@/components/crews/invite-user-form'
-import { CrewEventScores } from '@/components/crews/crew-event-scores'
 import { CrewEventHistory } from '@/components/crews/crew-event-history'
+import { CrewLiveEvent } from '@/components/crews/crew-live-event'
 import type { LeaderboardEntry, ProfileRow } from '@/types/database'
 
 interface Props { params: Promise<{ id: string }> }
@@ -118,42 +118,30 @@ export default async function CrewDetailPage({ params }: Props) {
     }
   }
 
-  // For each member, compute event-specific scores
-  const memberEventScores: any[] = []
+  // Fight-level data for "This Event" tab
+  let eventFights: any[] = []
+  let eventPicks: any[] = []
+  let latestEventStatus = 'upcoming'
   if (latestEvent) {
-    const { data: eventPreds } = await supabase
-      .from('predictions')
-      .select('user_id, is_correct, points_earned, is_confidence, fights!inner(event_id)')
-      .in('user_id', memberUserIds)
-      .eq('fights.event_id', latestEvent.id)
-
-    const scoreMap = new Map<string, { correct: number; incorrect: number; pending: number; eventPoints: number; lockCorrect: number }>()
-    memberUserIds.forEach((id) => scoreMap.set(id, { correct: 0, incorrect: 0, pending: 0, eventPoints: 0, lockCorrect: 0 }))
-
-    ;(eventPreds ?? []).forEach((p: any) => {
-      const s = scoreMap.get(p.user_id)
-      if (!s) return
-      if (p.is_correct === true) {
-        s.correct++
-        s.eventPoints += p.points_earned ?? 10
-        if (p.is_confidence) s.lockCorrect++
-      } else if (p.is_correct === false) {
-        s.incorrect++
-      } else {
-        s.pending++
-      }
-    })
-
-    memberProfiles.forEach((profile) => {
-      const s = scoreMap.get(profile.id) ?? { correct: 0, incorrect: 0, pending: 0, eventPoints: 0, lockCorrect: 0 }
-      memberEventScores.push({
-        userId:      profile.id,
-        username:    profile.username,
-        displayName: profile.display_name,
-        avatarEmoji: profile.avatar_emoji,
-        ...s,
-      })
-    })
+    const [{ data: fightsRaw }, { data: predsRaw }, { data: evtRaw }] = await Promise.all([
+      supabase
+        .from('fights')
+        .select('id, display_order, is_main_event, status, winner_id, method, round, fighter1:fighters!fights_fighter1_id_fkey(id, name), fighter2:fighters!fights_fighter2_id_fkey(id, name)')
+        .eq('event_id', latestEvent.id)
+        .order('display_order', { ascending: false }),
+      supabase
+        .from('predictions')
+        .select('user_id, fight_id, predicted_winner_id, is_confidence, is_correct, points_earned')
+        .in('user_id', memberUserIds)
+        .in('fight_id',
+          await supabase.from('fights').select('id').eq('event_id', latestEvent.id)
+            .then(r => (r.data ?? []).map((f: any) => f.id))
+        ),
+      supabase.from('events').select('status').eq('id', latestEvent.id).maybeSingle(),
+    ])
+    eventFights = fightsRaw ?? []
+    eventPicks  = predsRaw  ?? []
+    latestEventStatus = (evtRaw as any)?.status ?? 'upcoming'
   }
 
   return (
@@ -228,9 +216,19 @@ export default async function CrewDetailPage({ params }: Props) {
           </TabsContent>
           <TabsContent value="event">
             {latestEvent ? (
-              <CrewEventScores
-                members={memberEventScores}
+              <CrewLiveEvent
+                eventId={latestEvent.id}
                 eventName={latestEvent.name}
+                eventStatus={latestEventStatus}
+                initialFights={eventFights}
+                initialPicks={eventPicks}
+                members={memberProfiles.map((p) => ({
+                  userId:      p.id,
+                  username:    p.username,
+                  displayName: p.display_name,
+                  avatarEmoji: p.avatar_emoji,
+                }))}
+                memberUserIds={memberUserIds}
                 currentUserId={user?.id}
               />
             ) : (
