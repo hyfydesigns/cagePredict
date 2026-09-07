@@ -85,21 +85,42 @@ export async function getEventStats(eventId: string, userId: string): Promise<Ev
 export async function getActiveEvents(): Promise<EventWithFights[]> {
   const supabase = await createClient()
 
-  const { data } = await supabase
-    .from('events')
-    .select(`
-      *,
-      fights(
+  const [{ data: upcoming }, { data: completed }] = await Promise.all([
+    supabase
+      .from('events')
+      .select(`
         *,
-        fighter1:fighters!fights_fighter1_id_fkey(*),
-        fighter2:fighters!fights_fighter2_id_fkey(*)
-      )
-    `)
-    .in('status', ['upcoming', 'live'])
-    .order('date', { ascending: true })
-    .limit(4)
+        fights(
+          *,
+          fighter1:fighters!fights_fighter1_id_fkey(*),
+          fighter2:fighters!fights_fighter2_id_fkey(*)
+        )
+      `)
+      .in('status', ['upcoming', 'live'])
+      .order('date', { ascending: true })
+      .limit(4),
+    supabase
+      .from('events')
+      .select(`
+        *,
+        fights(
+          *,
+          fighter1:fighters!fights_fighter1_id_fkey(*),
+          fighter2:fighters!fights_fighter2_id_fkey(*)
+        )
+      `)
+      .eq('status', 'completed')
+      .order('date', { ascending: false })
+      .limit(2),
+  ])
 
-  return ((data ?? []) as any[]).map((e: any) => ({
+  // Merge: completed (oldest first) + upcoming/live — mirrors the page's initial fetch
+  const merged = [
+    ...((completed ?? []) as any[]).reverse(),
+    ...((upcoming ?? []) as any[]),
+  ]
+
+  return merged.map((e: any) => ({
     ...e,
     fights: ((e.fights ?? []) as any[]).sort((a: any, b: any) => b.display_order - a.display_order),
   })) as EventWithFights[]
