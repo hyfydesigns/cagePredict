@@ -518,20 +518,30 @@ export function FightCard({
 
       {/* Result banner */}
       {isCompleted && fight.winner_id && (
-        <div className="px-4 py-2.5 bg-surface-2/30 border-t border-border/40 flex items-center justify-center gap-2">
-          <Trophy className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-          <span className="text-sm text-foreground-secondary">
-            <span className="font-bold text-foreground">
-              {fight.winner_id === fight.fighter1.id ? fight.fighter1.name : fight.fighter2.name}
-            </span>
-            {fight.method && (
-              <span className="text-foreground-secondary ml-1 text-xs">
-                via {fight.method}
-                {fight.round && ` (R${fight.round}`}
-                {fight.time_of_finish && ` ${fight.time_of_finish})`}
+        <div className="px-4 py-2.5 bg-surface-2/30 border-t border-border/40 flex flex-col items-center gap-1">
+          <div className="flex items-center justify-center gap-2">
+            <Trophy className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="text-sm text-foreground-secondary">
+              <span className="font-bold text-foreground">
+                {fight.winner_id === fight.fighter1.id ? fight.fighter1.name : fight.fighter2.name}
               </span>
-            )}
-          </span>
+              {fight.method && (
+                <span className="text-foreground-secondary ml-1 text-xs">
+                  via {fight.method}
+                  {fight.round && (
+                    <> (R{fight.round}{fight.time_of_finish ? ` ${fight.time_of_finish}` : ''})</>
+                  )}
+                </span>
+              )}
+            </span>
+          </div>
+          {localPick && (localMethod || localRound) && (
+            <p className="text-[11px] text-foreground-muted">
+              You picked:{' '}
+              {localMethod && <span className="text-foreground-secondary">{localMethod}</span>}
+              {localRound && <span className="text-foreground-secondary"> R{localRound}</span>}
+            </p>
+          )}
         </div>
       )}
 
