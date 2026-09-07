@@ -194,15 +194,18 @@ export default async function CrewDetailPage({ params }: Props) {
         )}
       </div>
 
-      {/* Standings tabs */}
+      {/* Tabs */}
       <div>
-        <Tabs defaultValue="alltime">
+        <Tabs defaultValue="members">
           <TabsList className="mb-4">
-            <TabsTrigger value="alltime">All Time</TabsTrigger>
+            <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="pastevents">Past Events</TabsTrigger>
             <TabsTrigger value="event">This Event</TabsTrigger>
           </TabsList>
-          <TabsContent value="alltime">
+          <TabsContent value="members">
             <LeaderboardTable entries={leaderboard} currentUserId={user?.id} />
+          </TabsContent>
+          <TabsContent value="pastevents">
             <CrewEventHistory
               events={completedEvents}
               members={memberProfiles.map((p) => ({
