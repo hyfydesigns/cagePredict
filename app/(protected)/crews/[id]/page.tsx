@@ -196,11 +196,13 @@ export default async function CrewDetailPage({ params }: Props) {
 
       {/* Tabs */}
       <div>
-        <Tabs defaultValue="members">
+        <Tabs defaultValue={latestEventStatus === 'live' ? 'event' : 'members'}>
           <TabsList className="mb-4">
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="pastevents">Past Events</TabsTrigger>
-            <TabsTrigger value="event">This Event</TabsTrigger>
+            {latestEventStatus === 'live' && (
+              <TabsTrigger value="event">Live Event</TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="members">
             <LeaderboardTable entries={leaderboard} currentUserId={user?.id} />
@@ -217,8 +219,8 @@ export default async function CrewDetailPage({ params }: Props) {
               currentUserId={user?.id}
             />
           </TabsContent>
-          <TabsContent value="event">
-            {latestEvent ? (
+          {latestEventStatus === 'live' && latestEvent && (
+            <TabsContent value="event">
               <CrewLiveEvent
                 eventId={latestEvent.id}
                 eventName={latestEvent.name}
@@ -234,10 +236,8 @@ export default async function CrewDetailPage({ params }: Props) {
                 memberUserIds={memberUserIds}
                 currentUserId={user?.id}
               />
-            ) : (
-              <p className="text-center text-sm text-foreground-muted py-8">No events found.</p>
-            )}
-          </TabsContent>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
