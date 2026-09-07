@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Crown, TrendingUp } from 'lucide-react'
+import { Crown, TrendingUp, ExternalLink } from 'lucide-react'
 import { cn, formatOdds, oddsToImplied } from '@/lib/utils'
 import type { FighterRow } from '@/types/database'
 
@@ -116,13 +116,16 @@ export function FighterPortrait({
 
       {/* Fighter info — name links to profile */}
       <div className={cn('mt-2 w-full', isLeft ? 'text-left' : 'text-right')}>
-        <Link href={`/fighters/${fighter.id}`} className="hover:underline decoration-foreground-muted underline-offset-2">
-          <p className="text-foreground font-black text-sm sm:text-base leading-tight line-clamp-1">
-            {fighter.name.split(' ').pop()}
-          </p>
-          <p className="text-foreground font-black text-xs leading-tight line-clamp-1 hidden sm:block">
-            {fighter.name.split(' ').slice(0, -1).join(' ')}
-          </p>
+        <Link href={`/fighters/${fighter.id}`} className={cn('group/namelink inline-flex items-center gap-1', !isLeft && 'flex-row-reverse')}>
+          <div>
+            <p className="text-foreground font-black text-sm sm:text-base leading-tight line-clamp-1 group-hover/namelink:text-primary transition-colors">
+              {fighter.name.split(' ').pop()}
+            </p>
+            <p className="text-foreground font-black text-xs leading-tight line-clamp-1 hidden sm:block group-hover/namelink:text-primary transition-colors">
+              {fighter.name.split(' ').slice(0, -1).join(' ')}
+            </p>
+          </div>
+          <ExternalLink className="h-3 w-3 shrink-0 text-foreground-muted/40 group-hover/namelink:text-primary transition-colors mt-0.5" />
         </Link>
         {fighter.nickname && (
           <p className="text-foreground-secondary text-[10px] italic mt-0.5 line-clamp-1">
