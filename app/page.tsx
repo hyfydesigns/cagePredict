@@ -10,8 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import type { EventWithFights, CommentWithProfile } from '@/types/database'
 import type { PredictionMap } from '@/hooks/use-predictions'
 
-export const revalidate = 60
-
 export const metadata: Metadata = {
   alternates: {
     canonical: 'https://cagepredict.com',

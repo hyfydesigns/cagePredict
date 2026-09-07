@@ -32,6 +32,9 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
   const [refreshError, setRefreshError] = useState(false)
   const [, startTransition] = useTransition()
   const router = useRouter()
+  // Suppress router.refresh() for the first 5 s after mount so a realtime event
+  // that fires right as the WebSocket connects doesn't cause an immediate reload.
+  const mountedAt = useRef(Date.now())
 
   // Live points_earned map — updated in realtime when predictions are scored.
   // Keyed by fight_id. Starts from the server-fetched values in userPicks.
@@ -143,7 +146,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
               e.id === payload.new.id ? { ...e, status: payload.new.status } : e
             )
           )
-          router.refresh()
+          if (Date.now() - mountedAt.current > 5000) router.refresh()
         }
       )
       .subscribe()
@@ -183,7 +186,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
           setLastRefresh(new Date())
           // When a fight completes, soft-refresh so server components
           // (navbar points badge, profile stats) pick up the scored results.
-          if (wasCompleted) {
+          if (wasCompleted && Date.now() - mountedAt.current > 5000) {
             router.refresh()
           }
         }
@@ -216,7 +219,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
             setLiveEarned((prev) => ({ ...prev, [fight_id]: points_earned }))
             // Soft-refresh server components (navbar points, profile page, dashboard)
             // without unmounting the client tree — no flicker or loading states
-            router.refresh()
+            if (Date.now() - mountedAt.current > 5000) router.refresh()
           }
         }
       )
