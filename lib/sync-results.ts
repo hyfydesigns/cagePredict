@@ -313,7 +313,16 @@ async function syncViaApiSports(
       }
 
       if (dbFight.status === 'completed') {
-        log.push(`  ⏭ ${f1Name} vs ${f2Name} already completed`)
+        // Backfill method/round if the fight was completed before the API had that data
+        if ((!dbFight.method || !dbFight.round) && (method || round)) {
+          await supabase.from('fights').update({
+            ...(method && !dbFight.method ? { method } : {}),
+            ...(round  && !dbFight.round  ? { round }  : {}),
+          }).eq('id', dbFight.id)
+          log.push(`  ↻ ${f1Name} vs ${f2Name} backfilled method/round (${method ?? '—'}, R${round ?? '?'})`)
+        } else {
+          log.push(`  ⏭ ${f1Name} vs ${f2Name} already completed`)
+        }
         continue
       }
 
@@ -525,7 +534,15 @@ async function syncViaRapidApi(
       }
 
       if (dbFight.status === 'completed') {
-        log.push(`  ⏭ ${home} vs ${away} already completed in DB`)
+        if ((!dbFight.method || !dbFight.round) && (method || round)) {
+          await supabase.from('fights').update({
+            ...(method && !dbFight.method ? { method } : {}),
+            ...(round  && !dbFight.round  ? { round }  : {}),
+          }).eq('id', dbFight.id)
+          log.push(`  ↻ ${home} vs ${away} backfilled method/round (${method ?? '—'}, R${round ?? '?'})`)
+        } else {
+          log.push(`  ⏭ ${home} vs ${away} already completed in DB`)
+        }
         continue
       }
 
@@ -921,7 +938,7 @@ export async function runSyncResults(): Promise<SyncResultsOutput> {
     .select(`
       id, date, name,
       fights(
-        id, status, fighter1_id, fighter2_id, winner_id,
+        id, status, fighter1_id, fighter2_id, winner_id, method, round,
         fighter1:fighters!fights_fighter1_id_fkey(id, name),
         fighter2:fighters!fights_fighter2_id_fkey(id, name)
       )
