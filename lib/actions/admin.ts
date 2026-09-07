@@ -2446,3 +2446,137 @@ export async function fetchMvpMmaUndercard(): Promise<ActionResult & { added?: n
 
   return { success: true, message: `Added ${added} undercard fight(s) from Tapology.`, added }
 }
+
+// ─── Backfill method/round ────────────────────────────────────────────────────
+
+/**
+ * For a given event, fetches api-sports fight results and patches method + round
+ * on any completed fight that is missing them. Bypasses the complete_fight RPC
+ * idempotency guard by writing directly to the fights table.
+ */
+export async function backfillMethodRound(
+  eventId: string,
+): Promise<ActionResult & { patched: number; log: string[] }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error, patched: 0, log: [] }
+
+  if (!isApiSportsConfigured()) {
+    return { error: 'RAPIDAPI_KEY / RAPIDAPI_UFC_HOST not configured', patched: 0, log: [] }
+  }
+
+  const supabase = createServiceClient()
+  const log: string[] = []
+
+  // Fetch the event + its completed fights that are missing method or round
+  const { data: eventRow } = await supabase
+    .from('events')
+    .select('id, name, date')
+    .eq('id', eventId)
+    .single()
+
+  if (!eventRow) return { error: 'Event not found', patched: 0, log: [] }
+
+  const { data: fightsRaw } = await supabase
+    .from('fights')
+    .select('id, status, method, round, fighter1:fighters!fights_fighter1_id_fkey(id, name), fighter2:fighters!fights_fighter2_id_fkey(id, name)')
+    .eq('event_id', eventId)
+    .eq('status', 'completed')
+
+  const fights = (fightsRaw ?? []) as any[]
+  const missing = fights.filter((f) => !f.method || !f.round)
+
+  if (missing.length === 0) {
+    return { success: true, message: 'All completed fights already have method/round.', patched: 0, log: ['Nothing to backfill.'] }
+  }
+
+  log.push(`${missing.length} fight(s) missing method/round — querying api-sports`)
+
+  const norm = (s: string) =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
+
+  function mapResultType(type: string | null): string | null {
+    if (!type) return null
+    const map: Record<string, string> = {
+      'KO/TKO': 'KO/TKO', KO: 'KO', TKO: 'TKO',
+      Submission: 'Submission', Decision: 'Decision',
+      'Unanimous Decision': 'Decision (Unanimous)',
+      'Split Decision': 'Decision (Split)',
+      'Majority Decision': 'Decision (Majority)',
+      Draw: 'Draw', 'No Contest': 'No Contest', DQ: 'Disqualification', RTD: 'RTD',
+    }
+    return map[type] ?? type
+  }
+
+  const d = new Date((eventRow as any).date)
+  const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+
+  let apiFights: Awaited<ReturnType<typeof getFightsByDate>> = []
+  try {
+    apiFights = await getFightsByDate(dateStr, false)
+    // Also try ±1 day in case of timezone offset
+    if (apiFights.length === 0) {
+      const next = new Date(d); next.setUTCDate(next.getUTCDate() + 1)
+      const prev = new Date(d); prev.setUTCDate(prev.getUTCDate() - 1)
+      for (const adj of [next, prev]) {
+        const s = `${adj.getUTCFullYear()}-${String(adj.getUTCMonth() + 1).padStart(2, '0')}-${String(adj.getUTCDate()).padStart(2, '0')}`
+        const res = await getFightsByDate(s, false)
+        if (res.length > 0) { apiFights = res; break }
+      }
+    }
+  } catch (e: any) {
+    return { error: `api-sports error: ${e.message}`, patched: 0, log }
+  }
+
+  log.push(`api-sports returned ${apiFights.length} fight(s) for ${dateStr}`)
+
+  let patched = 0
+  for (const dbFight of missing) {
+    const d1 = norm(dbFight.fighter1?.name ?? '')
+    const d2 = norm(dbFight.fighter2?.name ?? '')
+
+    const apiFight = apiFights.find((af: any) => {
+      const f1 = norm(af.fighters?.first?.name ?? '')
+      const f2 = norm(af.fighters?.second?.name ?? '')
+      return (d1 === f1 && d2 === f2) || (d1 === f2 && d2 === f1)
+    })
+
+    if (!apiFight) {
+      log.push(`  ✗ No api-sports match for ${dbFight.fighter1?.name} vs ${dbFight.fighter2?.name}`)
+      continue
+    }
+
+    const method = mapResultType(apiFight.result?.type ?? null)
+    const round  = apiFight.result?.round ?? null
+
+    if (!method && !round) {
+      log.push(`  ⚠ ${dbFight.fighter1?.name} vs ${dbFight.fighter2?.name} — api-sports has no result type/round yet`)
+      continue
+    }
+
+    const updates: Record<string, unknown> = {}
+    if (method && !dbFight.method) updates.method = method
+    if (round  && !dbFight.round)  updates.round  = round
+
+    if (Object.keys(updates).length === 0) {
+      log.push(`  ⏭ ${dbFight.fighter1?.name} vs ${dbFight.fighter2?.name} already has ${dbFight.method ? 'method' : ''} ${dbFight.round ? 'round' : ''}`.trim())
+      continue
+    }
+
+    const { error } = await supabase.from('fights').update(updates).eq('id', dbFight.id)
+    if (error) {
+      log.push(`  ✗ ${dbFight.fighter1?.name} vs ${dbFight.fighter2?.name}: ${error.message}`)
+    } else {
+      patched++
+      log.push(`  ✓ ${dbFight.fighter1?.name} vs ${dbFight.fighter2?.name} → ${method ?? '—'} R${round ?? '?'}`)
+    }
+  }
+
+  revalidatePath('/', 'layout')
+
+  return {
+    success: true,
+    message: `Patched ${patched} of ${missing.length} fight(s).`,
+    patched,
+    log,
+  }
+}

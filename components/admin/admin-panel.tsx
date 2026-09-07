@@ -10,7 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder, backfillMethodRound } from '@/lib/actions/admin'
 import { syncEventOdds, debugOddsApi } from '@/lib/actions/odds'
 import { saveVisibleBookmakerKeys } from '@/lib/actions/settings'
 import { adminDeleteUser } from '@/lib/actions/auth'
@@ -94,6 +94,7 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
   const [selectedBookmakers, setSelectedBookmakers] = useState<Set<string>>(() => new Set(visibleBookmakerKeys))
   const [isBookmakerSavePending, startBookmakerSaveTransition] = useTransition()
   const [refreshingEventId, setRefreshingEventId] = useState<string | null>(null)
+  const [backfillingEventId, setBackfillingEventId] = useState<string | null>(null)
   const [settingTimesEventId, setSettingTimesEventId] = useState<string | null>(null)
   // eventStartTimes: eventId → "datetime-local" value (YYYY-MM-DDTHH:mm)
   const [eventStartTimes, setEventStartTimes] = useState<Record<string, string>>(() => {
@@ -974,6 +975,31 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
                       : <RefreshCw className="h-2.5 w-2.5" />
                     }
                     {refreshingEventId === event.id ? 'Refreshing…' : 'Refresh Fights'}
+                  </button>
+                  <button
+                    className="flex items-center gap-1 text-[10px] font-bold text-purple-400 border border-purple-400/40 rounded px-1.5 py-0.5 hover:bg-purple-400/10 transition-colors disabled:opacity-50"
+                    title="Patch method/round for completed fights missing that data"
+                    disabled={backfillingEventId === event.id}
+                    onClick={() => {
+                      setBackfillingEventId(event.id)
+                      backfillMethodRound(event.id).then(r => {
+                        setBackfillingEventId(null)
+                        toast({
+                          title: r.error ? 'Backfill failed' : `Backfill: ${r.patched} patched`,
+                          description: r.error ?? (r.log?.slice(-3).join(' · ') ?? r.message),
+                          variant: r.error ? 'destructive' : 'default',
+                        })
+                      }).catch(e => {
+                        setBackfillingEventId(null)
+                        toast({ title: 'Backfill failed', description: String(e), variant: 'destructive' })
+                      })
+                    }}
+                  >
+                    {backfillingEventId === event.id
+                      ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      : <BarChart3 className="h-2.5 w-2.5" />
+                    }
+                    {backfillingEventId === event.id ? 'Backfilling…' : 'Backfill Method/Round'}
                   </button>
                   {expandedEvent === event.id
                     ? <ChevronUp className="h-4 w-4 text-foreground-muted" />
