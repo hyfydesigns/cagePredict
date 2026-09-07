@@ -128,6 +128,16 @@ function cmToIn(cm: number): string {
   return `${Math.round(cm / 2.54)}"`
 }
 
+const METHOD_LABELS: Record<string, string> = {
+  ko_tko:     'KO/TKO',
+  submission: 'Submission',
+  decision:   'Decision',
+}
+function formatMethod(m: string | null): string | null {
+  if (!m) return null
+  return METHOD_LABELS[m] ?? m
+}
+
 // ── Form pills ────────────────────────────────────────────────
 function FormPills({ form }: { form: string | null | undefined }) {
   if (!form) return <span className="text-[10px] text-foreground-secondary">—</span>
@@ -527,7 +537,7 @@ export function FightCard({
               </span>
               {fight.method && (
                 <span className="text-foreground-secondary ml-1 text-xs">
-                  via {fight.method}
+                  via {formatMethod(fight.method)}
                   {fight.round && (
                     <> (R{fight.round}{fight.time_of_finish ? ` ${fight.time_of_finish}` : ''})</>
                   )}
@@ -538,7 +548,7 @@ export function FightCard({
           {localPick && (localMethod || localRound) && (
             <p className="text-[11px] text-foreground-muted">
               You picked:{' '}
-              {localMethod && <span className="text-foreground-secondary">{localMethod}</span>}
+              {localMethod && <span className="text-foreground-secondary">{formatMethod(localMethod)}</span>}
               {localRound && <span className="text-foreground-secondary"> R{localRound}</span>}
             </p>
           )}
