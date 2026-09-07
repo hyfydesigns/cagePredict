@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, Lock, Trophy } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, Lock } from 'lucide-react'
 import { getCrewEventBreakdown } from '@/lib/actions/crews'
 import type { CrewFight, CrewMemberPick } from '@/lib/actions/crews'
 
@@ -226,10 +226,7 @@ export function CrewEventHistory({ events, members, currentUserId }: Props) {
   }
 
   return (
-    <div className="space-y-2 mt-6">
-      <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wider flex items-center gap-1.5">
-        <Trophy className="h-3.5 w-3.5" /> Past Events
-      </p>
+    <div className="space-y-2">
       {events.map((ev) => {
         const isOpen = openId === ev.id
         const data = cache[ev.id]
