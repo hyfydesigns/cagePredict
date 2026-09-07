@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Lock, CheckCircle, Loader2, LockOpen, ChevronRight, Pencil } from 'lucide-react'
+import { Lock, CheckCircle, Loader2, LockOpen, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FighterRow } from '@/types/database'
 import {
@@ -24,6 +23,8 @@ interface PredictionPickerProps {
   isPending:  boolean
   maxRounds:  3 | 5    // 5 for main events / title fights, 3 otherwise
   userId?: string
+  modalOpen: boolean
+  onModalOpenChange: (open: boolean) => void
   onPick:       (winnerId: string, method?: string | null, round?: number | null) => Promise<void>
   onToggleLock: (isConfidence: boolean) => Promise<void>
 }
@@ -53,43 +54,6 @@ function bonusSummary(method: string | null, round: number | null): string | nul
 
 // ── Sub-components ─────────────────────────────────────────────
 
-function PickButton({
-  fighter, isSelected, isPending, onClick,
-}: {
-  fighter: FighterRow
-  isSelected: boolean
-  isPending: boolean
-  onClick: () => void
-}) {
-  return (
-    <motion.button
-      whileTap={{ scale: 0.97 }}
-      onClick={onClick}
-      disabled={isPending}
-      className={cn(
-        'relative flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 py-3 font-bold text-sm transition-all duration-200',
-        isSelected
-          ? 'border-blue-400 bg-blue-500/15 text-foreground dark:shadow-[0_0_20px_rgba(96,165,250,0.3)] scale-[1.02]'
-          : 'border-border bg-surface-2/50 text-foreground-secondary hover:border-border hover:bg-surface-3/50 hover:text-foreground',
-      )}
-    >
-      {isPending && isSelected ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : isSelected ? (
-        <CheckCircle className="h-4 w-4 text-blue-400" />
-      ) : null}
-      <span className="text-xs font-black uppercase tracking-wide line-clamp-1">
-        {fighter.name.split(' ').pop()}
-      </span>
-      {fighter.flag_emoji && <span className="text-base">{fighter.flag_emoji}</span>}
-      {isSelected && (
-        <span className="absolute bottom-1 right-1.5 text-[8px] text-blue-400/60 font-normal">
-          tap to edit
-        </span>
-      )}
-    </motion.button>
-  )
-}
 
 function MethodButton({
   method, selected, onClick,
@@ -135,9 +99,8 @@ export function PredictionPicker({
   fighter1, fighter2,
   currentPick, currentMethod, currentRound,
   isConfidence, lockTaken, isLocked, isPending,
-  maxRounds, userId, onPick, onToggleLock,
+  maxRounds, userId, modalOpen, onModalOpenChange, onPick, onToggleLock,
 }: PredictionPickerProps) {
-  const [modalOpen, setModalOpen] = useState(false)
 
   // ── Not signed in ──
   if (!userId) {
@@ -191,13 +154,6 @@ export function PredictionPicker({
   const needsRound     = selectedMethod === 'ko_tko' || selectedMethod === 'submission'
   const pickedFighter  = currentPick === fighter1.id ? fighter1 : currentPick === fighter2.id ? fighter2 : null
 
-  function handlePickFighter(winnerId: string) {
-    if (winnerId !== currentPick) {
-      onPick(winnerId, null, null)
-    }
-    setModalOpen(true)
-  }
-
   function handlePickMethod(m: Method) {
     const next = m === selectedMethod ? null : m
     const nextRound = next === 'decision' ? null : currentRound
@@ -216,26 +172,6 @@ export function PredictionPicker({
     <div className="border-t border-border/50">
       <div className="px-4 py-3 space-y-3">
 
-        {/* ── Who wins? ── */}
-        <p className="text-xs font-semibold text-foreground-secondary uppercase tracking-wider text-center">
-          Who wins?
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <PickButton
-            fighter={fighter1}
-            isSelected={currentPick === fighter1.id}
-            isPending={isPending}
-            onClick={() => handlePickFighter(fighter1.id)}
-          />
-          <PickButton
-            fighter={fighter2}
-            isSelected={currentPick === fighter2.id}
-            isPending={isPending}
-            onClick={() => handlePickFighter(fighter2.id)}
-          />
-        </div>
-
         {/* ── Summary pill — appears after picking ── */}
         <AnimatePresence initial={false}>
           {currentPick && (
@@ -245,7 +181,7 @@ export function PredictionPicker({
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.18 }}
-              onClick={() => setModalOpen(true)}
+              onClick={() => onModalOpenChange(true)}
               className={cn(
                 'w-full overflow-hidden flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-all duration-150',
                 bonus
@@ -279,7 +215,7 @@ export function PredictionPicker({
       </div>
 
       {/* ── Bonus Prediction Modal ── */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog open={modalOpen} onOpenChange={onModalOpenChange}>
         <DialogContent className="max-w-sm p-0 overflow-hidden gap-0">
 
           {/* Header */}
@@ -295,10 +231,7 @@ export function PredictionPicker({
               Wrong fighter?{' '}
               <button
                 className="text-primary hover:underline"
-                onClick={() => {
-                  const other = currentPick === fighter1.id ? fighter2 : fighter1
-                  onPick(other.id, null, null)
-                }}
+                onClick={() => onPick(currentPick === fighter1.id ? fighter2.id : fighter1.id, null, null)}
               >
                 Switch to {currentPick === fighter1.id ? fighter2.name.split(' ').pop() : fighter1.name.split(' ').pop()}
               </button>

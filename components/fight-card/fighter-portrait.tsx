@@ -15,6 +15,8 @@ interface FighterPortraitProps {
   isLoser?: boolean
   odds: number
   oddsOpen?: number | null
+  /** When provided the portrait image acts as a pick button instead of a profile link */
+  onImageClick?: () => void
 }
 
 function movementArrow(open: number, current: number): '↑' | '↓' | null {
@@ -26,7 +28,7 @@ function movementArrow(open: number, current: number): '↑' | '↓' | null {
 }
 
 export function FighterPortrait({
-  fighter, side, isPicked, isWinner, isLoser, odds, oddsOpen,
+  fighter, side, isPicked, isWinner, isLoser, odds, oddsOpen, onImageClick,
 }: FighterPortraitProps) {
   const isLeft = side === 'left'
   const [imgError, setImgError] = useState(false)
@@ -59,55 +61,69 @@ export function FighterPortrait({
         <div className="h-[22px] mb-2" />
       ) : null}
 
-      {/* Fighter image */}
-      <Link href={`/fighters/${fighter.id}`} className="block group">
-        <div className={cn(
-          'relative w-24 h-28 sm:w-28 sm:h-32 rounded-xl overflow-hidden border-2 transition-all duration-300 group-hover:scale-[1.03]',
-          isPicked && isWinner  ? 'border-green-400 dark:shadow-[0_0_20px_rgba(34,197,94,0.4)] group-hover:border-green-300'
-          : isPicked && isLoser ? 'border-red-400 dark:shadow-[0_0_20px_rgba(239,68,68,0.35)] group-hover:border-red-300'
-          : isPicked            ? 'border-blue-400 dark:shadow-[0_0_20px_rgba(96,165,250,0.35)] group-hover:border-blue-300'
-          : isWinner            ? 'border-amber-400 dark:shadow-[0_0_20px_rgba(245,158,11,0.35)] group-hover:border-amber-300'
-          :                       'border-border group-hover:border-primary/60',
-        )}>
-          {fighter.image_url && !imgError ? (
-            <Image
-              src={fighter.image_url}
-              alt={fighter.name}
-              fill
-              className="object-cover object-top"
-              sizes="(max-width: 640px) 96px, 112px"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-b from-surface-3 to-surface flex items-center justify-center">
-              <span className="text-4xl">{fighter.flag_emoji ?? '🥊'}</span>
-            </div>
-          )}
-          {/* Gradient overlay */}
+      {/* Fighter image — pick button when pickable, profile link otherwise */}
+      {onImageClick ? (
+        <button onClick={onImageClick} className="block group focus:outline-none">
           <div className={cn(
-            'absolute inset-0',
-            isLeft ? 'bg-fighter-gradient-right' : 'bg-fighter-gradient-left'
-          )} />
-          {/* Flag */}
-          {fighter.flag_emoji && (
-            <div className={cn(
-              'absolute bottom-1 text-base leading-none',
-              isLeft ? 'left-1' : 'right-1'
-            )}>
-              {fighter.flag_emoji}
-            </div>
-          )}
-        </div>
-      </Link>
+            'relative w-24 h-28 sm:w-28 sm:h-32 rounded-xl overflow-hidden border-2 transition-all duration-300 group-hover:scale-[1.03]',
+            isPicked && isWinner  ? 'border-green-400 dark:shadow-[0_0_20px_rgba(34,197,94,0.4)] group-hover:border-green-300'
+            : isPicked && isLoser ? 'border-red-400 dark:shadow-[0_0_20px_rgba(239,68,68,0.35)] group-hover:border-red-300'
+            : isPicked            ? 'border-blue-400 dark:shadow-[0_0_20px_rgba(96,165,250,0.35)] group-hover:border-blue-300'
+            : isWinner            ? 'border-amber-400 dark:shadow-[0_0_20px_rgba(245,158,11,0.35)] group-hover:border-amber-300'
+            :                       'border-border group-hover:border-primary/60',
+          )}>
+            {fighter.image_url && !imgError ? (
+              <Image src={fighter.image_url} alt={fighter.name} fill className="object-cover object-top" sizes="(max-width: 640px) 96px, 112px" onError={() => setImgError(true)} />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-b from-surface-3 to-surface flex items-center justify-center">
+                <span className="text-4xl">{fighter.flag_emoji ?? '🥊'}</span>
+              </div>
+            )}
+            <div className={cn('absolute inset-0', isLeft ? 'bg-fighter-gradient-right' : 'bg-fighter-gradient-left')} />
+            {fighter.flag_emoji && (
+              <div className={cn('absolute bottom-1 text-base leading-none', isLeft ? 'left-1' : 'right-1')}>
+                {fighter.flag_emoji}
+              </div>
+            )}
+          </div>
+        </button>
+      ) : (
+        <Link href={`/fighters/${fighter.id}`} className="block group">
+          <div className={cn(
+            'relative w-24 h-28 sm:w-28 sm:h-32 rounded-xl overflow-hidden border-2 transition-all duration-300 group-hover:scale-[1.03]',
+            isPicked && isWinner  ? 'border-green-400 dark:shadow-[0_0_20px_rgba(34,197,94,0.4)] group-hover:border-green-300'
+            : isPicked && isLoser ? 'border-red-400 dark:shadow-[0_0_20px_rgba(239,68,68,0.35)] group-hover:border-red-300'
+            : isPicked            ? 'border-blue-400 dark:shadow-[0_0_20px_rgba(96,165,250,0.35)] group-hover:border-blue-300'
+            : isWinner            ? 'border-amber-400 dark:shadow-[0_0_20px_rgba(245,158,11,0.35)] group-hover:border-amber-300'
+            :                       'border-border group-hover:border-primary/60',
+          )}>
+            {fighter.image_url && !imgError ? (
+              <Image src={fighter.image_url} alt={fighter.name} fill className="object-cover object-top" sizes="(max-width: 640px) 96px, 112px" onError={() => setImgError(true)} />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-b from-surface-3 to-surface flex items-center justify-center">
+                <span className="text-4xl">{fighter.flag_emoji ?? '🥊'}</span>
+              </div>
+            )}
+            <div className={cn('absolute inset-0', isLeft ? 'bg-fighter-gradient-right' : 'bg-fighter-gradient-left')} />
+            {fighter.flag_emoji && (
+              <div className={cn('absolute bottom-1 text-base leading-none', isLeft ? 'left-1' : 'right-1')}>
+                {fighter.flag_emoji}
+              </div>
+            )}
+          </div>
+        </Link>
+      )}
 
-      {/* Fighter info */}
+      {/* Fighter info — name links to profile */}
       <div className={cn('mt-2 w-full', isLeft ? 'text-left' : 'text-right')}>
-        <p className="text-foreground font-black text-sm sm:text-base leading-tight line-clamp-1">
-          {fighter.name.split(' ').pop()}
-        </p>
-        <p className="text-foreground font-black text-xs leading-tight line-clamp-1 hidden sm:block">
-          {fighter.name.split(' ').slice(0, -1).join(' ')}
-        </p>
+        <Link href={`/fighters/${fighter.id}`} className="hover:underline decoration-foreground-muted underline-offset-2">
+          <p className="text-foreground font-black text-sm sm:text-base leading-tight line-clamp-1">
+            {fighter.name.split(' ').pop()}
+          </p>
+          <p className="text-foreground font-black text-xs leading-tight line-clamp-1 hidden sm:block">
+            {fighter.name.split(' ').slice(0, -1).join(' ')}
+          </p>
+        </Link>
         {fighter.nickname && (
           <p className="text-foreground-secondary text-[10px] italic mt-0.5 line-clamp-1">
             "{fighter.nickname}"

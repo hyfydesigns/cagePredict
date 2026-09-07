@@ -215,6 +215,7 @@ export function FightCard({
   const [localPick, setLocalPick]     = useState<string | null>(userPick   ?? null)
   const [localMethod, setLocalMethod] = useState<string | null>(userMethod ?? null)
   const [localRound, setLocalRound]   = useState<number | null>(userRound  ?? null)
+  const [pickerModalOpen, setPickerModalOpen] = useState(false)
   const [scope, animate] = useAnimate()
   const flashedRef = useRef(false)
 
@@ -246,6 +247,15 @@ export function FightCard({
     setLocalMethod(method ?? null)
     setLocalRound(round  ?? null)
     await onPredict(fight.id, winnerId, method, round)
+  }
+
+  // Clicking a fighter portrait picks them and opens the bonus prediction modal
+  const isPickable = !isCompleted && !isCancelled && !isLocked && !!userId
+  function handleFighterImageClick(fighterId: string) {
+    if (fighterId !== localPick) {
+      handlePredict(fighterId, null, null)
+    }
+    setPickerModalOpen(true)
   }
 
   return (
@@ -323,6 +333,7 @@ export function FightCard({
           isLoser={isCompleted && !!fight.winner_id && fight.winner_id !== fight.fighter1.id}
           odds={fight.odds_f1}
           oddsOpen={fight.odds_f1_open}
+          onImageClick={isPickable ? () => handleFighterImageClick(fight.fighter1.id) : undefined}
         />
 
         {/* Center column — VS + countdown only */}
@@ -341,6 +352,7 @@ export function FightCard({
           isLoser={isCompleted && !!fight.winner_id && fight.winner_id !== fight.fighter2.id}
           odds={fight.odds_f2}
           oddsOpen={fight.odds_f2_open}
+          onImageClick={isPickable ? () => handleFighterImageClick(fight.fighter2.id) : undefined}
         />
       </div>
 
@@ -583,6 +595,8 @@ export function FightCard({
           isPending={isPending}
           maxRounds={(fight.is_main_event || fight.is_title_fight) ? 5 : 3}
           userId={userId}
+          modalOpen={pickerModalOpen}
+          onModalOpenChange={setPickerModalOpen}
           onPick={handlePredict}
           onToggleLock={(conf) => onToggleLock(fight.id, conf)}
         />
