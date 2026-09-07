@@ -28,6 +28,8 @@ interface AdminFight {
   fight_type: string | null
   display_order: number | null
   fight_time: string | null
+  method: string | null
+  round: number | null
   fighter1: AdminFighter
   fighter2: AdminFighter
 }
@@ -1131,6 +1133,11 @@ function FightResultRow({
   const [order, setOrder]       = useState<number>(fight.display_order ?? 0)
   const [isMain, setIsMain]     = useState<boolean>(fight.is_main_event)
   const [isSavingMeta, setIsSavingMeta] = useState(false)
+
+  // Method/round editing for completed fights
+  const [editMethod, setEditMethod] = useState<string>(fight.method ?? '')
+  const [editRound,  setEditRound]  = useState<string>(fight.round != null ? String(fight.round) : '')
+  const [isSavingResult, setIsSavingResult] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -1144,6 +1151,21 @@ function FightResultRow({
     setIsSavingMeta(false)
     toast({
       title: result.error ? 'Update failed' : 'Fight updated',
+      description: result.error ?? undefined,
+      variant: result.error ? 'destructive' : 'default',
+    })
+  }
+
+  async function handleSaveResult() {
+    setIsSavingResult(true)
+    const roundNum = editRound ? parseInt(editRound, 10) : null
+    const result = await updateFightMeta(fight.id, {
+      method: editMethod || null,
+      round: isNaN(roundNum as number) ? null : roundNum,
+    })
+    setIsSavingResult(false)
+    toast({
+      title: result.error ? 'Update failed' : 'Result updated',
       description: result.error ?? undefined,
       variant: result.error ? 'destructive' : 'default',
     })
@@ -1198,9 +1220,34 @@ function FightResultRow({
 
         {/* Result controls */}
         {isCompleted ? (
-          <div className="flex items-center gap-1.5 text-green-400 text-sm shrink-0">
-            <CheckCircle className="h-4 w-4" />
-            <span className="text-xs font-semibold">Final</span>
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <div className="flex items-center gap-1.5 text-green-400 text-sm">
+              <CheckCircle className="h-4 w-4" />
+              <span className="text-xs font-semibold">Final</span>
+            </div>
+            {/* Inline method/round editor */}
+            <input
+              value={editMethod}
+              onChange={(e) => setEditMethod(e.target.value)}
+              placeholder="Method (e.g. KO/TKO)"
+              className="text-[11px] bg-surface-2 border border-border rounded px-1.5 py-0.5 text-foreground w-32 focus:outline-none focus:border-primary"
+            />
+            <input
+              value={editRound}
+              onChange={(e) => setEditRound(e.target.value)}
+              placeholder="Rd"
+              type="number"
+              min={1}
+              max={5}
+              className="text-[11px] bg-surface-2 border border-border rounded px-1.5 py-0.5 text-foreground w-12 focus:outline-none focus:border-primary"
+            />
+            <button
+              onClick={handleSaveResult}
+              disabled={isSavingResult}
+              className="flex items-center gap-1 text-[11px] font-bold text-primary border border-primary/40 rounded px-1.5 py-0.5 hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              {isSavingResult ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-2 flex-wrap shrink-0">

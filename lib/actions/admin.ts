@@ -1992,7 +1992,7 @@ export async function deduplicateFights(): Promise<ActionResult & { removed: num
 
 export async function updateFightMeta(
   fightId: string,
-  updates: { fight_type?: string | null; display_order?: number; is_main_event?: boolean }
+  updates: { fight_type?: string | null; display_order?: number; is_main_event?: boolean; method?: string | null; round?: number | null }
 ): Promise<ActionResult> {
   const auth = await requireAdmin()
   if ('error' in auth) return { error: auth.error }

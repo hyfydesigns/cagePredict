@@ -22,7 +22,7 @@ export default async function AdminPage() {
     .select(`
       id, name, date, status,
       fights(
-        id, status, weight_class, is_main_event, winner_id, fight_type, display_order, fight_time,
+        id, status, weight_class, is_main_event, winner_id, fight_type, display_order, fight_time, method, round,
         fighter1:fighters!fights_fighter1_id_fkey(id, name, flag_emoji),
         fighter2:fighters!fights_fighter2_id_fkey(id, name, flag_emoji)
       )
