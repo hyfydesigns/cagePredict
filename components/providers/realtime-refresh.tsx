@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/client'
  */
 export function RealtimeRefresh({ userId }: { userId: string }) {
   const router = useRouter()
+  const [, startTransition] = useTransition()
 
   useEffect(() => {
     const supabase = createClient()
@@ -31,7 +32,7 @@ export function RealtimeRefresh({ userId }: { userId: string }) {
         (payload) => {
           // Only refresh when a fight has actually been scored
           if ((payload.new as { points_earned?: number }).points_earned != null) {
-            router.refresh()
+            startTransition(() => router.refresh())
           }
         },
       )

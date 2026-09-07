@@ -146,7 +146,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
               e.id === payload.new.id ? { ...e, status: payload.new.status } : e
             )
           )
-          if (Date.now() - mountedAt.current > 5000) router.refresh()
+          if (Date.now() - mountedAt.current > 5000) startTransition(() => router.refresh())
         }
       )
       .subscribe()
@@ -187,7 +187,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
           // When a fight completes, soft-refresh so server components
           // (navbar points badge, profile stats) pick up the scored results.
           if (wasCompleted && Date.now() - mountedAt.current > 5000) {
-            router.refresh()
+            startTransition(() => router.refresh())
           }
         }
       )
@@ -219,7 +219,7 @@ export function LiveWrapper({ initialEvents, userPicks, userId, commentsByFight 
             setLiveEarned((prev) => ({ ...prev, [fight_id]: points_earned }))
             // Soft-refresh server components (navbar points, profile page, dashboard)
             // without unmounting the client tree — no flicker or loading states
-            if (Date.now() - mountedAt.current > 5000) router.refresh()
+            if (Date.now() - mountedAt.current > 5000) startTransition(() => router.refresh())
           }
         }
       )
