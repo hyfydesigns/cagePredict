@@ -157,6 +157,32 @@ export default function HelpPage() {
         </div>
       </Section>
 
+      {/* Achievements */}
+      <Section title="Achievements">
+        <p className="text-foreground-muted text-sm leading-relaxed -mt-1">
+          Achievements are awarded automatically when you hit specific milestones. They appear on your public profile.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { icon: '🩸', name: 'First Blood',     how: 'Make your first prediction on any fight.' },
+            { icon: '👁️', name: 'Sharp Eye',       how: 'Rack up 10 correct picks across any events.' },
+            { icon: '🔥', name: 'On Fire',         how: 'Get 10 fights correct in a row (streak of 10).' },
+            { icon: '🐐', name: 'Giant Killer',    how: 'Pick an underdog who goes on to win the fight.' },
+            { icon: '👑', name: 'Confidence King', how: 'Win 5 of your 🔒 Confidence Picks.' },
+            { icon: '🔐', name: 'Lock Master',     how: 'Win a Confidence Pick on the main event of any card.' },
+            { icon: '💎', name: 'Perfect Card',    how: 'Correctly call every fight result on a single event card.' },
+          ].map(({ icon, name, how }) => (
+            <div key={name} className="flex items-start gap-3 rounded-xl border border-border bg-surface/60 p-4">
+              <span className="text-2xl leading-none mt-0.5 shrink-0">{icon}</span>
+              <div>
+                <p className="font-semibold text-foreground text-sm">{name}</p>
+                <p className="text-foreground-muted text-xs leading-relaxed mt-0.5">{how}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       {/* FAQ */}
       <Section title="Frequently asked questions">
         <div className="space-y-3">
