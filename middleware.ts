@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
       url.searchParams.set('redirect', pathname)
       return NextResponse.redirect(url)
     }
-    const isAdmin = user.user_metadata?.role === 'admin'
+    const isAdmin = user.app_metadata?.role === 'admin'
     if (!isAdmin) {
       // Redirect non-admins silently to home — don't reveal the page exists
       return NextResponse.redirect(new URL('/', request.url))
