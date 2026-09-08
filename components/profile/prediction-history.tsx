@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
-import { CheckCircle, XCircle, Clock, Lock } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { PredictionWithFight } from '@/types/database'
@@ -21,6 +21,29 @@ function methodLabel(method: string | null | undefined): string | null {
 
 export function PredictionHistory({ predictions }: PredictionHistoryProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft,  setCanScrollLeft]  = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const updateArrows = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 4)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    updateArrows()
+    el.addEventListener('scroll', updateArrows, { passive: true })
+    const ro = new ResizeObserver(updateArrows)
+    ro.observe(el)
+    return () => { el.removeEventListener('scroll', updateArrows); ro.disconnect() }
+  }, [updateArrows])
+
+  function scrollBy(dir: 'left' | 'right') {
+    scrollRef.current?.scrollBy({ left: dir === 'left' ? -180 : 180, behavior: 'smooth' })
+  }
 
   // Group by event, preserving insertion order (newest first)
   const groups: { eventId: string; eventName: string; eventDate: string; preds: PredictionWithFight[] }[] = []
@@ -53,11 +76,25 @@ export function PredictionHistory({ predictions }: PredictionHistoryProps) {
   return (
     <div className="mt-2 space-y-3">
       {/* Tab strip */}
-      <div
-        ref={scrollRef}
-        className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
+      <div className="relative flex items-center gap-1">
+        {/* Left arrow — desktop only */}
+        <button
+          onClick={() => scrollBy('left')}
+          disabled={!canScrollLeft}
+          className={cn(
+            'hidden sm:flex shrink-0 items-center justify-center w-7 h-7 rounded-lg border border-border/60 bg-surface/60 text-foreground-muted transition-all duration-150',
+            canScrollLeft ? 'hover:bg-surface-2 hover:text-foreground opacity-100' : 'opacity-20 cursor-default'
+          )}
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+
+        <div
+          ref={scrollRef}
+          className="flex gap-2 overflow-x-auto pb-1 flex-1 scrollbar-hide"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
         {groups.map((g, i) => {
           const isActive = i === activeIdx
           const shortName = g.eventName.replace(/^UFC\s+/i, 'UFC ')
@@ -82,6 +119,20 @@ export function PredictionHistory({ predictions }: PredictionHistoryProps) {
             </button>
           )
         })}
+        </div>
+
+        {/* Right arrow — desktop only */}
+        <button
+          onClick={() => scrollBy('right')}
+          disabled={!canScrollRight}
+          className={cn(
+            'hidden sm:flex shrink-0 items-center justify-center w-7 h-7 rounded-lg border border-border/60 bg-surface/60 text-foreground-muted transition-all duration-150',
+            canScrollRight ? 'hover:bg-surface-2 hover:text-foreground opacity-100' : 'opacity-20 cursor-default'
+          )}
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {/* Event summary bar */}
