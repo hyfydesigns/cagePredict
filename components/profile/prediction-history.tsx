@@ -135,6 +135,16 @@ export function PredictionHistory({ predictions }: PredictionHistoryProps) {
         </button>
       </div>
 
+      {/* Event title */}
+      <div className="px-1">
+        <p className="text-sm font-bold text-foreground">{active.eventName}</p>
+        <p className="text-xs text-foreground-muted">
+          {new Date(active.eventDate.slice(0, 10) + 'T12:00:00').toLocaleDateString(undefined, {
+            month: 'long', day: 'numeric', year: 'numeric',
+          })}
+        </p>
+      </div>
+
       {/* Event summary bar */}
       <div className="flex items-center gap-3 px-1 flex-wrap">
         <span className="text-xs text-foreground-muted">
