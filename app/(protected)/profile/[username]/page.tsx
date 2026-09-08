@@ -55,7 +55,6 @@ export default async function ProfilePage({ params }: Props) {
     `)
     .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
-    .limit(30)
 
   const predictions = (predsRaw ?? []) as unknown as PredictionWithFight[]
 
