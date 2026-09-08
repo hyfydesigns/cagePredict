@@ -30,9 +30,14 @@ async function getOrigin(): Promise<string> {
 
 type ActionResult = { error?: string; success?: boolean }
 
-export async function signUp(data: SignUpInput): Promise<ActionResult> {
+export async function signUp(data: SignUpInput & { captchaToken?: string }): Promise<ActionResult> {
   const parsed = signUpSchema.safeParse(data)
   if (!parsed.success) return { error: parsed.error.errors[0].message }
+
+  // Require CAPTCHA token when Turnstile is configured
+  if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !data.captchaToken) {
+    return { error: 'Please complete the CAPTCHA.' }
+  }
 
   const supabase = await createClient()
 
@@ -57,6 +62,7 @@ export async function signUp(data: SignUpInput): Promise<ActionResult> {
     options: {
       data: { username: parsed.data.username },
       emailRedirectTo: callbackUrl.toString(),
+      captchaToken: data.captchaToken,
     },
   })
 

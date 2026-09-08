@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Script from 'next/script'
 import Link from 'next/link'
 import { Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,8 @@ import { Label } from '@/components/ui/label'
 import { signUp } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
 
+const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
 export default function SignUpPage() {
   const searchParams   = useSearchParams()
   const inviteCode     = searchParams.get('invite') ?? undefined
@@ -17,18 +20,45 @@ export default function SignUpPage() {
   const [isPending, startTransition]    = useTransition()
   const [isSuccess, setIsSuccess]       = useState(false)
   const { toast } = useToast()
+  const captchaToken = useRef<string>('')
+  const widgetRef    = useRef<HTMLDivElement>(null)
+
+  // Render widget once the Turnstile script is ready
+  useEffect(() => {
+    if (!SITE_KEY || !widgetRef.current) return
+    const tryRender = () => {
+      if ((window as any).turnstile && widgetRef.current) {
+        ;(window as any).turnstile.render(widgetRef.current, {
+          sitekey: SITE_KEY,
+          callback: (token: string) => { captchaToken.current = token },
+          'expired-callback': () => { captchaToken.current = '' },
+          'error-callback':   () => { captchaToken.current = '' },
+          theme: 'auto',
+        })
+      } else {
+        setTimeout(tryRender, 100)
+      }
+    }
+    tryRender()
+  }, [])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
     startTransition(async () => {
       const result = await signUp({
-        email:      form.get('email') as string,
-        password:   form.get('password') as string,
-        username:   form.get('username') as string,
+        email:         form.get('email') as string,
+        password:      form.get('password') as string,
+        username:      form.get('username') as string,
         inviteCode,
+        captchaToken:  captchaToken.current || undefined,
       })
       if (result?.error) {
+        // Reset Turnstile so they can try again
+        if (SITE_KEY && (window as any).turnstile) {
+          ;(window as any).turnstile.reset()
+          captchaToken.current = ''
+        }
         toast({ title: 'Sign up failed', description: result.error, variant: 'destructive' })
       } else {
         setIsSuccess(true)
@@ -87,6 +117,14 @@ export default function SignUpPage() {
             </button>
           </div>
         </div>
+
+        {/* Turnstile widget — only rendered when site key is configured */}
+        {SITE_KEY && (
+          <>
+            <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="lazyOnload" />
+            <div ref={widgetRef} className="flex justify-center" />
+          </>
+        )}
 
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Account'}
