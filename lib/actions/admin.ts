@@ -337,38 +337,49 @@ async function syncFightMetaFromRapidApi(
       }
     }
 
-    // ── 1. Delete DB fights that don't match any RapidAPI fight ──────────────
+    // ── 1. Soft-cancel DB fights that don't match any RapidAPI fight ─────────
+    // We cancel rather than delete so that:
+    //  • Users' prediction history stays intact (picks show as cancelled, not missing)
+    //  • Points are explicitly voided rather than silently disappearing
+    //  • Confidence locks are released so users can move their lock to another fight
     const matchedCount = [...dbLookup.keys()].filter((p) => apiPairs.has(p)).length
     if (matchedCount >= 3) {
-      // Enough matches to be confident we have the right event — prune wrong rows.
+      // Enough matches to be confident we have the right event — mark orphaned rows cancelled.
       // IMPORTANT: skip fights where at least one fighter still appears in an API pair
       // (e.g. Tuivasa vs Sutherland where RapidAPI says Tuivasa vs Sharaf).
-      // Those are fighter-replacement cases handled in step 3 — deleting them here
-      // would remove the fight row entirely rather than just swapping the opponent.
-      const toDelete: string[] = []
+      // Those are fighter-replacement cases handled in step 3.
+      const toCancel: string[] = []
       for (const [pair, dbId] of dbLookup) {
         if (!apiPairs.has(pair)) {
           const [fn1, fn2] = pair.split(':')
           const hasPartialMatch = apiNames.has(fn1) || apiNames.has(fn2)
-          if (!hasPartialMatch) toDelete.push(dbId)
+          if (!hasPartialMatch) toCancel.push(dbId)
         }
       }
-      if (toDelete.length > 0) {
-        await supabase.from('predictions').delete().in('fight_id', toDelete)
-        await supabase.from('fights').delete().in('id', toDelete)
+      if (toCancel.length > 0) {
+        // Void picks — no points, no streak effect, release confidence locks
+        await supabase
+          .from('predictions')
+          .update({ is_correct: false, points_earned: 0, is_confidence: false })
+          .in('fight_id', toCancel)
+        // Mark cancelled (not deleted — preserves prediction history)
+        await supabase
+          .from('fights')
+          .update({ status: 'cancelled', winner_id: null })
+          .in('id', toCancel)
         for (const [pair, dbId] of [...dbLookup]) {
-          if (toDelete.includes(dbId)) dbLookup.delete(pair)
+          if (toCancel.includes(dbId)) dbLookup.delete(pair)
         }
       }
 
-      // Auto-clear confidence locks from any cancelled fights so users can re-use
-      // their lock on an active fight without manual intervention.
-      const { data: cancelledFights } = await supabase
+      // Also release confidence locks on any fights already marked cancelled
+      // (e.g. manually cancelled before this cron ran).
+      const { data: alreadyCancelled } = await supabase
         .from('fights').select('id').eq('event_id', eventId).eq('status', 'cancelled')
-      if (cancelledFights?.length) {
+      if (alreadyCancelled?.length) {
         await supabase.from('predictions')
           .update({ is_confidence: false })
-          .in('fight_id', cancelledFights.map((f: any) => f.id))
+          .in('fight_id', alreadyCancelled.map((f: any) => f.id))
           .eq('is_confidence', true)
       }
     }
