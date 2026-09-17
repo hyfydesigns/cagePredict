@@ -95,7 +95,9 @@ export default async function HomePage({
 
   const typedEvents = events.map((e: any) => ({
     ...e,
-    fights: ((e.fights ?? []) as any[]).sort((a: any, b: any) => b.display_order - a.display_order),
+    fights: ((e.fights ?? []) as any[])
+      .filter((f: any) => f.status !== 'cancelled')
+      .sort((a: any, b: any) => b.display_order - a.display_order),
   })) as EventWithFights[]
 
   // Fetch pick distribution counts & H2H data for all fights

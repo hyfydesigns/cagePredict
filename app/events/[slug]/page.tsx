@@ -109,7 +109,8 @@ export default async function EventPage(
 
   if (!event) notFound()
 
-  const fights  = (event.fights ?? []) as any[]
+  const allFights = (event.fights ?? []) as any[]
+  const fights    = allFights.filter((f: any) => f.status !== 'cancelled')
   const mainFight = fights.find((f) => f.is_main_event)
   const isLive    = event.status === 'live'
   const isCompleted = event.status === 'completed'
