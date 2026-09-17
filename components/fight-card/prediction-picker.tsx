@@ -293,10 +293,15 @@ export function PredictionPicker({
                 <span className="text-[10px] font-normal text-amber-500/70 ml-1">(tap to remove)</span>
               </button>
             ) : lockTaken ? (
-              <div className="w-full flex items-center justify-center gap-2 rounded-xl border border-border py-2 text-xs text-foreground-muted cursor-not-allowed">
-                <Lock className="h-3.5 w-3.5" />
-                Lock already used on another fight
-              </div>
+              <button
+                onClick={() => onToggleLock(true)}
+                disabled={isPending}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-2/50 py-2 text-sm font-semibold text-foreground-secondary hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 transition-all group"
+              >
+                <LockOpen className="h-4 w-4 group-hover:hidden" />
+                <Lock className="h-4 w-4 hidden group-hover:block" />
+                Move Lock here — 2× base pts
+              </button>
             ) : (
               <button
                 onClick={() => onToggleLock(true)}
