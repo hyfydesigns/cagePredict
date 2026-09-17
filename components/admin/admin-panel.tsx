@@ -10,7 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder, backfillMethodRound } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, cancelFight, uncancelFight, swapFighter, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder, backfillMethodRound } from '@/lib/actions/admin'
 import { syncEventOdds, debugOddsApi } from '@/lib/actions/odds'
 import { saveVisibleBookmakerKeys } from '@/lib/actions/settings'
 import { adminDeleteUser } from '@/lib/actions/auth'
@@ -69,9 +69,10 @@ interface Props {
   users: AdminUser[]
   visibleBookmakerKeys: string[]
   lastSync: LastSync | null
+  allFighters: { id: string; name: string }[]
 }
 
-export function AdminPanel({ events, stats, adminUserId, users, visibleBookmakerKeys, lastSync }: Props) {
+export function AdminPanel({ events, stats, adminUserId, users, visibleBookmakerKeys, lastSync, allFighters }: Props) {
   const { toast } = useToast()
   const [isSeedPending, startSeedTransition]         = useTransition()
   const [isApiFetchPending, startApiFetchTransition] = useTransition()
@@ -1073,6 +1074,7 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
                           onComplete={() => handleCompleteFight(fight.id)}
                           isCompleting={completingFight === fight.id && isResultPending}
                           onDeleted={() => setDeletedFightIds((prev) => new Set([...prev, fight.id]))}
+                          allFighters={allFighters}
                         />
                       ))}
                     </div>
@@ -1117,6 +1119,7 @@ function FightResultRow({
   onComplete,
   isCompleting,
   onDeleted,
+  allFighters,
 }: {
   fight: AdminFight
   selectedWinner: string | null
@@ -1124,9 +1127,11 @@ function FightResultRow({
   onComplete: () => void
   isCompleting: boolean
   onDeleted: () => void
+  allFighters?: { id: string; name: string }[]
 }) {
   const { toast } = useToast()
-  const isCompleted = fight.status === 'completed'
+  const isCompleted  = fight.status === 'completed'
+  const isCancelled  = fight.status === 'cancelled'
 
   // Local editable state for segment + order (controlled inline)
   const [segment, setSegment]   = useState<string>(fight.fight_type ?? '')
@@ -1140,6 +1145,21 @@ function FightResultRow({
   const [isSavingResult, setIsSavingResult] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Cancel / uncancel
+  const [confirmCancel, setConfirmCancel]   = useState(false)
+  const [isCancelling, setIsCancelling]     = useState(false)
+  const [isUncancelling, setIsUncancelling] = useState(false)
+
+  // Fighter swap
+  const [swapCorner,   setSwapCorner]   = useState<'fighter1' | 'fighter2' | null>(null)
+  const [swapSearch,   setSwapSearch]   = useState('')
+  const [isSwapping,   setIsSwapping]   = useState(false)
+
+  const swapResults = (allFighters ?? []).filter(
+    (f) => f.id !== fight.fighter1.id && f.id !== fight.fighter2.id &&
+      f.name.toLowerCase().includes(swapSearch.toLowerCase())
+  ).slice(0, 6)
 
   async function handleSaveMeta() {
     setIsSavingMeta(true)
@@ -1189,24 +1209,117 @@ function FightResultRow({
     }
   }
 
+  async function handleCancel() {
+    if (!confirmCancel) {
+      setConfirmCancel(true)
+      setTimeout(() => setConfirmCancel(false), 4000)
+      return
+    }
+    setConfirmCancel(false)
+    setIsCancelling(true)
+    const result = await cancelFight(fight.id)
+    setIsCancelling(false)
+    toast({
+      title: result.error ? 'Cancel failed' : 'Fight cancelled',
+      description: result.error ?? 'Picks voided, locks released.',
+      variant: result.error ? 'destructive' : 'default',
+    })
+    if (!result.error) onDeleted() // refresh parent list
+  }
+
+  async function handleUncancel() {
+    setIsUncancelling(true)
+    const result = await uncancelFight(fight.id)
+    setIsUncancelling(false)
+    toast({
+      title: result.error ? 'Failed' : 'Fight restored',
+      description: result.error ?? 'Fight is upcoming again.',
+      variant: result.error ? 'destructive' : 'default',
+    })
+    if (!result.error) onDeleted()
+  }
+
+  async function handleSwap(newFighterId: string) {
+    if (!swapCorner) return
+    setIsSwapping(true)
+    const result = await swapFighter(fight.id, swapCorner, newFighterId)
+    setIsSwapping(false)
+    toast({
+      title: result.error ? 'Swap failed' : 'Fighter swapped',
+      description: result.error ?? result.message,
+      variant: result.error ? 'destructive' : 'default',
+    })
+    if (!result.error) { setSwapCorner(null); setSwapSearch(''); onDeleted() }
+  }
+
   return (
-    <div className={`rounded-xl border p-3 space-y-2.5 ${isCompleted ? 'border-border/40 opacity-70' : 'border-border/60 bg-surface-2/30'}`}>
+    <div className={`rounded-xl border p-3 space-y-2.5 ${
+      isCancelled ? 'border-border/30 opacity-60 bg-surface/20' :
+      isCompleted ? 'border-border/40 opacity-70' :
+      'border-border/60 bg-surface-2/30'
+    }`}>
       {/* ── Top row: fight info + result ── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         {/* Fight info */}
         <div className="flex-1 min-w-0">
-          {isMain && (
-            <Badge variant="destructive" className="text-[10px] mb-1">Main Event</Badge>
-          )}
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <span className="truncate">
-              {fight.fighter1.flag_emoji} {fight.fighter1.name}
-            </span>
-            <span className="text-foreground-muted shrink-0">vs</span>
-            <span className="truncate">
-              {fight.fighter2.flag_emoji} {fight.fighter2.name}
-            </span>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            {isMain && <Badge variant="destructive" className="text-[10px]">Main Event</Badge>}
+            {isCancelled && <Badge variant="outline" className="text-[10px] border-red-500/40 text-red-400">Cancelled</Badge>}
           </div>
+          {/* Fighter name rows with swap buttons */}
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <button
+              onClick={() => { setSwapCorner(swapCorner === 'fighter1' ? null : 'fighter1'); setSwapSearch('') }}
+              title="Swap fighter 1"
+              className="text-foreground-muted/50 hover:text-primary transition-colors shrink-0"
+            >
+              ⇄
+            </button>
+            <span className="truncate">{fight.fighter1.flag_emoji} {fight.fighter1.name}</span>
+            <span className="text-foreground-muted shrink-0">vs</span>
+            <span className="truncate">{fight.fighter2.flag_emoji} {fight.fighter2.name}</span>
+            <button
+              onClick={() => { setSwapCorner(swapCorner === 'fighter2' ? null : 'fighter2'); setSwapSearch('') }}
+              title="Swap fighter 2"
+              className="text-foreground-muted/50 hover:text-primary transition-colors shrink-0"
+            >
+              ⇄
+            </button>
+          </div>
+
+          {/* Fighter swap panel */}
+          {swapCorner && (
+            <div className="mt-2 p-2 rounded-lg border border-primary/30 bg-primary/5 space-y-1.5">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-wider">
+                Replace {swapCorner === 'fighter1' ? fight.fighter1.name : fight.fighter2.name}
+              </p>
+              <input
+                autoFocus
+                value={swapSearch}
+                onChange={(e) => setSwapSearch(e.target.value)}
+                placeholder="Search fighter name…"
+                className="w-full text-xs bg-surface-2 border border-border rounded px-2 py-1 text-foreground focus:outline-none focus:border-primary"
+              />
+              {swapSearch.length > 1 && (
+                <div className="space-y-0.5">
+                  {swapResults.length === 0 && (
+                    <p className="text-[10px] text-foreground-muted py-1">No fighters found.</p>
+                  )}
+                  {swapResults.map((f) => (
+                    <button
+                      key={f.id}
+                      disabled={isSwapping}
+                      onClick={() => handleSwap(f.id)}
+                      className="w-full text-left text-xs px-2 py-1 rounded hover:bg-primary/10 hover:text-primary transition-colors text-foreground-secondary disabled:opacity-50"
+                    >
+                      {isSwapping ? <Loader2 className="h-3 w-3 animate-spin inline mr-1" /> : null}
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {fight.weight_class && (
             <p className="text-foreground-muted text-xs mt-0.5">{fight.weight_class}</p>
           )}
@@ -1219,7 +1332,16 @@ function FightResultRow({
         </div>
 
         {/* Result controls */}
-        {isCompleted ? (
+        {isCancelled ? (
+          <button
+            onClick={handleUncancel}
+            disabled={isUncancelling}
+            className="flex items-center gap-1.5 text-xs font-bold border border-green-500/40 text-green-400 rounded-lg px-2.5 py-1.5 hover:bg-green-500/10 transition-colors disabled:opacity-50 shrink-0"
+          >
+            {isUncancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : '↩'}
+            Restore
+          </button>
+        ) : isCompleted ? (
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             <div className="flex items-center gap-1.5 text-green-400 text-sm">
               <CheckCircle className="h-4 w-4" />
@@ -1297,59 +1419,80 @@ function FightResultRow({
 
       {/* ── Bottom row: meta controls ── */}
       <div className="flex items-center gap-2 flex-wrap border-t border-border/30 pt-2">
-        {/* Segment selector */}
-        <select
-          value={segment}
-          onChange={(e) => setSegment(e.target.value)}
-          className="text-[11px] bg-surface-2 border border-border rounded px-1.5 py-0.5 text-foreground-muted focus:outline-none focus:border-primary cursor-pointer"
-        >
-          {SEGMENT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        {/* Meta controls — hidden for cancelled fights */}
+        {!isCancelled && (
+          <>
+            {/* Segment selector */}
+            <select
+              value={segment}
+              onChange={(e) => setSegment(e.target.value)}
+              className="text-[11px] bg-surface-2 border border-border rounded px-1.5 py-0.5 text-foreground-muted focus:outline-none focus:border-primary cursor-pointer"
+            >
+              {SEGMENT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
 
-        {/* Display order */}
-        <div className="flex items-center gap-0.5">
-          <span className="text-[11px] text-foreground-muted mr-1">Order:</span>
-          <button
-            onClick={() => setOrder((n) => Math.max(0, n - 1))}
-            className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-surface-2 transition-colors"
-          >
-            <ArrowDown className="h-3 w-3 text-foreground-muted" />
-          </button>
-          <span className="text-[11px] font-mono text-foreground w-5 text-center">{order}</span>
-          <button
-            onClick={() => setOrder((n) => n + 1)}
-            className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-surface-2 transition-colors"
-          >
-            <ArrowUp className="h-3 w-3 text-foreground-muted" />
-          </button>
-        </div>
+            {/* Display order */}
+            <div className="flex items-center gap-0.5">
+              <span className="text-[11px] text-foreground-muted mr-1">Order:</span>
+              <button
+                onClick={() => setOrder((n) => Math.max(0, n - 1))}
+                className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-surface-2 transition-colors"
+              >
+                <ArrowDown className="h-3 w-3 text-foreground-muted" />
+              </button>
+              <span className="text-[11px] font-mono text-foreground w-5 text-center">{order}</span>
+              <button
+                onClick={() => setOrder((n) => n + 1)}
+                className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-surface-2 transition-colors"
+              >
+                <ArrowUp className="h-3 w-3 text-foreground-muted" />
+              </button>
+            </div>
 
-        {/* Main event toggle */}
-        <button
-          onClick={() => setIsMain((v) => !v)}
-          className={`flex items-center gap-1 text-[11px] font-bold border rounded px-1.5 py-0.5 transition-colors ${
-            isMain
-              ? 'border-red-500/60 bg-red-500/10 text-red-400'
-              : 'border-border text-foreground-muted hover:bg-surface-2'
-          }`}
-        >
-          <Star className="h-3 w-3" />
-          Main
-        </button>
+            {/* Main event toggle */}
+            <button
+              onClick={() => setIsMain((v) => !v)}
+              className={`flex items-center gap-1 text-[11px] font-bold border rounded px-1.5 py-0.5 transition-colors ${
+                isMain
+                  ? 'border-red-500/60 bg-red-500/10 text-red-400'
+                  : 'border-border text-foreground-muted hover:bg-surface-2'
+              }`}
+            >
+              <Star className="h-3 w-3" />
+              Main
+            </button>
 
-        {/* Save meta */}
-        <button
-          onClick={handleSaveMeta}
-          disabled={isSavingMeta}
-          className="flex items-center gap-1 text-[11px] font-bold text-primary border border-primary/40 rounded px-1.5 py-0.5 hover:bg-primary/10 transition-colors disabled:opacity-50"
-        >
-          {isSavingMeta ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-        </button>
+            {/* Save meta */}
+            <button
+              onClick={handleSaveMeta}
+              disabled={isSavingMeta}
+              className="flex items-center gap-1 text-[11px] font-bold text-primary border border-primary/40 rounded px-1.5 py-0.5 hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              {isSavingMeta ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+            </button>
+          </>
+        )}
 
         {/* Spacer */}
         <div className="flex-1" />
+
+        {/* Cancel — only for non-completed, non-cancelled fights */}
+        {!isCompleted && !isCancelled && (
+          <button
+            onClick={handleCancel}
+            disabled={isCancelling}
+            className={`flex items-center gap-1 text-[11px] font-bold border rounded px-1.5 py-0.5 transition-colors disabled:opacity-50 ${
+              confirmCancel
+                ? 'border-orange-500 bg-orange-500/20 text-orange-400'
+                : 'border-border text-foreground-muted hover:border-orange-500/60 hover:text-orange-400'
+            }`}
+          >
+            {isCancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : '✕'}
+            {confirmCancel ? 'Confirm cancel?' : 'Cancel fight'}
+          </button>
+        )}
 
         {/* Delete */}
         <button

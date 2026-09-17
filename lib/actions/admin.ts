@@ -2070,6 +2070,109 @@ export async function setEventFightTimes(
   return { success: true, message: `Updated ${updated} fight(s).`, updated }
 }
 
+/**
+ * Cancel a fight: marks it cancelled, voids all picks without scoring,
+ * and releases any confidence locks so users can re-use them.
+ */
+export async function cancelFight(fightId: string): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+
+  // Void all picks (no points, no streak effect, no total_picks increment)
+  await supabase
+    .from('predictions')
+    .update({ is_correct: false, points_earned: 0, is_confidence: false })
+    .eq('fight_id', fightId)
+
+  const { error } = await supabase
+    .from('fights')
+    .update({ status: 'cancelled', winner_id: null })
+    .eq('id', fightId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  return { success: true, message: 'Fight cancelled and picks voided.' }
+}
+
+/**
+ * Restore a cancelled fight back to upcoming so picks can be made again.
+ */
+export async function uncancelFight(fightId: string): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+
+  // Restore picks to unscored state
+  await supabase
+    .from('predictions')
+    .update({ is_correct: null, points_earned: 0 })
+    .eq('fight_id', fightId)
+
+  const { error } = await supabase
+    .from('fights')
+    .update({ status: 'upcoming' })
+    .eq('id', fightId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  return { success: true, message: 'Fight restored to upcoming.' }
+}
+
+/**
+ * Swap one fighter in a fight (replacement).
+ * Voids existing picks for the old fighter since the matchup changed.
+ */
+export async function swapFighter(
+  fightId: string,
+  corner: 'fighter1' | 'fighter2',
+  newFighterId: string,
+): Promise<ActionResult> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const supabase = createServiceClient()
+
+  const column = corner === 'fighter1' ? 'fighter1_id' : 'fighter2_id'
+
+  // Get the old fighter id so we can void picks for them
+  const { data: fight } = await supabase
+    .from('fights')
+    .select('fighter1_id, fighter2_id')
+    .eq('id', fightId)
+    .single()
+
+  if (!fight) return { error: 'Fight not found' }
+
+  const oldFighterId = corner === 'fighter1'
+    ? (fight as any).fighter1_id
+    : (fight as any).fighter2_id
+
+  // Void picks that backed the replaced fighter
+  await supabase
+    .from('predictions')
+    .update({ is_correct: null, points_earned: 0, is_confidence: false })
+    .eq('fight_id', fightId)
+    .eq('predicted_winner_id', oldFighterId)
+
+  const { error } = await supabase
+    .from('fights')
+    .update({ [column]: newFighterId })
+    .eq('id', fightId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin')
+  return { success: true, message: 'Fighter swapped. Affected picks voided.' }
+}
+
 export async function deleteFight(fightId: string): Promise<ActionResult> {
   const auth = await requireAdmin()
   if ('error' in auth) return { error: auth.error }

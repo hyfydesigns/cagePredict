@@ -43,6 +43,12 @@ export default async function AdminPage() {
 
   const visibleBookmakerKeys = await getVisibleBookmakerKeys()
 
+  // Fetch all fighters for the fighter-swap UI in FightResultRow
+  const { data: fightersData } = await supabase
+    .from('fighters')
+    .select('id, name')
+    .order('name', { ascending: true })
+
   // Fetch last sync-results run for health display in admin panel.
   // Uses service client to bypass RLS on sync_log.
   // Gracefully returns null if the table doesn't exist yet.
@@ -73,6 +79,7 @@ export default async function AdminPage() {
       users={(usersData as any) ?? []}
       visibleBookmakerKeys={visibleBookmakerKeys}
       lastSync={lastSync}
+      allFighters={(fightersData as any) ?? []}
     />
   )
 }
