@@ -69,7 +69,7 @@ export default async function CrewDetailPage({ params }: Props) {
   const inviteUrl = crewInviteUrl(crew.invite_code)
   const memberCount = memberships.length
 
-  // Completed events for the "All Time" history accordion
+  // Completed events for the "Past Events" tab
   const { data: completedEventsRaw } = await supabase
     .from('events')
     .select('id, name, date')
@@ -78,6 +78,53 @@ export default async function CrewDetailPage({ params }: Props) {
     .limit(20)
 
   const completedEvents = (completedEventsRaw ?? []) as { id: string; name: string; date: string }[]
+
+  // Pre-compute per-member per-event summary stats (no lazy loading needed)
+  type EventSummary = {
+    eventId: string
+    eventName: string
+    date: string
+    memberStats: { userId: string; picks: number; correct: number; points: number }[]
+  }
+  let eventSummaries: EventSummary[] = []
+  if (completedEvents.length > 0 && memberUserIds.length > 0) {
+    const { data: fightsForEvents } = await supabase
+      .from('fights')
+      .select('id, event_id')
+      .in('event_id', completedEvents.map((e) => e.id))
+      .neq('status', 'cancelled')
+
+    const allFightIds = (fightsForEvents ?? []).map((f: any) => f.id as string)
+
+    if (allFightIds.length > 0) {
+      const { data: predsRaw } = await supabase
+        .from('predictions')
+        .select('user_id, fight_id, is_correct, points_earned')
+        .in('user_id', memberUserIds)
+        .in('fight_id', allFightIds)
+
+      const preds = (predsRaw ?? []) as any[]
+      const fightEventMap: Record<string, string> = {}
+      for (const f of (fightsForEvents ?? []) as any[]) fightEventMap[f.id] = f.event_id
+
+      eventSummaries = completedEvents.map((event) => {
+        const eventFightIds = new Set(
+          ((fightsForEvents ?? []) as any[]).filter((f) => f.event_id === event.id).map((f) => f.id)
+        )
+        const eventPreds = preds.filter((p) => eventFightIds.has(p.fight_id))
+        const memberStats = memberProfiles.map((m) => {
+          const mine = eventPreds.filter((p) => p.user_id === m.id)
+          return {
+            userId: m.id,
+            picks: mine.length,
+            correct: mine.filter((p) => p.is_correct === true).length,
+            points: mine.reduce((s, p) => s + (p.points_earned ?? 0), 0),
+          }
+        })
+        return { eventId: event.id, eventName: event.name, date: event.date, memberStats }
+      })
+    }
+  }
 
   // "This Event" tab — priority: live → nearest upcoming → most recent completed
   let latestEvent: { id: string; name: string } | null = null
@@ -209,7 +256,7 @@ export default async function CrewDetailPage({ params }: Props) {
           </TabsContent>
           <TabsContent value="pastevents">
             <CrewEventHistory
-              events={completedEvents}
+              eventSummaries={eventSummaries}
               members={memberProfiles.map((p) => ({
                 userId:      p.id,
                 username:    p.username,
