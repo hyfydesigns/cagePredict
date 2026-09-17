@@ -1796,20 +1796,134 @@ async function reconcileWithTapology(
 }
 
 /**
+ * Cross-check DB fights for a UFC event against ESPN's upcoming scoreboard.
+ * ESPN holds UFC broadcast rights and keeps its fight list accurate days before
+ * the event — if a fight disappears from ESPN it has been pulled from the card.
+ *
+ * Any DB fight that:
+ *   a) is still upcoming/live (not already cancelled or completed)
+ *   b) has NO match anywhere in ESPN's data for that date (neither fighter appears)
+ *   c) ESPN returned enough fights to be confident we have the right card (≥ 3)
+ *
+ * …is soft-cancelled: picks voided, confidence locks released, status=cancelled.
+ * Fighter-swap cases (one fighter appears in a different ESPN bout) are skipped —
+ * those are handled by the Tapology/RapidAPI reconciliation.
+ */
+async function reconcileWithEspn(
+  eventId: string,
+  eventDate: string,   // YYYY-MM-DD
+  supabase: ReturnType<typeof createServiceClient>,
+  log: string[],
+  errors: string[],
+): Promise<void> {
+  const norm = (s: string) =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
+  const lastName = (s: string) => norm(s.trim().split(/\s+/).pop() ?? s)
+
+  // Build ESPN date string (YYYYMMDD) — also check the day before/after for timezone edge cases
+  const toEspnDate = (iso: string, offsetDays: number) => {
+    const d = new Date(iso + 'T12:00:00Z')
+    d.setUTCDate(d.getUTCDate() + offsetDays)
+    return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`
+  }
+
+  const allComps: any[] = []
+  for (const offset of [0, -1, 1]) {
+    const dateStr = toEspnDate(eventDate, offset)
+    try {
+      const res = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard?dates=${dateStr}`,
+        { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' },
+      )
+      if (!res.ok) continue
+      const data = await res.json()
+      const comps: any[] = (data?.events ?? []).flatMap((e: any) => e.competitions ?? [])
+      allComps.push(...comps)
+      if (comps.length > 0) break  // found fights on this date — no need to check adjacent days
+    } catch (e: any) {
+      log.push(`[espn-precheck] fetch error for ${dateStr}: ${e.message}`)
+    }
+  }
+
+  if (allComps.length < 3) {
+    log.push(`[espn-precheck] Only ${allComps.length} ESPN competitions found — skipping cancellation check`)
+    return
+  }
+
+  // Build set of all individual fighter norms that appear in ESPN's data
+  const espnFighterNorms = new Set<string>()
+  const espnPairs = new Set<string>()
+  for (const comp of allComps) {
+    const names: string[] = (comp.competitors ?? [])
+      .map((c: any) => c.athlete?.displayName ?? '')
+      .filter(Boolean)
+    if (names.length >= 2) {
+      const n1 = norm(names[0]); const n2 = norm(names[1])
+      espnFighterNorms.add(n1); espnFighterNorms.add(n2)
+      espnFighterNorms.add(lastName(names[0])); espnFighterNorms.add(lastName(names[1]))
+      espnPairs.add([n1, n2].sort().join(':'))
+    }
+  }
+
+  // Fetch DB fights that are still actionable
+  const { data: dbFights } = await supabase
+    .from('fights')
+    .select(`
+      id,
+      fighter1:fighters!fights_fighter1_id_fkey(id, name),
+      fighter2:fighters!fights_fighter2_id_fkey(id, name)
+    `)
+    .eq('event_id', eventId)
+    .not('status', 'in', '("completed","cancelled")')
+
+  if (!dbFights?.length) return
+
+  log.push(`[espn-precheck] ${allComps.length} ESPN bouts vs ${dbFights.length} DB fights`)
+
+  for (const dbFight of dbFights as any[]) {
+    const f1name = dbFight.fighter1?.name ?? ''
+    const f2name = dbFight.fighter2?.name ?? ''
+    const f1n = norm(f1name); const f2n = norm(f2name)
+    const f1l = lastName(f1name); const f2l = lastName(f2name)
+
+    const inEspn =
+      espnFighterNorms.has(f1n) || espnFighterNorms.has(f2n) ||
+      espnFighterNorms.has(f1l) || espnFighterNorms.has(f2l)
+
+    if (inEspn) continue  // fight (or at least one corner) is still on the ESPN card
+
+    // Neither fighter appears anywhere in ESPN's data — fight has been pulled
+    log.push(`[espn-precheck] ✗ ${f1name} vs ${f2name} not found in ESPN — cancelling`)
+
+    await supabase
+      .from('predictions')
+      .update({ is_correct: false, points_earned: 0, is_confidence: false })
+      .eq('fight_id', dbFight.id)
+
+    const { error } = await supabase
+      .from('fights')
+      .update({ status: 'cancelled', winner_id: null })
+      .eq('id', dbFight.id)
+
+    if (error) errors.push(`[espn-precheck] cancel(${dbFight.id}): ${error.message}`)
+    else log.push(`[espn-precheck] ✓ ${f1name} vs ${f2name} cancelled, picks voided`)
+  }
+}
+
+/**
  * Called by /api/cron/sync-card — no admin auth needed (server-to-server).
  * For every upcoming event:
  *  1. Pulls latest fight card from RapidAPI (metadata, order, replacements)
  *  2. Cross-checks fighter names against Tapology and corrects any mismatches
  *     (Tapology is treated as the source of truth when the two disagree)
+ *  3. Cross-checks against ESPN's upcoming scoreboard — any fight absent from ESPN
+ *     is soft-cancelled (picks voided, locks released)
  */
 export async function syncAllUpcomingCards(): Promise<{
   synced: number
   log: string[]
   errors: string[]
 }> {
-  if (!process.env.RAPIDAPI_KEY) {
-    return { synced: 0, log: [], errors: ['RAPIDAPI_KEY not configured — skipping card sync'] }
-  }
 
   const supabase = createServiceClient()
   const { data: events } = await supabase
@@ -1840,7 +1954,9 @@ export async function syncAllUpcomingCards(): Promise<{
     try {
       // Step 1 — RapidAPI sync (fight order, segments, insertions, deletions)
       // Runs for any promotion supported by MMAAPI (UFC, Bellator, RIZIN, PFL, ONE).
-      if (tournamentId) {
+      if (!process.env.RAPIDAPI_KEY) {
+        log.push(`[rapidapi] Skipped ${event.name} — RAPIDAPI_KEY not configured`)
+      } else if (tournamentId) {
         await syncFightMetaFromRapidApi(
           event.id,
           eventDay,
@@ -1863,6 +1979,13 @@ export async function syncAllUpcomingCards(): Promise<{
         await reconcileWithTapology(event.id, tapEvent.fight_card, supabase, log)
       } else {
         log.push(`[tapology] No matching event found for ${event.name} (${eventMonth}/${eventDay})`)
+      }
+
+      // Step 3 — ESPN pre-event cancellation check (UFC only, no API key needed)
+      // Catches fights pulled from the card before the event goes live — e.g. injury
+      // withdrawals announced days before fight night that RapidAPI is slow to reflect.
+      if (isUfcEvent) {
+        await reconcileWithEspn(event.id, event.date, supabase, log, errors)
       }
 
       synced++
