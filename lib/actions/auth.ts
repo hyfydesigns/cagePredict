@@ -136,14 +136,19 @@ export async function updatePassword(password: string): Promise<ActionResult> {
   return { success: true }
 }
 
-export async function signIn(data: SignInInput, redirectTo = '/'): Promise<ActionResult> {
+export async function signIn(data: SignInInput & { captchaToken?: string }, redirectTo = '/'): Promise<ActionResult> {
   const parsed = signInSchema.safeParse(data)
   if (!parsed.success) return { error: parsed.error.errors[0].message }
+
+  if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !data.captchaToken) {
+    return { error: 'Please complete the CAPTCHA.' }
+  }
 
   const supabase = await createClient()
   const { error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.password,
+    options: { captchaToken: data.captchaToken },
   })
 
   if (error) return { error: 'Invalid email or password' }

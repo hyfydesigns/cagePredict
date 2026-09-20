@@ -1,7 +1,8 @@
 'use client'
 
-import { Suspense, useState, useTransition } from 'react'
+import { Suspense, useState, useTransition, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import Script from 'next/script'
 import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Loader2, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,8 @@ import { Label } from '@/components/ui/label'
 import { signIn } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
 import { createClient } from '@/lib/supabase/client'
+
+const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function LoginPage() {
   return (
@@ -30,15 +33,48 @@ function LoginForm() {
   const inviteCode = searchParams.get('invite')
   const redirectTo = inviteCode ? `/invite/${inviteCode}` : (searchParams.get('redirect') ?? '/')
 
+  const captchaToken = useRef<string>('')
+  const widgetRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!SITE_KEY || !widgetRef.current) return
+    const tryRender = () => {
+      if ((window as any).turnstile && widgetRef.current) {
+        ;(window as any).turnstile.render(widgetRef.current, {
+          sitekey: SITE_KEY,
+          callback: (token: string) => { captchaToken.current = token },
+          'expired-callback': () => { captchaToken.current = '' },
+          'error-callback':   () => { captchaToken.current = '' },
+          theme: 'auto',
+        })
+      } else {
+        setTimeout(tryRender, 100)
+      }
+    }
+    tryRender()
+  }, [])
+
+  function resetCaptcha() {
+    if (SITE_KEY && (window as any).turnstile) {
+      ;(window as any).turnstile.reset()
+      captchaToken.current = ''
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
     startTransition(async () => {
       const result = await signIn(
-        { email: form.get('email') as string, password: form.get('password') as string },
+        {
+          email: form.get('email') as string,
+          password: form.get('password') as string,
+          captchaToken: captchaToken.current || undefined,
+        },
         redirectTo
       )
       if (result?.error) {
+        resetCaptcha()
         toast({ title: 'Sign in failed', description: result.error, variant: 'destructive' })
       }
     })
@@ -50,9 +86,13 @@ function LoginForm() {
       const supabase = createClient()
       const { error } = await supabase.auth.signInWithOtp({
         email: magicEmail.trim(),
-        options: { emailRedirectTo: `${window.location.origin}${redirectTo}` },
+        options: {
+          emailRedirectTo: `${window.location.origin}${redirectTo}`,
+          captchaToken: captchaToken.current || undefined,
+        },
       })
       if (error) {
+        resetCaptcha()
         toast({ title: 'Failed to send link', description: error.message, variant: 'destructive' })
       } else {
         setMagicSent(true)
@@ -74,7 +114,7 @@ function LoginForm() {
           Click it to sign in — no password needed.
         </p>
         <button
-          onClick={() => { setMagicSent(false) }}
+          onClick={() => setMagicSent(false)}
           className="text-xs text-foreground-muted hover:text-primary transition-colors"
         >
           Use a different email
@@ -85,6 +125,9 @@ function LoginForm() {
 
   return (
     <div className="rounded-2xl border border-border bg-surface/80 p-8 shadow-2xl backdrop-blur">
+      {SITE_KEY && (
+        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="lazyOnload" />
+      )}
       <div className="flex justify-center mb-5">
         <img
           src="/logo.svg"
@@ -95,7 +138,7 @@ function LoginForm() {
       <h1 className="text-2xl font-black text-foreground mb-1">Welcome back</h1>
       <p className="text-foreground-muted text-sm mb-4">Sign in to your CagePredict account</p>
 
-      {/* Magic link — primary recovery path */}
+      {/* Magic link */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 mb-5">
         <p className="text-xs font-semibold text-primary mb-2.5 flex items-center gap-1.5">
           <Mail className="h-3.5 w-3.5" /> Sign in with email link (no password needed)
@@ -155,6 +198,11 @@ function LoginForm() {
             </button>
           </div>
         </div>
+
+        {/* Shared Turnstile widget — token used by whichever form submits */}
+        {SITE_KEY && (
+          <div ref={widgetRef} className="flex justify-center" />
+        )}
 
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign In'}
