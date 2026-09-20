@@ -6,7 +6,6 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { updatePassword } from '@/lib/actions/auth'
 import { useToast } from '@/components/ui/use-toast'
 import { createClient } from '@/lib/supabase/client'
 
@@ -74,9 +73,10 @@ export default function ResetPasswordPage() {
     }
 
     startTransition(async () => {
-      const result = await updatePassword(password)
-      if (result.error) {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' })
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' })
       } else {
         toast({ title: 'Password updated!', description: 'You can now sign in with your new password.' })
         router.push('/')
