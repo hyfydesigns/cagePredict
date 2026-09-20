@@ -50,7 +50,14 @@ function LoginForm() {
         />
       </div>
       <h1 className="text-2xl font-black text-foreground mb-1">Welcome back</h1>
-      <p className="text-foreground-muted text-sm mb-6">Sign in to your CagePredict account</p>
+      <p className="text-foreground-muted text-sm mb-2">Sign in to your CagePredict account</p>
+      <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2 mb-4">
+        <p className="text-xs text-amber-400 text-center">
+          Due to a recent service issue, you may need to{' '}
+          <a href="/forgot-password" className="underline font-semibold hover:text-amber-300">reset your password</a>{' '}
+          once to regain access.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
