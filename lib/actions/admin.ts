@@ -1650,7 +1650,7 @@ export async function refreshEventFightsInternal(
         const espnDate = `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`
         const espnRes  = await fetch(
           `https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard?dates=${espnDate}`,
-          { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' },
+          { headers: espnHeaders(), cache: 'no-store' },
         )
         if (espnRes.ok) {
           const espnData   = await espnRes.json()
@@ -1809,6 +1809,16 @@ async function reconcileWithTapology(
  * Fighter-swap cases (one fighter appears in a different ESPN bout) are skipped —
  * those are handled by the Tapology/RapidAPI reconciliation.
  */
+function espnHeaders(): Record<string, string> {
+  return {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Origin': 'https://www.espn.com',
+    'Referer': 'https://www.espn.com/',
+  }
+}
+
 async function reconcileWithEspn(
   eventId: string,
   eventDate: string,   // YYYY-MM-DD
@@ -1833,7 +1843,7 @@ async function reconcileWithEspn(
     try {
       const res = await fetch(
         `https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard?dates=${dateStr}`,
-        { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' },
+        { headers: espnHeaders(), cache: 'no-store' },
       )
       if (!res.ok) continue
       const data = await res.json()
