@@ -1861,8 +1861,10 @@ async function reconcileWithEspn(
   }
 
   // Build set of all individual fighter norms that appear in ESPN's data
+  // Also build a map from sorted norm pair → ESPN scheduled date (for fight_time sync)
   const espnFighterNorms = new Set<string>()
   const espnPairs = new Set<string>()
+  const espnFightTime = new Map<string, string>() // sortedPair → ISO date string
   for (const comp of allComps) {
     const names: string[] = (comp.competitors ?? [])
       .map((c: any) => c.athlete?.displayName ?? '')
@@ -1871,7 +1873,9 @@ async function reconcileWithEspn(
       const n1 = norm(names[0]); const n2 = norm(names[1])
       espnFighterNorms.add(n1); espnFighterNorms.add(n2)
       espnFighterNorms.add(lastName(names[0])); espnFighterNorms.add(lastName(names[1]))
-      espnPairs.add([n1, n2].sort().join(':'))
+      const pairKey = [n1, n2].sort().join(':')
+      espnPairs.add(pairKey)
+      if (comp.date) espnFightTime.set(pairKey, comp.date)
     }
   }
 
@@ -1880,6 +1884,7 @@ async function reconcileWithEspn(
     .from('fights')
     .select(`
       id,
+      fight_time,
       fighter1:fighters!fights_fighter1_id_fkey(id, name),
       fighter2:fighters!fights_fighter2_id_fkey(id, name)
     `)
@@ -1900,7 +1905,16 @@ async function reconcileWithEspn(
       espnFighterNorms.has(f1n) || espnFighterNorms.has(f2n) ||
       espnFighterNorms.has(f1l) || espnFighterNorms.has(f2l)
 
-    if (inEspn) continue  // fight (or at least one corner) is still on the ESPN card
+    if (inEspn) {
+      // Sync fight_time from ESPN if we have an exact pair match
+      const pairKey = [f1n, f2n].sort().join(':')
+      const espnTime = espnFightTime.get(pairKey)
+      if (espnTime && espnTime !== dbFight.fight_time) {
+        await supabase.from('fights').update({ fight_time: espnTime }).eq('id', dbFight.id)
+        log.push(`[espn-precheck] ⏰ ${f1name} vs ${f2name} fight_time → ${espnTime}`)
+      }
+      continue
+    }
 
     // Neither fighter appears anywhere in ESPN's data — fight has been pulled
     log.push(`[espn-precheck] ✗ ${f1name} vs ${f2name} not found in ESPN — cancelling`)
