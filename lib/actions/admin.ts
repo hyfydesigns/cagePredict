@@ -160,9 +160,9 @@ async function generateFightBreakdown(
   f1: FighterStats,
   f2: FighterStats,
   weightClass: string,
-): Promise<FightBreakdown | null> {
+): Promise<{ breakdown: FightBreakdown } | { error: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return null
+  if (!apiKey) return { error: 'ANTHROPIC_API_KEY not set' }
 
   const model = 'claude-sonnet-4-6'
   try {
@@ -192,23 +192,25 @@ Reply with ONLY a valid JSON object (no markdown, no explanation):
     const raw = (msg.content[0] as any).text?.trim() ?? ''
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return null
+    if (!jsonMatch) return { error: `No JSON in response: ${raw.slice(0, 120)}` }
 
     const parsed = JSON.parse(jsonMatch[0])
-    if (!parsed.headline || !parsed.styles_matchup) return null
+    if (!parsed.headline || !parsed.styles_matchup) return { error: `Missing fields in: ${cleaned.slice(0, 120)}` }
 
     return {
-      generated_at: new Date().toISOString(),
-      headline: String(parsed.headline),
-      styles_matchup: String(parsed.styles_matchup),
-      key_factors: Array.isArray(parsed.key_factors) ? parsed.key_factors.map(String) : [],
-      f1_path: String(parsed.f1_path ?? ''),
-      f2_path: String(parsed.f2_path ?? ''),
-      x_factor: String(parsed.x_factor ?? ''),
-      model_used: model,
+      breakdown: {
+        generated_at: new Date().toISOString(),
+        headline: String(parsed.headline),
+        styles_matchup: String(parsed.styles_matchup),
+        key_factors: Array.isArray(parsed.key_factors) ? parsed.key_factors.map(String) : [],
+        f1_path: String(parsed.f1_path ?? ''),
+        f2_path: String(parsed.f2_path ?? ''),
+        x_factor: String(parsed.x_factor ?? ''),
+        model_used: model,
+      },
     }
-  } catch {
-    return null
+  } catch (e: any) {
+    return { error: String(e?.message ?? e) }
   }
 }
 
@@ -235,12 +237,12 @@ export async function generateBreakdownForFight(fightId: string): Promise<{ erro
   const f2 = (fight as any).fighter2 as FighterStats
   if (!f1 || !f2) return { error: 'Fighter data missing' }
 
-  const breakdown = await generateFightBreakdown(f1, f2, fight.weight_class ?? 'Unknown')
-  if (!breakdown) return { error: 'AI generation failed — check ANTHROPIC_API_KEY' }
+  const result = await generateFightBreakdown(f1, f2, fight.weight_class ?? 'Unknown')
+  if ('error' in result) return { error: result.error }
 
   const { error: saveErr } = await supabase
     .from('fights')
-    .update({ fight_breakdown: breakdown as any })
+    .update({ fight_breakdown: result.breakdown as any })
     .eq('id', fightId)
 
   if (saveErr) return { error: saveErr.message }
@@ -276,11 +278,11 @@ export async function generateBreakdownsForEvent(eventId: string): Promise<{ gen
     const f2 = (fight as any).fighter2 as FighterStats
     if (!f1 || !f2) { errors.push(`${fight.id}: missing fighter data`); continue }
 
-    const breakdown = await generateFightBreakdown(f1, f2, (fight as any).weight_class ?? 'Unknown')
-    if (!breakdown) { errors.push(`${fight.id}: generation failed`); continue }
+    const result = await generateFightBreakdown(f1, f2, (fight as any).weight_class ?? 'Unknown')
+    if ('error' in result) { errors.push(`${fight.id}: ${result.error}`); continue }
 
     const { error } = await supabase
-      .from('fights').update({ fight_breakdown: breakdown as any }).eq('id', fight.id)
+      .from('fights').update({ fight_breakdown: result.breakdown as any }).eq('id', fight.id)
     if (error) errors.push(`${fight.id}: ${error.message}`)
     else generated++
   }
