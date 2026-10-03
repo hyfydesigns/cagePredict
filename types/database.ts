@@ -158,6 +158,7 @@ export interface Database {
           odds_by_book: Json | null
           analysis_f1: string | null
           analysis_f2: string | null
+          fight_breakdown: Json | null
           is_main_event: boolean
           is_title_fight: boolean
           weight_class: string | null
@@ -184,6 +185,7 @@ export interface Database {
           odds_by_book?: Json | null
           analysis_f1?: string | null
           analysis_f2?: string | null
+          fight_breakdown?: Json | null
           is_main_event?: boolean
           is_title_fight?: boolean
           weight_class?: string | null

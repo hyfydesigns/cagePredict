@@ -10,7 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, cancelFight, uncancelFight, swapFighter, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder, backfillMethodRound } from '@/lib/actions/admin'
+import { seedEvents, completeFight, fetchEventByDate, clearAllData, forceSyncResults, backfillWinBreakdown, forceSetEventStatus, refreshEventFights, deduplicateFights, updateFightMeta, deleteFight, cancelFight, uncancelFight, swapFighter, setEventFightTimes, seedMvpMmaEvent, fetchMvpMmaUndercard, fixMvpFightOrder, backfillMethodRound, generateBreakdownsForEvent } from '@/lib/actions/admin'
 import { syncEventOdds, debugOddsApi } from '@/lib/actions/odds'
 import { saveVisibleBookmakerKeys } from '@/lib/actions/settings'
 import { adminDeleteUser } from '@/lib/actions/auth'
@@ -98,6 +98,7 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
   const [isBookmakerSavePending, startBookmakerSaveTransition] = useTransition()
   const [refreshingEventId, setRefreshingEventId] = useState<string | null>(null)
   const [backfillingEventId, setBackfillingEventId] = useState<string | null>(null)
+  const [generatingBreakdownEventId, setGeneratingBreakdownEventId] = useState<string | null>(null)
   const [settingTimesEventId, setSettingTimesEventId] = useState<string | null>(null)
   // eventStartTimes: eventId → "datetime-local" value (YYYY-MM-DDTHH:mm)
   const [eventStartTimes, setEventStartTimes] = useState<Record<string, string>>(() => {
@@ -1003,6 +1004,32 @@ export function AdminPanel({ events, stats, adminUserId, users, visibleBookmaker
                       : <BarChart3 className="h-2.5 w-2.5" />
                     }
                     {backfillingEventId === event.id ? 'Backfilling…' : 'Backfill Method/Round'}
+                  </button>
+                  <button
+                    className="flex items-center gap-1 text-[10px] font-bold text-amber-400 border border-amber-400/40 rounded px-1.5 py-0.5 hover:bg-amber-400/10 transition-colors disabled:opacity-50"
+                    title="Generate AI fight breakdowns for all upcoming fights on this event"
+                    disabled={generatingBreakdownEventId === event.id}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setGeneratingBreakdownEventId(event.id)
+                      generateBreakdownsForEvent(event.id).then(r => {
+                        setGeneratingBreakdownEventId(null)
+                        toast({
+                          title: r.errors.length ? `Breakdowns: ${r.generated} ok, ${r.errors.length} failed` : `${r.generated} breakdowns generated`,
+                          description: r.errors.length ? r.errors[0] : undefined,
+                          variant: r.errors.length && r.generated === 0 ? 'destructive' : 'default',
+                        })
+                      }).catch(e => {
+                        setGeneratingBreakdownEventId(null)
+                        toast({ title: 'Generation failed', description: String(e), variant: 'destructive' })
+                      })
+                    }}
+                  >
+                    {generatingBreakdownEventId === event.id
+                      ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      : <Zap className="h-2.5 w-2.5" />
+                    }
+                    {generatingBreakdownEventId === event.id ? 'Generating…' : 'Gen Breakdowns'}
                   </button>
                   {expandedEvent === event.id
                     ? <ChevronUp className="h-4 w-4 text-foreground-muted" />

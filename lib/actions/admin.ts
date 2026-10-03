@@ -89,6 +89,17 @@ type FighterStats = {
   age: number | null; fighting_style: string | null;
 }
 
+export type FightBreakdown = {
+  generated_at: string
+  headline: string
+  styles_matchup: string
+  key_factors: string[]
+  f1_path: string
+  f2_path: string
+  x_factor: string
+  model_used: string
+}
+
 
 function fighterSummary(f: FighterStats): string {
   const parts = [
@@ -143,6 +154,139 @@ Reply with ONLY a JSON object, no markdown, no explanation:
   } catch (e: any) {
     return { analysis_f1: null, analysis_f2: null, debugError: String(e?.message ?? e) }
   }
+}
+
+async function generateFightBreakdown(
+  f1: FighterStats,
+  f2: FighterStats,
+  weightClass: string,
+): Promise<FightBreakdown | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return null
+
+  const model = 'claude-sonnet-4-6'
+  try {
+    const client = new Anthropic({ apiKey })
+    const msg = await client.messages.create({
+      model,
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: `You are an expert MMA analyst. Produce a structured pre-fight breakdown for this ${weightClass} matchup.
+
+Fighter 1: ${fighterSummary(f1)}
+Fighter 2: ${fighterSummary(f2)}
+
+Reply with ONLY a valid JSON object (no markdown, no explanation):
+{
+  "headline": "5-8 word punchy title capturing the stylistic tension",
+  "styles_matchup": "2-3 sentences on how the styles interact and where each fighter has the structural edge",
+  "key_factors": ["factor 1 (10-15 words)", "factor 2", "factor 3"],
+  "f1_path": "1-2 sentences: how ${f1.name} wins this fight",
+  "f2_path": "1-2 sentences: how ${f2.name} wins this fight",
+  "x_factor": "1-2 sentences on the biggest unknown or wildcard that could decide the outcome"
+}`,
+      }],
+    })
+
+    const raw = (msg.content[0] as any).text?.trim() ?? ''
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return null
+
+    const parsed = JSON.parse(jsonMatch[0])
+    if (!parsed.headline || !parsed.styles_matchup) return null
+
+    return {
+      generated_at: new Date().toISOString(),
+      headline: String(parsed.headline),
+      styles_matchup: String(parsed.styles_matchup),
+      key_factors: Array.isArray(parsed.key_factors) ? parsed.key_factors.map(String) : [],
+      f1_path: String(parsed.f1_path ?? ''),
+      f2_path: String(parsed.f2_path ?? ''),
+      x_factor: String(parsed.x_factor ?? ''),
+      model_used: model,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Admin server action: generate or regenerate the full breakdown for a single fight. */
+export async function generateBreakdownForFight(fightId: string): Promise<{ error?: string; success?: boolean }> {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user || !isAdmin(user)) return { error: 'Unauthorized' }
+
+  const supabase = createServiceClient()
+  const { data: fight, error: fetchErr } = await supabase
+    .from('fights')
+    .select(`
+      id, weight_class,
+      fighter1:fighters!fights_fighter1_id_fkey(name, wins, losses, draws, nationality, height_cm, reach_cm, age, fighting_style),
+      fighter2:fighters!fights_fighter2_id_fkey(name, wins, losses, draws, nationality, height_cm, reach_cm, age, fighting_style)
+    `)
+    .eq('id', fightId)
+    .single()
+
+  if (fetchErr || !fight) return { error: 'Fight not found' }
+
+  const f1 = (fight as any).fighter1 as FighterStats
+  const f2 = (fight as any).fighter2 as FighterStats
+  if (!f1 || !f2) return { error: 'Fighter data missing' }
+
+  const breakdown = await generateFightBreakdown(f1, f2, fight.weight_class ?? 'Unknown')
+  if (!breakdown) return { error: 'AI generation failed — check ANTHROPIC_API_KEY' }
+
+  const { error: saveErr } = await supabase
+    .from('fights')
+    .update({ fight_breakdown: breakdown as any })
+    .eq('id', fightId)
+
+  if (saveErr) return { error: saveErr.message }
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
+/** Admin server action: generate breakdowns for all upcoming/live fights on an event. */
+export async function generateBreakdownsForEvent(eventId: string): Promise<{ generated: number; errors: string[] }> {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user || !isAdmin(user)) return { generated: 0, errors: ['Unauthorized'] }
+
+  const supabase = createServiceClient()
+  const { data: fights } = await supabase
+    .from('fights')
+    .select(`
+      id, weight_class,
+      fighter1:fighters!fights_fighter1_id_fkey(name, wins, losses, draws, nationality, height_cm, reach_cm, age, fighting_style),
+      fighter2:fighters!fights_fighter2_id_fkey(name, wins, losses, draws, nationality, height_cm, reach_cm, age, fighting_style)
+    `)
+    .eq('event_id', eventId)
+    .in('status', ['upcoming', 'live'])
+
+  if (!fights?.length) return { generated: 0, errors: ['No upcoming fights found'] }
+
+  let generated = 0
+  const errors: string[] = []
+
+  for (const fight of fights) {
+    const f1 = (fight as any).fighter1 as FighterStats
+    const f2 = (fight as any).fighter2 as FighterStats
+    if (!f1 || !f2) { errors.push(`${fight.id}: missing fighter data`); continue }
+
+    const breakdown = await generateFightBreakdown(f1, f2, (fight as any).weight_class ?? 'Unknown')
+    if (!breakdown) { errors.push(`${fight.id}: generation failed`); continue }
+
+    const { error } = await supabase
+      .from('fights').update({ fight_breakdown: breakdown as any }).eq('id', fight.id)
+    if (error) errors.push(`${fight.id}: ${error.message}`)
+    else generated++
+  }
+
+  revalidatePath('/', 'layout')
+  return { generated, errors }
 }
 
 function fighterFallbackAnalysis(f: FighterStats): string {

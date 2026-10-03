@@ -11,7 +11,9 @@ import { FightStatusBadge } from './fight-status-badge'
 import { FightComments } from './fight-comments'
 import { PickDistribution } from './pick-distribution'
 import { FightMatchupTabs } from './fight-matchup-tabs'
+import { FightBreakdownPanel } from './fight-breakdown'
 import { cn, isFightLocked, formatOdds } from '@/lib/utils'
+import type { FightBreakdown } from '@/lib/actions/admin'
 import type { FightWithDetails, CommentWithProfile } from '@/types/database'
 import { BOOKMAKERS, getBookmaker, DEFAULT_BOOKMAKER } from '@/lib/affiliates'
 import type { BookOdds } from '@/lib/actions/odds'
@@ -477,6 +479,15 @@ export function FightCard({
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Deep breakdown */}
+              {(fight as any).fight_breakdown && (
+                <FightBreakdownPanel
+                  breakdown={(fight as any).fight_breakdown as FightBreakdown}
+                  f1Name={fight.fighter1.name}
+                  f2Name={fight.fighter2.name}
+                />
               )}
             </div>
           </motion.div>
