@@ -2031,6 +2031,7 @@ async function reconcileWithEspn(
     .select(`
       id,
       fight_time,
+      fight_type,
       fighter1:fighters!fights_fighter1_id_fkey(id, name),
       fighter2:fighters!fights_fighter2_id_fkey(id, name)
     `)
@@ -2059,6 +2060,13 @@ async function reconcileWithEspn(
         await supabase.from('fights').update({ fight_time: espnTime }).eq('id', dbFight.id)
         log.push(`[espn-precheck] ⏰ ${f1name} vs ${f2name} fight_time → ${espnTime}`)
       }
+      continue
+    }
+
+    // Early prelims air on UFC Fight Pass, not ESPN — ESPN's API never includes them.
+    // Skip the cancellation check for these fights to avoid false positives.
+    if (dbFight.fight_type === 'earlyprelims') {
+      log.push(`[espn-precheck] ⏭ ${f1name} vs ${f2name} skipped (early prelim — not on ESPN)`)
       continue
     }
 
